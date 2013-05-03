@@ -38,6 +38,8 @@ import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.WhenClause;
+import com.facebook.presto.util.ThreadLocalCache;
+import com.google.common.base.Charsets;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
@@ -53,6 +55,8 @@ import java.util.regex.Pattern;
 
 import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.base.Preconditions.checkNotNull;
+import org.joni.Regex;
+import org.joni.Option;
 
 public class ExpressionInterpreter
         extends AstVisitor<Object, Void>
@@ -62,6 +66,24 @@ public class ExpressionInterpreter
     private final Metadata metadata;
     private final Session session;
     private final boolean optimize;
+
+    private static final ThreadLocalCache<Slice, Pattern> LIKE_PATTERN_CACHE = new ThreadLocalCache<Slice, Pattern>(20)
+    {
+        @Override
+        protected Pattern load(Slice pattern)
+        {
+            return likeToPattern(pattern.toString(Charsets.UTF_8), '\\');
+        }
+    };
+
+    private static final ThreadLocalCache<ByIdentity<LikePredicate>, Regex> CONSTANT_LIKE_PATTERN_CACHE = new ThreadLocalCache<ByIdentity<LikePredicate>, Regex>(20)
+    {
+        @Override
+        protected Regex load(ByIdentity<LikePredicate> pattern)
+        {
+            return likeToRegex(((StringLiteral) pattern.getObject().getPattern()).getValue(), '\\');
+        }
+    };
 
     public static ExpressionInterpreter expressionInterpreter(InputResolver inputResolver, Metadata metadata, Session session)
     {
@@ -624,16 +646,25 @@ public class ExpressionInterpreter
         if (!(value instanceof Slice)) {
             return node;
         }
-        String valueString = ((Slice) value).toString(UTF_8);
+
+        if (node.getPattern() instanceof StringLiteral) {
+            // constant pattern, so look up pattern in identity cache
+            Slice slice = (Slice) value;
+            Regex regex = CONSTANT_LIKE_PATTERN_CACHE.get(new ByIdentity<>(node));
+            org.joni.Matcher matcher = regex.matcher(slice.getBytes());
+            int match = matcher.match(0, slice.length(), Option.NONE);
+            return match != -1;
+        }
 
         Object pattern = process(node.getPattern(), context);
         if (!(pattern instanceof Slice)) {
             return node;
         }
-        String patternString = ((Slice) pattern).toString(UTF_8);
 
-        char escapeChar;
+        String valueString = ((Slice) value).toString(UTF_8);
+        Matcher matcher;
         if (node.getEscape() != null) {
+            char escapeChar;
             Object escape = process(node.getEscape(), context);
             if (!(escape instanceof Slice)) {
                 return node;
@@ -647,12 +678,51 @@ public class ExpressionInterpreter
             } else {
                 throw new IllegalArgumentException("escape must be empty or a single character: "  + escapeString);
             }
-        } else {
-            escapeChar = '\\';
+            String patternString = ((Slice) pattern).toString(UTF_8);
+            matcher = likeToPattern(patternString, escapeChar).matcher(valueString);
+        }
+        else {
+            matcher = LIKE_PATTERN_CACHE.get((Slice) pattern).matcher(valueString);
         }
 
-        Matcher matcher = likeToPattern(patternString, escapeChar).matcher(valueString);
         return matcher.matches();
+    }
+
+    public static Regex likeToRegex(String patternString, char escapeChar)
+    {
+        StringBuilder regex = new StringBuilder(patternString.length() * 2);
+
+        boolean escaped = false;
+        for (char currentChar : patternString.toCharArray()) {
+            if (currentChar == escapeChar) {
+                escaped = true;
+            } else {
+                switch (currentChar) {
+                    case '%':
+                        if (escaped) {
+                            regex.append("%");
+                        }
+                        else {
+                            regex.append(".*");
+                        }
+                        escaped = false;
+                        break;
+                    case '_':
+                        if (escaped) {
+                            regex.append("_");
+                        }
+                        else {
+                            regex.append('.');
+                        }
+                        escaped = false;
+                        break;
+                    default:
+                        escaped = false;
+                        regex.append(currentChar); //Pattern.quote(String.valueOf(currentChar))); todo
+                }
+            }
+        }
+        return new Regex(regex.toString());
     }
 
     public static Pattern likeToPattern(String patternString, char escapeChar)
@@ -812,5 +882,47 @@ public class ExpressionInterpreter
         }
 
         throw new UnsupportedOperationException("not yet implemented: " + object.getClass().getName());
+    }
+
+    private static class ByIdentity<T>
+    {
+        private final T object;
+
+        private ByIdentity(T object)
+        {
+            this.object = object;
+        }
+
+        private T getObject()
+        {
+            return object;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            return object == ((ByIdentity<T>) o).object;
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return System.identityHashCode(object);
+        }
+    }
+
+
+    public static void main(String[] args)
+    {
+        Regex regex = likeToRegex("%slyly%", '\\');
+        Regex regex2 = new Regex(".*slyly.*");
+
+        List<String> values = ImmutableList.of("sdfbawefewr wer", "foo slyly bar");
+        for (String value : values) {
+            org.joni.Matcher matcher = regex.matcher(value.getBytes());
+            int match = matcher.match(0, value.length(), Option.NONE);
+            System.out.println(match);
+        }
+
     }
 }

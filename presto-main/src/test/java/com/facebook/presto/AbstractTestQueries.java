@@ -1112,6 +1112,13 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT A.* FROM orders a");
     }
 
+    @Test
+    public void testLike()
+            throws Exception
+    {
+        assertQuery("SELECT orderkey FROM lineitem WHERE comment LIKE '%slyly%'");
+    }
+
     @BeforeClass(alwaysRun = true)
     public void setupDatabase()
             throws Exception

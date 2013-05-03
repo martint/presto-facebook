@@ -10,6 +10,7 @@ import com.facebook.presto.util.LocalQueryRunner;
 import com.facebook.presto.util.MaterializedResult;
 import com.facebook.presto.util.TestingTpchBlocksProvider;
 import org.intellij.lang.annotations.Language;
+import org.testng.annotations.Test;
 
 public class TestLocalQueries
         extends AbstractTestQueries
