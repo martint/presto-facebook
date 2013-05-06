@@ -1,5 +1,6 @@
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.Slyly;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.scalar.UnixTimeFunctions;
@@ -76,12 +77,13 @@ public class ExpressionInterpreter
         }
     };
 
-    private static final ThreadLocalCache<ByIdentity<LikePredicate>, Regex> CONSTANT_LIKE_PATTERN_CACHE = new ThreadLocalCache<ByIdentity<LikePredicate>, Regex>(20)
+    private static final ThreadLocalCache<ByIdentity<LikePredicate>, Slyly> CONSTANT_LIKE_PATTERN_CACHE = new ThreadLocalCache<ByIdentity<LikePredicate>, Slyly>(20)
     {
         @Override
-        protected Regex load(ByIdentity<LikePredicate> pattern)
+        protected Slyly load(ByIdentity<LikePredicate> pattern)
         {
-            return likeToRegex(((StringLiteral) pattern.getObject().getPattern()).getValue(), '\\');
+            return new Slyly();
+//            return likeToRegex(((StringLiteral) pattern.getObject().getPattern()).getValue(), '\\');
         }
     };
 
@@ -650,10 +652,13 @@ public class ExpressionInterpreter
         if (node.getPattern() instanceof StringLiteral) {
             // constant pattern, so look up pattern in identity cache
             Slice slice = (Slice) value;
-            Regex regex = CONSTANT_LIKE_PATTERN_CACHE.get(new ByIdentity<>(node));
-            org.joni.Matcher matcher = regex.matcher(slice.getBytes());
-            int match = matcher.match(0, slice.length(), Option.NONE);
-            return match != -1;
+            Slyly slyly = CONSTANT_LIKE_PATTERN_CACHE.get(new ByIdentity<>(node));
+            return slyly.matches(slice.toString(Charsets.UTF_8));
+//            return slyly.matches(slice.toString(Charsets.UTF_8));
+//            Regex regex = CONSTANT_LIKE_PATTERN_CACHE.get(new ByIdentity<>(node));
+//            org.joni.Matcher matcher = regex.matcher(slice.getBytes());
+//            int match = matcher.match(0, slice.length(), Option.NONE);
+//            return match != -1;
         }
 
         Object pattern = process(node.getPattern(), context);
