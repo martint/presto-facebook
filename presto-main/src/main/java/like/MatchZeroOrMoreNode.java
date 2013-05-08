@@ -13,6 +13,11 @@ public class MatchZeroOrMoreNode
         this.child = child;
     }
 
+    public LikeNode getChild()
+    {
+        return child;
+    }
+
     @Override
     public boolean isNullable()
     {

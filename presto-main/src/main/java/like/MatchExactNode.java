@@ -17,6 +17,16 @@ public class MatchExactNode
         this.character = character;
     }
 
+    public int getPosition()
+    {
+        return position;
+    }
+
+    public char getCharacter()
+    {
+        return character;
+    }
+
     @Override
     public boolean isNullable()
     {

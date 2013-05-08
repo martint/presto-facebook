@@ -49,10 +49,10 @@ public class ConcatenateNode
     public Set<Integer> lastPositions()
     {
         if (right.isNullable()) {
-            return ImmutableSet.copyOf(Sets.union(left.firstPositions(), right.firstPositions()));
+            return ImmutableSet.copyOf(Sets.union(left.lastPositions(), right.lastPositions()));
         }
         else {
-            return right.firstPositions();
+            return right.lastPositions();
         }
     }
 

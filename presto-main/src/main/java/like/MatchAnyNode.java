@@ -15,6 +15,11 @@ public class MatchAnyNode
         this.position = position;
     }
 
+    public int getPosition()
+    {
+        return position;
+    }
+
     @Override
     public boolean isNullable()
     {
