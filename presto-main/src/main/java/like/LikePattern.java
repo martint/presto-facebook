@@ -3,6 +3,7 @@ package like;
 import com.google.common.base.Joiner;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.SetMultimap;
 
 import java.util.ArrayDeque;
@@ -20,23 +21,38 @@ public class LikePattern
     {
         LikeNode node;
 
-//                node = new ConcatenateNode(
-//                        new ConcatenateNode(
-//                                new ConcatenateNode(
-//                                        new ConcatenateNode(
-//                                                new ConcatenateNode(
-//                                                        new ConcatenateNode(
-//                                                                new ConcatenateNode(
-//                                                                        new MatchZeroOrMoreNode(
-//                                                                                new MatchAnyNode(1)),
-//                                                                        new MatchExactNode(2, 'a')),
-//                                                                new MatchExactNode(3, 'b')),
-//                                                        new MatchZeroOrMoreNode(new MatchAnyNode(4))),
-//                                                new MatchExactNode(5, 'a')),
-//                                        new MatchExactNode(6, 'b')),
-//                                new MatchZeroOrMoreNode(new MatchAnyNode(7))),
-//                        new MatchExactNode(8, '#'));
-//
+        //                node = new ConcatenateNode(
+        //                        new ConcatenateNode(
+        //                                new ConcatenateNode(
+        //                                        new ConcatenateNode(
+        //                                                new ConcatenateNode(
+        //                                                        new ConcatenateNode(
+        //                                                                new ConcatenateNode(
+        //                                                                        new MatchZeroOrMoreNode(
+        //                                                                                new MatchAnyNode(1)),
+        //                                                                        new MatchExactNode(2, 'a')),
+        //                                                                new MatchExactNode(3, 'b')),
+        //                                                        new MatchZeroOrMoreNode(new MatchAnyNode(4))),
+        //                                                new MatchExactNode(5, 'a')),
+        //                                        new MatchExactNode(6, 'b')),
+        //                                new MatchZeroOrMoreNode(new MatchAnyNode(7))),
+        //                        new MatchExactNode(8, '#'));
+        //
+        //        node = new ConcatenateNode(
+        //                new ConcatenateNode(
+        //                        new ConcatenateNode(
+        //                                new ConcatenateNode(
+        //                                        new MatchZeroOrMoreNode(
+        //                                                new ConcatenateNode(
+        //                                                        new MatchExactNode(1, 'a'),
+        //                                                        new MatchExactNode(2, 'b')
+        //                                                )),
+        //                                        new MatchExactNode(3, 'a')),
+        //                                new MatchExactNode(4, 'b')),
+        //                        new MatchExactNode(5, 'b')),
+        //                new MatchExactNode(6, '#'));
+
+
         node = new ConcatenateNode(
                 new ConcatenateNode(
                         new ConcatenateNode(
@@ -53,7 +69,7 @@ public class LikePattern
                                 new MatchExactNode(5, 'y')),
                         new MatchZeroOrMoreNode(new MatchAnyNode(6))),
                 new MatchExactNode(7, '#'));
-        //
+
 
         /*
          [1] -(a)-> [2, 3]
@@ -91,6 +107,11 @@ public class LikePattern
             Set<Integer> state = unmarked.poll();
             states.add(state);
 
+            if (state.contains(Iterables.getOnlyElement(node.lastPositions()))) {
+                String label = Joiner.on(",").join(state);
+                System.out.println(String.format("\"%s\" [peripheries=2];", label));
+            }
+
             SetMultimap<Character, Integer> transitions = HashMultimap.create();
 
             Set<Character> specificChars = new TreeSet<>();
@@ -98,7 +119,10 @@ public class LikePattern
                 LikeNode likeNode = byPosition.get(position);
 
                 if (likeNode instanceof MatchExactNode) {
-                    specificChars.add(((MatchExactNode) likeNode).getCharacter());
+                    char character = ((MatchExactNode) likeNode).getCharacter();
+                    if (character != '#') {
+                        specificChars.add(character);
+                    }
                 }
             }
 
@@ -112,7 +136,9 @@ public class LikePattern
                     }
 
                     char character = ((MatchExactNode) likeNode).getCharacter();
-                    transitions.putAll(character, follow);
+                    if (character != '#') {
+                        transitions.putAll(character, follow);
+                    }
                 }
                 else if (likeNode instanceof MatchAnyNode) {
                     Set<Integer> follow = followPositions.get(position);
@@ -146,7 +172,7 @@ public class LikePattern
                     System.out.println(String.format("\"%s\" -> \"%s\" [label=\"%s\"];", from, to, entry.getKey()));
                 }
 
-//                System.out.println(state + " -(" + entry.getKey() + ")-> " + targetState);
+                //                System.out.println(state + " -(" + entry.getKey() + ")-> " + targetState);
 
                 states.add(targetState);
             }

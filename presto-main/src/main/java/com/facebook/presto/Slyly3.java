@@ -5,52 +5,41 @@ import org.joni.Regex;
 
 public class Slyly3
 {
-    private final int states = 6;
-                                           //   0       1       2       3        4      5
-    // transitions                         // (0,1)  (0,1,2) (0,1,3)  (0,1,4) (0,1,5)  (f)
-    private final int[] transitionCount = {    1,       2,       2,      2,       2,   0     };
-    private final int[] elseTransition  = {    0,       0,       0,      0,       0,   -1    };
+    private final int states = 5;
+                                           //  0   1   2   3   4
+    // transitions                         //  S   A   B   C   F
+    private final int[] transitionCount = {    1,  1,  1,  1,  0  };
+    private final int[] elseTransition  = {   -1,  0,  0,  0, -1  };
 
     private final char[] chars = {
-            // (0,1)
-            's',
-            // (0,1,2)
-            's',
+            // S
             'l',
-            // (0,1,3)
-            's',
+            // A
             'y',
-            // (0,1,4)
-            's',
+            // B
             'l',
-            // (0,1,5)
-            's',
-            'y'};
+            // C
+            'y'
+    };
 
     private final int[] offsets = {
             0,
             1,
+            2,
             3,
-            5,
-            7,
+            4,
             -1
     };
 
     private final int[] targets = {
-            // (0,1)
-            1, // 's',
-            // (0,1,2)
-            1, // 's',
-            2, // 'l',
-            // (0,1,3)
-            1, // 's',
-            3, // 'y',
-            // (0,1,4)
-            1, // 's',
-            4, // 'l',
-            // (0,1, 5)
-            1, // 's',
-            5, //'y'
+            // S
+            1, // 'l',
+            // A
+            2, // 'y',
+            // B
+            3, // 'l',
+            // C
+            4, // 'y',
     };
 
     public boolean matches(byte[] string)
