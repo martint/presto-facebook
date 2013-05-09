@@ -1,5 +1,6 @@
 package com.facebook.presto.graph;
 
+import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
@@ -19,6 +20,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.facebook.presto.graph.Edge.fromGetter;
+import static com.facebook.presto.graph.Edge.toGetter;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
 import static java.lang.String.format;
@@ -255,6 +258,17 @@ public class Graph<N, E>
         Preconditions.checkNotNull(node, "node is not in the graph");
 
         return Collections.unmodifiableSet(node.getPredecessors());
+    }
+
+    public Set<N> getPredecessors(N value, E edgeType)
+    {
+        Node<N, E> node = nodes.get(value);
+        Preconditions.checkNotNull(node, "node is not in the graph");
+
+        return IterableTransformer.on(node.getIncomingEdges())
+                .select(edgeTypeEquals(edgeType))
+                .transform(Edge.<N, E>fromGetter())
+                .set();
     }
 
     public Set<N> getSuccessors(N value)

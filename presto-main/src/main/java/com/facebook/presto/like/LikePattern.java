@@ -3,20 +3,27 @@ package com.facebook.presto.like;
 import com.facebook.presto.graph.Edge;
 import com.facebook.presto.graph.Graph;
 import com.facebook.presto.graph.GraphvizPrinter;
+import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Function;
+import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
+import com.google.common.base.Predicate;
 import com.google.common.collect.HashMultimap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
 
+import javax.annotation.Nullable;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
@@ -136,16 +143,16 @@ public class LikePattern
 
         public void build()
         {
-            // add transition to artificial terminal state
+            // add transition to artificial accepting state
             matchOne(Optional.<Character>absent());
 
             Graph<DfaState, Optional<Character>> dfa = buildDfa();
 
             dfa = optimize(dfa);
 
-            String out = dfaToString(dfa, alphabet);
+//            String out = dfaToString(dfa, alphabet);
 
-            System.out.println(out);
+//            System.out.println(out);
         }
 
 
@@ -158,6 +165,12 @@ public class LikePattern
 
             Queue<DfaState> pending = new ArrayDeque<>();
             pending.add(startingState);
+
+//            Set<Character> symbols = IterableTransformer.on(startingState.getPositions())
+//                    .transform(forMap(symbolForPosition))
+//                    .select(Optionals.isPresentPredicate())
+//                    .transform(Optionals.<Character>optionalGetter())
+//                    .set();
 
             while (!pending.isEmpty()) {
                 DfaState state = pending.poll();
@@ -181,9 +194,9 @@ public class LikePattern
                 for (Map.Entry<Optional<Character>, Collection<Integer>> entry : transitions.asMap().entrySet()) {
                     Set<Integer> positions = ImmutableSet.copyOf(entry.getValue());
 
-                    boolean isTerminal = positions.contains(Iterables.getOnlyElement(lastPositions));
+                    boolean isAccepting = positions.contains(Iterables.getOnlyElement(lastPositions));
 
-                    DfaState targetState = new DfaState(positions, false, isTerminal);
+                    DfaState targetState = new DfaState(positions, false, isAccepting);
                     if (!dfa.contains(targetState)) {
                         pending.add(targetState);
                         dfa.addNode(targetState);
@@ -191,8 +204,22 @@ public class LikePattern
 
                     dfa.addEdge(state, targetState, entry.getKey());
                 }
-
             }
+
+            // send all unmatched symbols to a dead state
+            DfaState deadState = new DfaState(ImmutableSet.<Integer>of(), false, false);
+            dfa.addNode(deadState);
+            for (DfaState state : dfa.getNodes()) {
+                for (Character character : alphabet) {
+                    if (!dfa.hasOutgoingEdge(state, Optional.of(character))) {
+                        dfa.addEdge(state, deadState, Optional.of(character));
+                    }
+                }
+                if (!dfa.hasOutgoingEdge(state, Optional.<Character>absent())) {
+                    dfa.addEdge(state, deadState, Optional.<Character>absent());
+                }
+            }
+
             return dfa;
         }
 
@@ -200,140 +227,183 @@ public class LikePattern
         {
             System.out.println(dfaToString(dfa, alphabet));
 
-            // merge redundant states
-            // remove unnecessary edges ("else" edges to itself, "else" + specific edges to same target)
-            Partition partition = initialPartition(dfa);
+            final Map<DfaState, Integer> groupByState = new HashMap<>();
+            SetMultimap<Integer, DfaState> statesByGroup = HashMultimap.create();
+            int nextGroupId = 0;
 
-            while (true) {
-                Partition newPartition = new Partition();
-                for (Collection<DfaState> group : partition.groups()) {
-                    // partition group by each symbol
-                    for (Character symbol : alphabet) {
-                        Map<Integer, DfaState> byTargetGroup = new HashMap<>();
-                        for (DfaState state : group) {
+            List<Integer> workList = new ArrayList<>();
+            Set<Integer> partition = new HashSet<>();
 
+            // Given a DFA:
+            //  Q = states,
+            //  F = accepting states,
+            //  ∂ = transitions
+            //  ∑ = alphabet
+
+            // worklist  W := { F, Q - F }
+            // partition P := { F, Q - F }
+            int acceptingGroup = nextGroupId++;
+            int nonAcceptingGroup = nextGroupId++;
+
+            for (DfaState state : dfa.getNodes()) {
+                if (state.isAccepting()) {
+                    groupByState.put(state, acceptingGroup);
+                    statesByGroup.put(acceptingGroup, state);
+                }
+                else {
+                    groupByState.put(state, nonAcceptingGroup);
+                    statesByGroup.put(nonAcceptingGroup, state);
+                }
+            }
+            workList.add(acceptingGroup);
+            workList.add(nonAcceptingGroup);
+
+            partition.add(acceptingGroup);
+            partition.add(nonAcceptingGroup);
+
+            // while W not empty
+            while (!workList.isEmpty()) {
+                // select and remove S from W (S is a set of states)
+                int targetGroup = workList.remove(0);
+
+                // foreach a in ∑
+                for (Character character : alphabet) {
+                    // I_a = ∂_a^-1(S) -- set of all states that can reach S on a
+                    Set<DfaState> sources = new HashSet<>();
+
+                    for (DfaState member : statesByGroup.get(targetGroup)) {
+                        sources.addAll(dfa.getPredecessors(member, Optional.of(character)));
+                    }
+
+                    Set<Integer> newPartition = new HashSet<>();
+                    // for each R in P such that intersection(R, I_a) != {} and R not contained in I_a
+                    for (int candidateGroup : partition) {
+                        Sets.SetView<DfaState> intersection = Sets.intersection(statesByGroup.get(candidateGroup), sources);
+                        if (!intersection.isEmpty() && !sources.containsAll(statesByGroup.get(candidateGroup))) {
+                            // partition R into R1 = intersection(R, I_a) and R2 = R - R1
+                            Set<DfaState> first = ImmutableSet.copyOf(intersection);
+                            Set<DfaState> second = ImmutableSet.copyOf(Sets.difference(statesByGroup.get(candidateGroup), first));
+
+                            // replace R in P with R1 and R2
+                            int firstId = nextGroupId++;
+                            for (DfaState state : first) {
+                                groupByState.put(state, firstId);
+                                statesByGroup.put(firstId, state);
+                            }
+
+                            int secondId = nextGroupId++;
+                            for (DfaState state : second) {
+                                groupByState.put(state, secondId);
+                                statesByGroup.put(secondId, state);
+                            }
+
+                            newPartition.add(firstId);
+                            newPartition.add(secondId);
+
+
+                            // if R is in W, replace R with R1 in W and add R2 to W
+                            if (workList.contains(candidateGroup)) {
+                                workList.remove((Object) candidateGroup);
+                                workList.add(firstId);
+                                workList.add(secondId);
+                            }
+                            else if (first.size() < second.size()) { // else if |R1| <= |R2|
+                                // add R1 to W
+                                workList.add(firstId);
+                            }
+                            else {
+                                // add R2 to W
+                                workList.add(secondId);
+                            }
                         }
-//                        boolean needsNewGroup = true;
-//                        for (Map.Entry<DfaState, Integer> entry : newPartition.states().entrySet()) {
-//                            if (shouldBeInSameGroup(entry.getKey(), state, dfa, partition)) {
-//                                newPartition.put(state, entry.getValue());
-//                                needsNewGroup = false;
-//                            }
-//                            break;
-//                        }
-//
-//                        // no existing compatible group found. Create a new one
-//                        if (needsNewGroup) {
-//                            newPartition.put(state, newPartition.newGroup());
-//                        }
+                        else {
+                            newPartition.add(candidateGroup);
+                        }
+                    }
+
+                    partition = newPartition;
+                }
+            }
+
+            Map<Integer, DfaState> mergedStates = new HashMap<>();
+            Graph<DfaState, Optional<Character>> optimized = new Graph<>();
+            for (int groupId : partition) {
+                boolean accepting = Iterables.any(statesByGroup.get(groupId), isAcceptingStatePredicate());
+                boolean starting = Iterables.any(statesByGroup.get(groupId), isStartingStatePredicate());
+
+                DfaState state = new DfaState(ImmutableSet.of(groupId), starting, accepting);
+                optimized.addNode(state);
+                mergedStates.put(groupId, state);
+            }
+
+            for (int fromGroup : partition) {
+                for (DfaState from : statesByGroup.get(fromGroup)) {
+                    for (Edge<DfaState, Optional<Character>> edge : dfa.getOutgoingEdges(from)) {
+                        int toGroup = groupByState.get(edge.getTo());
+
+                        optimized.addEdge(mergedStates.get(fromGroup), mergedStates.get(toGroup), edge.getType());
                     }
                 }
+            }
+//
+//            System.out.println(partition);
+//            System.out.println(IterableTransformer.on(partition)
+//                .transform(forMap(statesByGroup.asMap()))
+//                .list());
 
-                if (partition.size() == newPartition.size()) {
-                    break;
+            List<String> availableColors = ImmutableList.of("salmon2", "deepskyblue", "goldenrod2", "burlywood2",
+                    "gold1", "greenyellow", "darkseagreen", "dodgerblue1", "thistle2", "darkolivegreen3", "chocolate", "turquoise3");
+            
+            final Map<Integer, String> colors = new HashMap<>();
+            int index = 0;
+            for (Integer groupId : partition) {
+                if (index < availableColors.size()) {
+                    colors.put(groupId, availableColors.get(index++));
                 }
-
-                partition = newPartition;
             }
 
+            final String defaultTransition = "!(" + Joiner.on("|").join(alphabet) + ")";
+            String out = GraphvizPrinter.toGraphviz(optimized, new Function<DfaState, Map<String, String>>()
+                    {
+                        @Override
+                        public Map<String, String> apply(DfaState state)
+                        {
+                            ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
+                            if (state.isAccepting()) {
+                                builder.put("peripheries", "2");
+                            }
+                            if (state.isStart()) {
+                                builder.put("shape", "\"rect\"");
+                            }
+                            builder.put("label", "\"" + state.getPositions().toString() + "\"");
+
+                            String color = colors.get(groupByState.get(state));
+                            if (color != null) {
+                                builder.put("fillcolor", "\"" + color + "\"");
+                                builder.put("style", "filled");
+                            }
+                            return builder.build();
+                        }
+                    },
+                    new Function<Edge<DfaState, Optional<Character>>, Map<String, String>>()
+                    {
+                        @Override
+                        public Map<String, String> apply(Edge<DfaState, Optional<Character>> edge)
+                        {
+                            ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
+                            if (edge.getType().isPresent()) {
+                                builder.put("label", "\"" + edge.getType().get() + "\"");
+                            }
+                            else {
+                                builder.put("label", "\"" + defaultTransition + "\"");
+                            }
+                            return builder.build();
+                        }
+                    }
+            );
+
+            System.out.println(out);
             return null;
-        }
-    }
-
-
-    private static boolean shouldBeInSameGroup(DfaState state1, DfaState state2, Graph<DfaState, Optional<Character>> dfa, Partition partition)
-    {
-        // assumption: all states have a default transition
-
-        Map<Optional<Character>, Integer> state1Targets = computeTargetGroupBySymbol(state1, dfa, partition);
-        Map<Optional<Character>, Integer> state2Targets = computeTargetGroupBySymbol(state2, dfa, partition);
-
-        // verify target groups for symbols in state1 but not in state2 all point to the default target for state2
-        {
-            Iterable<Integer> targets = Iterables.transform(Sets.difference(state1Targets.keySet(), state2Targets.keySet()), forMap(state1Targets));
-            if (!Iterables.all(targets, equalTo(state2Targets.get(Optional.<Character>absent())))) {
-                return false;
-            }
-        }
-
-        // check in the opposite direction
-        {
-            Iterable<Integer> targets = Iterables.transform(Sets.difference(state2Targets.keySet(), state1Targets.keySet()), forMap(state2Targets));
-            if (!Iterables.all(targets, equalTo(state1Targets.get(Optional.<Character>absent())))) {
-                return false;
-            }
-        }
-
-        // verify that common symbols have the same target (including default transition)
-        for (Optional<Character> symbol : Sets.intersection(state1Targets.keySet(), state2Targets.keySet())) {
-            if (state1Targets.get(symbol) != state2Targets.get(symbol)) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    private static Map<Optional<Character>, Integer> computeTargetGroupBySymbol(DfaState state1, Graph<DfaState, Optional<Character>> dfa, Partition partition)
-    {
-        Set<Edge<DfaState, Optional<Character>>> edges = dfa.getOutgoingEdges(state1);
-        Map<Optional<Character>, Integer> targetsBySymbol = new HashMap<>();
-        for (Edge<DfaState, Optional<Character>> entry : edges) {
-            int targetGroup = partition.states().get(entry.getTo());
-            targetsBySymbol.put(entry.getType(), targetGroup);
-        }
-        return targetsBySymbol;
-    }
-
-    private static Partition initialPartition(Graph<DfaState, ?> dfa)
-    {
-        Partition partition = new Partition();
-
-        int terminal = partition.newGroup();
-        int nonTerminal = partition.newGroup();
-
-        for (DfaState state : dfa.getNodes()) {
-            if (state.isTerminal()) {
-                partition.put(state, terminal);
-            }
-            else {
-                partition.put(state, nonTerminal);
-            }
-        }
-
-        return partition;
-    }
-
-    private static class Partition
-    {
-        private int nextGroup;
-        private final Map<DfaState, Integer> byState = new HashMap<>();
-        private final SetMultimap<Integer, DfaState> byGroup = HashMultimap.create();
-
-        public int size()
-        {
-            return byGroup.keySet().size();
-        }
-
-        public int newGroup()
-        {
-            return nextGroup++;
-        }
-
-        public void put(DfaState state, int group)
-        {
-            byState.put(state, group);
-            byGroup.put(group, state);
-        }
-
-        public Collection<Collection<DfaState>> groups()
-        {
-            return byGroup.asMap().values();
-        }
-
-        public Map<DfaState, Integer> states()
-        {
-            return byState;
         }
     }
 
@@ -341,13 +411,13 @@ public class LikePattern
     {
         private final Set<Integer> positions;
         private final boolean start;
-        private final boolean terminal;
+        private final boolean accepting;
 
-        private DfaState(Set<Integer> positions, boolean start, boolean terminal)
+        private DfaState(Set<Integer> positions, boolean start, boolean accepting)
         {
             this.positions = positions;
             this.start = start;
-            this.terminal = terminal;
+            this.accepting = accepting;
         }
 
         public Set<Integer> getPositions()
@@ -360,9 +430,9 @@ public class LikePattern
             return start;
         }
 
-        private boolean isTerminal()
+        private boolean isAccepting()
         {
-            return terminal;
+            return accepting;
         }
 
         @Override
@@ -397,11 +467,36 @@ public class LikePattern
         }
     }
 
+    private static Predicate<DfaState> isStartingStatePredicate()
+    {
+        return new Predicate<DfaState>()
+        {
+            @Override
+            public boolean apply(DfaState input)
+            {
+                return input.isStart();
+            }
+        };
+    }
+
+    private static Predicate<DfaState> isAcceptingStatePredicate()
+    {
+        return new Predicate<DfaState>()
+        {
+            @Override
+            public boolean apply(DfaState input)
+            {
+                return input.isAccepting();
+            }
+        };
+    }
 
     public static void main(String[] args)
     {
-        LikePattern.compile("%ab%cd%", '\\');
-        //        LikePattern.compile("%abc_de%fg%", '\\');
+//        LikePattern.compile("%a%b%c%", '\\');
+//        LikePattern.compile("abcd%", '\\');
+//        LikePattern.compile("%ab%cd%", '\\');
+                LikePattern.compile("%abc_de%fg%", '\\');
     }
 
     private static String dfaToString(Graph<DfaState, Optional<Character>> dfa, Set<Character> symbols)
@@ -413,7 +508,7 @@ public class LikePattern
                     public Map<String, String> apply(DfaState state)
                     {
                         ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
-                        if (state.isTerminal()) {
+                        if (state.isAccepting()) {
                             builder.put("peripheries", "2");
                         }
                         if (state.isStart()) {
