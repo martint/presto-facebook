@@ -1,4 +1,4 @@
-package like;
+package com.facebook.presto.like;
 
 import com.google.common.collect.ImmutableSet;
 

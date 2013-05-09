@@ -1,4 +1,4 @@
-package like;
+package com.facebook.presto.like;
 
 import java.util.Map;
 import java.util.Set;

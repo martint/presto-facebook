@@ -1,10 +1,7 @@
-package com.facebook.presto;
+package com.facebook.presto.like;
 
 import com.google.common.base.Preconditions;
-import org.joni.Option;
 import org.joni.Regex;
-
-import java.util.Arrays;
 
 public class Slyly
 {

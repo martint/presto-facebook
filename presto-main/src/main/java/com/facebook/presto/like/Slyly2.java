@@ -1,4 +1,4 @@
-package com.facebook.presto;
+package com.facebook.presto.like;
 
 import com.google.common.base.Preconditions;
 import org.joni.Regex;

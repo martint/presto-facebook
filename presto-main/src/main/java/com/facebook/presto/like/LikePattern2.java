@@ -1,4 +1,4 @@
-package like;
+package com.facebook.presto.like;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.HashMultimap;
@@ -15,7 +15,7 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.TreeSet;
 
-public class LikePattern
+public class LikePattern2
 {
     public static void main(String[] args)
     {
