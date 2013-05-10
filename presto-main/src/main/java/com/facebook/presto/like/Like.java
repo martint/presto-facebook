@@ -4,7 +4,6 @@ import com.facebook.presto.graph.Edge;
 import com.facebook.presto.graph.Graph;
 import com.facebook.presto.graph.GraphvizPrinter;
 import com.google.common.base.Function;
-import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
@@ -17,15 +16,12 @@ import com.google.common.collect.Sets;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
-
-import static com.google.common.base.Functions.forMap;
 
 public class Like
 {
@@ -133,6 +129,8 @@ public class Like
     {
         private int nextPosition;
 
+        private final Set<Integer> positionsWithMatchAny = new HashSet<>();
+        private final SetMultimap<Character, Integer> positionsForSymbol = HashMultimap.create();
         private final Map<Integer, Optional<Character>> symbolForPosition = new HashMap<>();
         private final SetMultimap<Integer, Integer> followPositions = HashMultimap.create();
 
@@ -172,6 +170,8 @@ public class Like
                 firstPositions.add(position);
             }
 
+            positionsWithMatchAny.add(position);
+
             // because this can match 0 times, add to the list of last positions instead of replacing them
             lastPositions.add(position);
         }
@@ -200,6 +200,10 @@ public class Like
 
             if (symbol.isPresent()) {
                 alphabet.add(symbol.get());
+                positionsForSymbol.put(symbol.get(), position);
+            }
+            else {
+                positionsWithMatchAny.add(position);
             }
         }
 
@@ -210,7 +214,7 @@ public class Like
 
             Graph<DfaState, Optional<Character>> dfa = buildDfa();
 
-            //            System.out.println(dfaToString(dfa, alphabet));
+            //                        System.out.println(dfaToString(dfa, alphabet));
 
             dfa = optimize(dfa);
 
@@ -218,8 +222,6 @@ public class Like
             //            System.out.println(out);
 
             return dfa;
-
-            //            String out = dfaToString(dfa, alphabet);
         }
 
 
@@ -236,62 +238,48 @@ public class Like
             while (!pending.isEmpty()) {
                 DfaState state = pending.poll();
 
-                SetMultimap<Optional<Character>, Integer> transitions = computeTransitions(state);
+                Set<Integer> elseFollow = new HashSet<>();
+                for (int position : state.getPositions()) {
+                    if (positionsWithMatchAny.contains(position)) {
+                        elseFollow.addAll(followPositions.get(position));
+                    }
+                }
 
-                for (Map.Entry<Optional<Character>, Collection<Integer>> entry : transitions.asMap().entrySet()) {
-                    Set<Integer> positions = ImmutableSet.copyOf(entry.getValue());
+                // add "else" transition. If 'follow' is empty, it represents the dead state
+                boolean isAccepting = elseFollow.contains(Iterables.getOnlyElement(lastPositions));
 
-                    boolean isAccepting = positions.contains(Iterables.getOnlyElement(lastPositions));
+                DfaState targetState = new DfaState(elseFollow, false, isAccepting);
+                if (!dfa.contains(targetState)) {
+                    pending.add(targetState);
+                    dfa.addNode(targetState);
+                }
 
-                    DfaState targetState = new DfaState(positions, false, isAccepting);
+                dfa.addEdge(state, targetState, Optional.<Character>absent());
+
+                // add a transition for each named character
+                for (Character character : alphabet) {
+                    Set<Integer> targetPositions = new HashSet<>();
+                    targetPositions.addAll(elseFollow);
+
+                    for (int position : state.getPositions()) {
+                        Optional<Character> symbol = symbolForPosition.get(position);
+                        if (symbol.isPresent() && symbol.get() == character) {
+                            targetPositions.addAll(followPositions.get(position));
+                        }
+                    }
+
+                    isAccepting = targetPositions.contains(Iterables.getOnlyElement(lastPositions));
+                    targetState = new DfaState(targetPositions, false, isAccepting);
                     if (!dfa.contains(targetState)) {
                         pending.add(targetState);
                         dfa.addNode(targetState);
                     }
 
-                    dfa.addEdge(state, targetState, entry.getKey());
+                    dfa.addEdge(state, targetState, Optional.of(character));
                 }
             }
-
-            // send all unmatched symbols to a dead state
-            addDeadState(dfa);
 
             return dfa;
-        }
-
-        private SetMultimap<Optional<Character>, Integer> computeTransitions(DfaState state)
-        {
-            SetMultimap<Optional<Character>, Integer> transitions = HashMultimap.create();
-
-            for (int position : state.getPositions()) {
-                Optional<Character> symbol = symbolForPosition.get(position);
-
-                Set<Integer> follow = followPositions.get(position);
-
-                transitions.putAll(symbol, follow);
-
-                if (!symbol.isPresent()) { // is this a "match any"
-                    for (Character character : alphabet) {
-                        transitions.putAll(Optional.of(character), follow);
-                    }
-                }
-            }
-            return transitions;
-        }
-
-        private void addDeadState(Graph<DfaState, Optional<Character>> dfa)
-        {
-            DfaState deadState = new DfaState(ImmutableSet.<Integer>of(), false, false);
-            for (DfaState state : dfa.getNodes()) {
-                for (Character character : alphabet) {
-                    if (!dfa.hasOutgoingEdge(state, Optional.of(character))) {
-                        dfa.addEdge(state, deadState, Optional.of(character));
-                    }
-                }
-                if (!dfa.hasOutgoingEdge(state, Optional.<Character>absent())) {
-                    dfa.addEdge(state, deadState, Optional.<Character>absent());
-                }
-            }
         }
 
         private Graph<DfaState, Optional<Character>> optimize(Graph<DfaState, Optional<Character>> dfa)

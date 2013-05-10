@@ -129,4 +129,11 @@ public class TestLike
         assertFalse(matcher.matches("a"));
         assertFalse(matcher.matches("aa"));
     }
+
+    @Test
+    public void testSomething()
+            throws Exception
+    {
+        Like.compile("_", '\\');
+    }
 }
