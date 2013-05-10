@@ -22,6 +22,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.graph.Edge.fromGetter;
 import static com.facebook.presto.graph.Edge.toGetter;
+import static com.google.common.base.Predicates.and;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
 import static java.lang.String.format;
@@ -127,7 +128,7 @@ public class Graph<N, E>
 
     public Set<N> getNodes()
     {
-        return Collections.unmodifiableSet(nodes.keySet());
+        return ImmutableSet.copyOf(nodes.keySet());
     }
 
     public Set<Edge<N, E>> getOutgoingEdges(N value)
@@ -135,7 +136,7 @@ public class Graph<N, E>
         Node<N, E> node = nodes.get(value);
         Preconditions.checkNotNull(node, "node is not in the graph");
 
-        return Collections.unmodifiableSet(node.getOutgoingEdges());
+        return ImmutableSet.copyOf(node.getOutgoingEdges());
     }
 
     public Set<Edge<N, E>> getIncomingEdges(N value)
@@ -143,7 +144,7 @@ public class Graph<N, E>
         Node<N, E> node = nodes.get(value);
         Preconditions.checkNotNull(node, "node is not in the graph");
 
-        return Collections.unmodifiableSet(node.getIncomingEdges());
+        return ImmutableSet.copyOf(node.getIncomingEdges());
     }
 
     public void retainAll(Collection<N> nodes)
@@ -284,7 +285,12 @@ public class Graph<N, E>
         Node<N, E> node = nodes.get(value);
         Preconditions.checkNotNull(node, "node is not in the graph");
 
-        return Iterables.find(node.getOutgoingEdges(), edgeTypeEquals(edgeType)).getTo();
+        Edge<N, E> edge = Iterables.find(node.getOutgoingEdges(), edgeTypeEquals(edgeType), null);
+        if (edge != null) {
+            return edge.getTo();
+        }
+
+        return null;
     }
 
     public boolean hasOutgoingEdge(N value, E edgeType)
@@ -352,5 +358,10 @@ public class Graph<N, E>
     public boolean contains(N node)
     {
         return nodes.containsKey(node);
+    }
+
+    public int getNodeCount()
+    {
+        return nodes.size();
     }
 }

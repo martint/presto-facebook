@@ -1,6 +1,7 @@
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.like.Slyly;
+import com.facebook.presto.like.Like;
+import com.facebook.presto.like.LikeMatcher;
 import com.facebook.presto.metadata.FunctionInfo;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.scalar.UnixTimeFunctions;
@@ -51,7 +52,6 @@ import javax.annotation.Nullable;
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.Charsets.UTF_8;
@@ -77,13 +77,21 @@ public class ExpressionInterpreter
         }
     };
 
-    private static final ThreadLocalCache<ByIdentity<LikePredicate>, Slyly> CONSTANT_LIKE_PATTERN_CACHE = new ThreadLocalCache<ByIdentity<LikePredicate>, Slyly>(20)
+    private static final ThreadLocalCache<ByIdentity<LikePredicate>, Regex> CONSTANT_LIKE_PATTERN_CACHE_2 = new ThreadLocalCache<ByIdentity<LikePredicate>, Regex>(20)
     {
         @Override
-        protected Slyly load(ByIdentity<LikePredicate> pattern)
+        protected Regex load(ByIdentity<LikePredicate> pattern)
         {
-            return new Slyly();
-//            return likeToRegex(((StringLiteral) pattern.getObject().getPattern()).getValue(), '\\');
+            return likeToRegex(((StringLiteral) pattern.getObject().getPattern()).getValue(), '\\');
+        }
+    };
+
+    private static final ThreadLocalCache<ByIdentity<LikePredicate>, LikeMatcher> CONSTANT_LIKE_PATTERN_CACHE = new ThreadLocalCache<ByIdentity<LikePredicate>, LikeMatcher>(20)
+    {
+        @Override
+        protected LikeMatcher load(ByIdentity<LikePredicate> pattern)
+        {
+            return Like.compile(((StringLiteral) pattern.getObject().getPattern()).getValue(), '\\');
         }
     };
 
@@ -650,15 +658,16 @@ public class ExpressionInterpreter
         }
 
         if (node.getPattern() instanceof StringLiteral) {
-            // constant pattern, so look up pattern in identity cache
+//            // constant pattern, so look up pattern in identity cache
             Slice slice = (Slice) value;
-            Slyly slyly = CONSTANT_LIKE_PATTERN_CACHE.get(new ByIdentity<>(node));
-            return slyly.matches(slice.toString(Charsets.UTF_8));
-//            return slyly.matches(slice.toString(Charsets.UTF_8));
-//            Regex regex = CONSTANT_LIKE_PATTERN_CACHE.get(new ByIdentity<>(node));
+//            LikeMatcher matcher = CONSTANT_LIKE_PATTERN_CACHE.get(new ByIdentity<>(node));
+            LikeMatcher matcher = Like.compile(((StringLiteral) node.getPattern()).getValue(), '\\');
+            return matcher.matches(slice.toString(Charsets.UTF_8));
+//            Regex regex = CONSTANT_LIKE_PATTERN_CACHE_2.get(new ByIdentity<>(node));
 //            org.joni.Matcher matcher = regex.matcher(slice.getBytes());
 //            int match = matcher.match(0, slice.length(), Option.NONE);
 //            return match != -1;
+//        }
         }
 
         Object pattern = process(node.getPattern(), context);
@@ -667,7 +676,8 @@ public class ExpressionInterpreter
         }
 
         String valueString = ((Slice) value).toString(UTF_8);
-        Matcher matcher;
+        LikeMatcher matcher;
+        String patternString = ((Slice) pattern).toString(UTF_8);
         if (node.getEscape() != null) {
             char escapeChar;
             Object escape = process(node.getEscape(), context);
@@ -683,14 +693,15 @@ public class ExpressionInterpreter
             } else {
                 throw new IllegalArgumentException("escape must be empty or a single character: "  + escapeString);
             }
-            String patternString = ((Slice) pattern).toString(UTF_8);
-            matcher = likeToPattern(patternString, escapeChar).matcher(valueString);
+//            matcher = likeToPattern(patternString, escapeChar).matcher(valueString);
+            matcher = Like.compile(patternString, escapeChar);
         }
         else {
-            matcher = LIKE_PATTERN_CACHE.get((Slice) pattern).matcher(valueString);
+//            matcher = LIKE_PATTERN_CACHE.get((Slice) pattern).matcher(valueString);
+            matcher = Like.compile(patternString, '\\');
         }
 
-        return matcher.matches();
+        return matcher.matches(valueString);
     }
 
     public static Regex likeToRegex(String patternString, char escapeChar)
