@@ -6,6 +6,7 @@ import io.airlift.slice.Slices;
 import org.joni.Regex;
 import org.testng.annotations.Test;
 
+import static com.google.common.base.Charsets.UTF_8;
 import static io.airlift.slice.Slices.utf8Slice;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -24,6 +25,15 @@ public class TestLikeUtils
     {
         Slice value = Slices.wrappedBuffer(new byte[] { 'a', 'b', 'c', (byte) 0xFF, 'x', 'y' });
         Regex regex = LikeUtils.likeToPattern("%b%", '\\');
+        assertTrue(LikeUtils.regexMatches(regex, value));
+    }
+
+    @Test
+    public void testMultiline()
+            throws Exception
+    {
+        Slice value = Slices.copiedBuffer("foo\nbar\nbaz", UTF_8);
+        Regex regex = LikeUtils.likeToPattern("%bar%", '\\');
         assertTrue(LikeUtils.regexMatches(regex, value));
     }
 }
