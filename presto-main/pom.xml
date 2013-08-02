@@ -195,6 +195,21 @@
             <artifactId>asm-all</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>com.oracle.truffle</groupId>
+            <artifactId>truffle-api</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.oracle.truffle</groupId>
+            <artifactId>truffle-api-dsl</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.oracle.truffle</groupId>
+            <artifactId>truffle-dsl-processor</artifactId>
+        </dependency>
+
         <!-- for testing -->
         <dependency>
             <groupId>io.airlift</groupId>
