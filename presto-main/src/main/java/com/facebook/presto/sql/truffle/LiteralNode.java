@@ -40,7 +40,7 @@ public abstract class LiteralNode
     public static class UnknownLiteral
             extends LiteralNode
     {
-        public Unknown execute(VirtualFrame frame)
+        public Object execute(VirtualFrame frame)
         {
             return null;
         }
