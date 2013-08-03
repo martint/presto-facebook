@@ -1,11 +1,11 @@
 package com.facebook.presto.sql.truffle;
 
-import com.oracle.truffle.api.frame.VirtualFrame;
+import com.oracle.truffle.api.dsl.Specialization;
 
 public abstract class LiteralNode
         extends ExpressionNode
 {
-    public static class LongLiteral
+    public abstract static class LongLiteral
             extends LiteralNode
     {
         private final long value;
@@ -15,13 +15,14 @@ public abstract class LiteralNode
             this.value = value;
         }
 
-        public Object execute(VirtualFrame frame)
+        @Specialization
+        public long getValue()
         {
             return value;
         }
     }
 
-    public static class DoubleLiteral
+    public abstract static class DoubleLiteral
             extends LiteralNode
     {
         private final double value;
@@ -31,16 +32,18 @@ public abstract class LiteralNode
             this.value = value;
         }
 
-        public Object execute(VirtualFrame frame)
+        @Specialization
+        public double getValue()
         {
             return value;
         }
     }
 
-    public static class UnknownLiteral
+    public abstract static class UnknownLiteral
             extends LiteralNode
     {
-        public Object execute(VirtualFrame frame)
+        @Specialization
+        public Object getValue()
         {
             return null;
         }

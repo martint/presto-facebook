@@ -9,6 +9,9 @@ import com.facebook.presto.sql.truffle.BinaryNodeFactory.SubtractNodeFactory;
 import com.facebook.presto.sql.truffle.LiteralNode.DoubleLiteral;
 import com.facebook.presto.sql.truffle.LiteralNode.LongLiteral;
 import com.facebook.presto.sql.truffle.LiteralNode.UnknownLiteral;
+import com.facebook.presto.sql.truffle.LiteralNodeFactory.DoubleLiteralFactory;
+import com.facebook.presto.sql.truffle.LiteralNodeFactory.LongLiteralFactory;
+import com.facebook.presto.sql.truffle.LiteralNodeFactory.UnknownLiteralFactory;
 import com.google.common.collect.ImmutableList;
 import com.oracle.truffle.api.CallTarget;
 import com.oracle.truffle.api.Truffle;
@@ -37,7 +40,7 @@ public class FilterTest
             throws Exception
     {
         for (NodeFactory<? extends ExpressionNode> binaryFactory : binaryFactories) {
-            ExpressionNode expressionNode = binaryFactory.createNode(new LongLiteral(7), new LongLiteral(13));
+            ExpressionNode expressionNode = binaryFactory.createNode(newLongLiteral(7), newLongLiteral(13));
             doIt(expressionNode);
         }
     }
@@ -46,7 +49,7 @@ public class FilterTest
     public void testLongAddPromote()
             throws Exception
     {
-        AddNode addNode = AddNodeFactory.create(new LongLiteral(Long.MAX_VALUE), new LongLiteral(1));
+        AddNode addNode = AddNodeFactory.create(newLongLiteral(Long.MAX_VALUE), newLongLiteral(1));
         doIt(addNode);
     }
 
@@ -55,7 +58,7 @@ public class FilterTest
             throws Exception
     {
         for (NodeFactory<? extends ExpressionNode> binaryFactory : binaryFactories) {
-            ExpressionNode expressionNode = binaryFactory.createNode(new DoubleLiteral(7.1), new DoubleLiteral(13.1));
+            ExpressionNode expressionNode = binaryFactory.createNode(newDoubleLiteral(7.1), newDoubleLiteral(13.1));
             doIt(expressionNode);
         }
     }
@@ -65,7 +68,7 @@ public class FilterTest
             throws Exception
     {
         for (NodeFactory<? extends ExpressionNode> binaryFactory : binaryFactories) {
-            ExpressionNode expressionNode = binaryFactory.createNode(new LongLiteral(7), new DoubleLiteral(13.1));
+            ExpressionNode expressionNode = binaryFactory.createNode(newLongLiteral(7), newDoubleLiteral(13.1));
             doIt(expressionNode);
         }
     }
@@ -75,11 +78,11 @@ public class FilterTest
             throws Exception
     {
         for (NodeFactory<? extends ExpressionNode> binaryFactory : binaryFactories) {
-            assertNull(doIt(binaryFactory.createNode(new LongLiteral(7), new UnknownLiteral())));
-            assertNull(doIt(binaryFactory.createNode(new UnknownLiteral(), new LongLiteral(7))));
-            assertNull(doIt(binaryFactory.createNode(new DoubleLiteral(7), new UnknownLiteral())));
-            assertNull(doIt(binaryFactory.createNode(new UnknownLiteral(), new DoubleLiteral(7))));
-            assertNull(doIt(binaryFactory.createNode(new UnknownLiteral(), new UnknownLiteral())));
+            assertNull(doIt(binaryFactory.createNode(newLongLiteral(7), newUnknownLiteral())));
+            assertNull(doIt(binaryFactory.createNode(newUnknownLiteral(), newLongLiteral(7))));
+            assertNull(doIt(binaryFactory.createNode(newDoubleLiteral(7), newUnknownLiteral())));
+            assertNull(doIt(binaryFactory.createNode(newUnknownLiteral(), newDoubleLiteral(7))));
+            assertNull(doIt(binaryFactory.createNode(newUnknownLiteral(), newUnknownLiteral())));
         }
     }
 
@@ -113,4 +116,21 @@ public class FilterTest
         Thread.sleep(10);
         return result;
     }
+
+    private LongLiteral newLongLiteral(long value)
+    {
+        return LongLiteralFactory.getInstance().createNode(value);
+    }
+
+    private DoubleLiteral newDoubleLiteral(double value)
+    {
+        return DoubleLiteralFactory.getInstance().createNode(value);
+    }
+
+    private UnknownLiteral newUnknownLiteral()
+    {
+        return UnknownLiteralFactory.getInstance().createNode();
+    }
+
+
 }
