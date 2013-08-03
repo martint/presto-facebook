@@ -8,6 +8,7 @@ import com.facebook.presto.sql.truffle.BinaryNodeFactory.MultiplyNodeFactory;
 import com.facebook.presto.sql.truffle.BinaryNodeFactory.SubtractNodeFactory;
 import com.facebook.presto.sql.truffle.LiteralNode.DoubleLiteral;
 import com.facebook.presto.sql.truffle.LiteralNode.LongLiteral;
+import com.facebook.presto.sql.truffle.LiteralNode.UnknownLiteral;
 import com.google.common.collect.ImmutableList;
 import com.oracle.truffle.api.CallTarget;
 import com.oracle.truffle.api.Truffle;
@@ -16,6 +17,8 @@ import com.oracle.truffle.api.nodes.NodeUtil;
 import org.testng.annotations.Test;
 
 import java.util.List;
+
+import static org.testng.Assert.assertNull;
 
 
 public class FilterTest
@@ -67,9 +70,23 @@ public class FilterTest
         }
     }
 
-    private void doIt(ExpressionNode expressionNode)
+    @Test
+    public void testNullBinary()
+            throws Exception
+    {
+        for (NodeFactory<? extends ExpressionNode> binaryFactory : binaryFactories) {
+            assertNull(doIt(binaryFactory.createNode(new LongLiteral(7), new UnknownLiteral())));
+            assertNull(doIt(binaryFactory.createNode(new UnknownLiteral(), new LongLiteral(7))));
+            assertNull(doIt(binaryFactory.createNode(new DoubleLiteral(7), new UnknownLiteral())));
+            assertNull(doIt(binaryFactory.createNode(new UnknownLiteral(), new DoubleLiteral(7))));
+            assertNull(doIt(binaryFactory.createNode(new UnknownLiteral(), new UnknownLiteral())));
+        }
+    }
+
+    private Object doIt(ExpressionNode expressionNode)
             throws InterruptedException
     {
+        System.out.println("==========================================================================================");
         Filter rootNode = new Filter(expressionNode);
         NodeUtil.printTree(System.out, rootNode);
 
@@ -90,7 +107,10 @@ public class FilterTest
         finally {
             NodeUtil.printTree(System.out, rootNode);
         }
-        System.out.println(result);
+        if (debug) {
+            System.out.println(result);
+        }
         Thread.sleep(10);
+        return result;
     }
 }

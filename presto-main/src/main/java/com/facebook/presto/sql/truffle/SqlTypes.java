@@ -4,9 +4,22 @@ import com.oracle.truffle.api.dsl.TypeCast;
 import com.oracle.truffle.api.dsl.TypeCheck;
 import com.oracle.truffle.api.dsl.TypeSystem;
 
-@TypeSystem({long.class, double.class, boolean.class, String.class})
+@TypeSystem({Unknown.class, long.class, double.class, boolean.class, String.class})
 public class SqlTypes
 {
+    @TypeCheck
+    public boolean isUnknown(Object value)
+    {
+        return value == null;
+    }
+//
+//    @TypeCast
+//    public Unknown asUnknown(Object value)
+//    {
+//        assert isUnknown(value);
+//        return (Unknown) value;
+//    }
+
     @TypeCheck
     public boolean isLong(Object value)
     {

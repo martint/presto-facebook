@@ -19,4 +19,10 @@ public abstract class ExpressionNode
     {
         return SqlTypesGen.SQLTYPES.expectDouble(execute(frame));
     }
+
+    public Unknown executeUnknown(VirtualFrame frame)
+            throws UnexpectedResultException
+    {
+        return SqlTypesGen.SQLTYPES.expectUnknown(execute(frame));
+    }
 }

@@ -36,4 +36,13 @@ public abstract class LiteralNode
             return value;
         }
     }
+
+    public static class UnknownLiteral
+            extends LiteralNode
+    {
+        public Unknown execute(VirtualFrame frame)
+        {
+            return null;
+        }
+    }
 }
