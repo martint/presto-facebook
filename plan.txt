@@ -1,0 +1,151 @@
+SELECT T.a, T.b, T.c
+FROM T
+
+
+(project
+    (table 'T')
+    ((t) -> (t.a t.b t.c)))
+
+
+
+------
+
+SELECT T.a, T.b, T.c
+FROM T
+WHERE T.a > 5 AND T.b = 'foo'
+
+
+(project
+    (filter
+        (table 'T')
+        ((t) -> (and (> t.a $5) (= t.b 'foo'))))
+    ((t) -> (t.a t.b t.c)))
+
+
+
+-----
+
+SELECT T.a, T.b, U.x, U.y
+FROM T JOIN U ON T.a = U.x
+
+(project
+    (join
+        (table 'T')
+        (table 'U')
+        ((t) -> (= t.a u.x)))
+    ((t u) -> (t.a t.b u.x u.y)))
+
+
+
+------
+
+SELECT T.a, T.b, T.c
+FROM T
+WHERE T.d in (SELECT U.x FROM U) AND T.e < 5
+
+
+(project
+    (filter
+        (table 'T')
+        ((t) -> (and (in t.d (project
+                                (table 'U')
+                                ((u) -> (u.x))))
+                     (< t.e 5))))
+    ((t) -> (t.a t.b t.c)))
+
+
+
+SELECT T.a, T.b, T.c
+FROM T SEMIJOIN U ON T.d = U.x AS z     # z is artificial variable to indicate whether there was a match
+WHERE z AND T.e < 5
+
+
+(project
+    (filter
+        (semijoin
+            (table 'T')
+            (table 'U')
+            ((t, u) -> (= t.d u.x)))
+        ((t, z) -> (and z (< t.e 5))))
+    ((t) -> (t.a t.b t.c)))
+
+
+
+
+SELECT T.a, T.b, T.c
+FROM T JOIN (SELECT DISTINCT U.x FROM U) z ON T.d = z.x
+WHERE T.e < 5
+
+
+(project
+    (filter
+        (join
+            (table 'T')
+            (distinct (table 'U'))
+            ((t, z) -> (= t.d z.x)))
+        ((t, z) -> (< t.e 5)))
+    ((t, z) -> (t.a t.b t.c)))
+
+
+
+
+------
+
+SELECT T.a, T.b, SUM(T.c) + SUM(T.d)
+FROM T
+GROUP BY T.a, T.b
+
+(project
+    (group
+        (table 'T')
+        ((t) -> (t.a t.b)))
+    ((key group) -> (key.0 key.1 (+ (sum group.c) (sum group.d)))
+
+
+-----
+
+SELECT T.a, T.b
+FROM T
+WHERE T.c IN (SELECT U.x FROM U WHERE T.e = U.y)
+
+
+(project
+    (filter
+        (table 'T')
+        ((t) -> (in t.c (project
+                            (filter
+                                (table 'U')
+                                ((u) -> (= t.e u.y)))   # does t come from the closure? or should it be explicit?
+                            ((u) -> (u.x))))))
+    ((t) -> (t.a t.b)))
+
+# how does it look when de-correlated?
+
+
+
+
+
+<I, O> Relation<O> project(Relation<I> in, Function<I, O> function)
+
+<I> Relation<I> filter(Relation<I> in, Predicate<I> predicate)
+
+<I, K> Relation<[K, Relation<I>]> group(Relation<I> in, Function<I, K> function)
+
+<I1, I2> Relation<I1+I2> join(Relation<I1> in1, Relation<I2> in2, Predicate<I1, I2> condition)
+
+<I1, I2> Relation<I1+[Boolean]> semiJoin(Relation<I1> in1, Relation<I2> in2, Predicate<I1+I2> condition)
+
+<I> Relation<I> order(Relation<I> in, Comparator<I> comparator)
+
+<I> Relation<I> limit(Relation<I> in, int n)
+
+<I> Relation<I> topN(Relation<I> in, int n)
+
+<I> Relation<I> distinct(Relation<I> in)
+
+<I> Relation<I> union(Relation<I>[] in)
+<I> Relation<I> intersect(Relation<I>[] in)
+
+
+exchange
+writeTable
