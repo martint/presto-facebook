@@ -161,5 +161,36 @@ public class InMemoryMetadata
         {
             return tableName;
         }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+
+            InMemoryTableHandle that = (InMemoryTableHandle) o;
+
+            if (!tableName.equals(that.tableName)) {
+                return false;
+            }
+
+            return true;
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return tableName.hashCode();
+        }
+
+        @Override
+        public String toString()
+        {
+            return tableName.toString();
+        }
     }
 }
