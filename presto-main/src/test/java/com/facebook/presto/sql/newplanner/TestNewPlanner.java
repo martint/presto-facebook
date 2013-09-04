@@ -68,6 +68,67 @@ public class TestNewPlanner
                         new Tuple(new ColumnLiteral(metadata.getColumnHandle(t1Handle, "a").get()))));
     }
 
+    @Test
+    public void testSimpleProjection()
+            throws Exception
+    {
+        assertEquals(
+                plan("SELECT a + b FROM t1"),
+                "TO DO"
+        );
+    }
+
+    @Test
+    public void testFilter()
+            throws Exception
+    {
+        assertEquals(
+                plan("SELECT * FROM t1 WHERE a > 5"),
+                "TO DO"
+        );
+    }
+
+    @Test
+    public void testGroupBy()
+            throws Exception
+    {
+        assertEquals(
+                plan("SELECT a, sum(b) FROM t1 GROUP BY a"),
+                "TO DO"
+        );
+    }
+
+
+    @Test
+    public void testGroupBy2()
+            throws Exception
+    {
+        assertEquals(
+                plan("SELECT a, sum(a + b) FROM t1 GROUP BY a"),
+                "TO DO"
+        );
+    }
+
+    @Test
+    public void testHaving()
+            throws Exception
+    {
+//        assertEquals(
+//                plan("SELECT a, sum(b) FROM t1 GROUP BY a HAVING a > 5"),
+//                null
+//        );
+
+//        assertEquals(
+//                plan("SELECT a, sum(b) FROM t1 GROUP BY a HAVING sum(b) > 5"),
+//                null
+//        );
+
+        assertEquals(
+                plan("SELECT a, sum(b) FROM t1 GROUP BY a HAVING avg(c) > 5"),
+                null
+        );
+    }
+
 
     @BeforeMethod(alwaysRun = true)
     public void setup()
@@ -123,45 +184,45 @@ public class TestNewPlanner
         //                (table 'T')
         //        ((t) -> (t.a t.b t.c)))
 
-        RelationalExpression expression = new FunctionCall("project",
-                new FunctionCall("table", new StringLiteral("T")),
-                new Lambda("t0", new Tuple(
-                        new Reference("t0.a"),
-                        new Reference("t0.b"),
-                        new Reference("t0.c")
-                )));
-    }
-
-
-    @Test
-    public void testFilter()
-            throws Exception
-    {
-        //        SELECT T.a, T.b, T.c
-        //        FROM T
-        //        WHERE T.a > 5 AND T.b = 'foo'
-        //
-        //
-        //        (project
-        //                (filter
-        //                        (table 'T')
-        //        ((t) -> (and (> t.a 5) (= t.b 'foo'))))
-        //        ((t) -> (t.a t.b t.c)))
-//
 //        RelationalExpression expression = new FunctionCall("project",
-//                new FunctionCall("filter",
-//                        new FunctionCall("table", new StringLiteral("T")),
-//                        new Lambda("t0", new BinaryLogicalExpression("and",
-//                                new ComparisonExpression(">", new Reference("t0.a"), new StringLiteral(5)),
-//                                new ComparisonExpression("=", new Reference("t0.b"), new StringLiteral("foo"))))),
+//                new FunctionCall("table", new StringLiteral("T")),
 //                new Lambda("t0", new Tuple(
-//                        new Reference("t0.a"),
-//                        new Reference("t0.b"),
-//                        new Reference("t0.c")
+//                        new FieldRef("t0.a"),
+//                        new FieldRef("t0.b"),
+//                        new FieldRef("t0.c")
 //                )));
-//
-
     }
+
+
+//    @Test
+//    public void testFilter()
+//            throws Exception
+//    {
+//        //        SELECT T.a, T.b, T.c
+//        //        FROM T
+//        //        WHERE T.a > 5 AND T.b = 'foo'
+//        //
+//        //
+//        //        (project
+//        //                (filter
+//        //                        (table 'T')
+//        //        ((t) -> (and (> t.a 5) (= t.b 'foo'))))
+//        //        ((t) -> (t.a t.b t.c)))
+////
+////        RelationalExpression expression = new FunctionCall("project",
+////                new FunctionCall("filter",
+////                        new FunctionCall("table", new StringLiteral("T")),
+////                        new Lambda("t0", new BinaryLogicalExpression("and",
+////                                new ComparisonExpression(">", new Reference("t0.a"), new StringLiteral(5)),
+////                                new ComparisonExpression("=", new Reference("t0.b"), new StringLiteral("foo"))))),
+////                new Lambda("t0", new Tuple(
+////                        new Reference("t0.a"),
+////                        new Reference("t0.b"),
+////                        new Reference("t0.c")
+////                )));
+////
+//
+//    }
 
     @Test
     public void testJoin()

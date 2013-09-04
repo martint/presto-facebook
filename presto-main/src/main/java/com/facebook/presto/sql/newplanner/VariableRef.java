@@ -1,19 +1,14 @@
 package com.facebook.presto.sql.newplanner;
 
-public class Reference
-    extends RelationalExpression
+
+public class VariableRef
+    implements RelationalExpression
 {
     private final String name;
 
-    public Reference(String name)
+    public VariableRef(String name)
     {
         this.name = name;
-    }
-
-    @Override
-    public RelationalType getType()
-    {
-        throw new UnsupportedOperationException("not yet implemented");
     }
 
     @Override
@@ -26,9 +21,9 @@ public class Reference
             return false;
         }
 
-        Reference reference = (Reference) o;
+        VariableRef that = (VariableRef) o;
 
-        if (!name.equals(reference.name)) {
+        if (!name.equals(that.name)) {
             return false;
         }
 
@@ -39,5 +34,17 @@ public class Reference
     public int hashCode()
     {
         return name.hashCode();
+    }
+
+    @Override
+    public String toString()
+    {
+        return name;
+    }
+
+    @Override
+    public RelationalExpression apply(RelationalExpression param)
+    {
+        throw new UnsupportedOperationException("not yet implemented");
     }
 }

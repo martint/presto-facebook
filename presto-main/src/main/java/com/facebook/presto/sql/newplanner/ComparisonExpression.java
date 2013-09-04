@@ -1,7 +1,7 @@
 package com.facebook.presto.sql.newplanner;
 
 public class ComparisonExpression
-    extends RelationalExpression
+        implements RelationalExpression
 {
     private final String operator;
     private final RelationalExpression left;
@@ -12,12 +12,6 @@ public class ComparisonExpression
         this.operator = operator;
         this.left = left;
         this.right = right;
-    }
-
-    @Override
-    public RelationalType getType()
-    {
-        throw new UnsupportedOperationException("not yet implemented");
     }
 
     @Override
@@ -52,5 +46,11 @@ public class ComparisonExpression
         result = 31 * result + left.hashCode();
         result = 31 * result + right.hashCode();
         return result;
+    }
+
+    @Override
+    public RelationalExpression apply(RelationalExpression param)
+    {
+        return new ComparisonExpression(operator, left.apply(param), right.apply(param));
     }
 }

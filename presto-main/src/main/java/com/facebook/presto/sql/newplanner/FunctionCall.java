@@ -6,8 +6,9 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 public class FunctionCall
-        extends RelationalExpression
+        implements RelationalExpression
 {
+    // TODO: use "signature" instead of name
     private final String name;
     private List<RelationalExpression> arguments;
 
@@ -17,10 +18,10 @@ public class FunctionCall
         this.arguments = ImmutableList.copyOf(args);
     }
 
-    @Override
-    public RelationalType getType()
+    public FunctionCall(String name, List<RelationalExpression> args)
     {
-        throw new UnsupportedOperationException("not yet implemented");
+        this.name = name;
+        this.arguments = ImmutableList.copyOf(args);
     }
 
     @Override
@@ -56,6 +57,17 @@ public class FunctionCall
     @Override
     public String toString()
     {
-        return "call('" + name + "', " + Joiner.on(", ").join(arguments) + ")";
+        return "call(\"" + name + "\", " + Joiner.on(", ").join(arguments) + ")";
+    }
+
+    @Override
+    public RelationalExpression apply(RelationalExpression param)
+    {
+        ImmutableList.Builder<RelationalExpression> args = ImmutableList.builder();
+        for (RelationalExpression argument : arguments) {
+            args.add(argument.apply(param));
+        }
+
+        return new FunctionCall(name, args.build());
     }
 }

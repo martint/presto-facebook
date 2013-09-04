@@ -1,25 +1,22 @@
 package com.facebook.presto.sql.newplanner;
 
+import com.google.common.base.Objects;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.Maps;
+
 public class Lambda
-    extends RelationalExpression
+        implements RelationalExpression
 {
     private final String argument;
     private final RelationalExpression body;
 
     public Lambda(String argument, RelationalExpression body)
     {
+        Preconditions.checkNotNull(argument, "argument is null");
+        Preconditions.checkNotNull(body, "body is null");
+
         this.argument = argument;
         this.body = body;
-    }
-
-//    public Lambda(String arg0, String arg1, RelationalExpression body)
-//    {
-//    }
-
-    @Override
-    public RelationalType getType()
-    {
-        throw new UnsupportedOperationException("not yet implemented");
     }
 
     @Override
@@ -50,5 +47,17 @@ public class Lambda
         int result = argument.hashCode();
         result = 31 * result + body.hashCode();
         return result;
+    }
+
+    @Override
+    public String toString()
+    {
+        return argument + " -> " + body.toString();
+    }
+
+    @Override
+    public RelationalExpression apply(RelationalExpression param)
+    {
+        return body.apply(param);
     }
 }

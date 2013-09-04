@@ -3,7 +3,7 @@ package com.facebook.presto.sql.newplanner;
 import com.facebook.presto.spi.TableHandle;
 
 public class TableLiteral
-    extends RelationalExpression
+        implements RelationalExpression
 {
     private final TableHandle handle;
 
@@ -11,13 +11,6 @@ public class TableLiteral
     {
         this.handle = handle;
     }
-
-    @Override
-    public RelationalType getType()
-    {
-        throw new UnsupportedOperationException("not yet implemented");
-    }
-
     @Override
     public boolean equals(Object o)
     {
@@ -46,6 +39,12 @@ public class TableLiteral
     @Override
     public String toString()
     {
-        return handle.toString();
+        return String.format("tableRef(\"%s\")", handle);
+    }
+
+    @Override
+    public RelationalExpression apply(RelationalExpression param)
+    {
+        return this;
     }
 }

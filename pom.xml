@@ -45,6 +45,7 @@
     </distributionManagement>
 
     <properties>
+        <project.build.targetJdk>1.8</project.build.targetJdk>
         <air.check.skip-extended>true</air.check.skip-extended>
         <air.check.fail-all>false</air.check.fail-all>
         <air.check.fail-basic>true</air.check.fail-basic>

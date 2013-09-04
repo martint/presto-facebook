@@ -1,15 +1,13 @@
 package com.facebook.presto.sql.newplanner;
 
-import com.facebook.presto.spi.ColumnHandle;
-
-public class ColumnLiteral
+public class BigintLiteral
         implements RelationalExpression
 {
-    private final ColumnHandle column;
+    private final long value;
 
-    public ColumnLiteral(ColumnHandle column)
+    public BigintLiteral(long value)
     {
-        this.column = column;
+        this.value = value;
     }
 
     @Override
@@ -22,9 +20,9 @@ public class ColumnLiteral
             return false;
         }
 
-        ColumnLiteral that = (ColumnLiteral) o;
+        BigintLiteral that = (BigintLiteral) o;
 
-        if (!column.equals(that.column)) {
+        if (value != that.value) {
             return false;
         }
 
@@ -34,13 +32,13 @@ public class ColumnLiteral
     @Override
     public int hashCode()
     {
-        return column.hashCode();
+        return (int) (value ^ (value >>> 32));
     }
 
     @Override
     public String toString()
     {
-        return String.format("colRef(\"%s\")", column);
+        return Long.toString(value);
     }
 
     @Override

@@ -6,7 +6,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 public class Tuple
-    extends RelationalExpression
+        implements RelationalExpression
 {
     private final List<RelationalExpression> parts;
 
@@ -18,12 +18,6 @@ public class Tuple
     public Tuple(List<? extends RelationalExpression> parts)
     {
         this.parts = ImmutableList.copyOf(parts);
-    }
-
-    @Override
-    public RelationalType getType()
-    {
-        throw new UnsupportedOperationException("not yet implemented");
     }
 
     @Override
@@ -54,7 +48,17 @@ public class Tuple
     @Override
     public String toString()
     {
-        return "{ " + Joiner.on(", ").join(parts) + " }";
+        return "tuple(" + Joiner.on(", ").join(parts) + ")";
     }
 
+    @Override
+    public RelationalExpression apply(RelationalExpression param)
+    {
+        ImmutableList.Builder<RelationalExpression> builder = ImmutableList.builder();
+        for (RelationalExpression part : parts) {
+            builder.add(part.apply(param));
+        }
+
+        return new Tuple(builder.build());
+    }
 }

@@ -1,19 +1,13 @@
 package com.facebook.presto.sql.newplanner;
 
 public class StringLiteral
-    extends RelationalExpression
+        implements RelationalExpression
 {
     private final String value;
 
     public StringLiteral(String value)
     {
         this.value = value;
-    }
-
-    @Override
-    public RelationalType getType()
-    {
-        throw new UnsupportedOperationException("not yet implemented");
     }
 
     @Override
@@ -39,5 +33,11 @@ public class StringLiteral
     public int hashCode()
     {
         return value.hashCode();
+    }
+
+    @Override
+    public RelationalExpression apply(RelationalExpression param)
+    {
+        return this;
     }
 }

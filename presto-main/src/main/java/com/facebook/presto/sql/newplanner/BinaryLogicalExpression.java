@@ -1,7 +1,7 @@
 package com.facebook.presto.sql.newplanner;
 
 public class BinaryLogicalExpression
-        extends RelationalExpression
+        implements RelationalExpression
 {
     private final String operation;
     private final RelationalExpression left;
@@ -12,12 +12,6 @@ public class BinaryLogicalExpression
         this.operation = operation;
         this.left = left;
         this.right = right;
-    }
-
-    @Override
-    public RelationalType getType()
-    {
-        throw new UnsupportedOperationException("not yet implemented");
     }
 
     @Override
@@ -52,5 +46,11 @@ public class BinaryLogicalExpression
         result = 31 * result + left.hashCode();
         result = 31 * result + right.hashCode();
         return result;
+    }
+
+    @Override
+    public RelationalExpression apply(RelationalExpression param)
+    {
+        return new BinaryLogicalExpression(operation, left.apply(param), right.apply(param));
     }
 }

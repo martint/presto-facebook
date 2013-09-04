@@ -5,15 +5,12 @@ import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.FieldOrExpression;
 import com.facebook.presto.sql.analyzer.TupleDescriptor;
-import com.facebook.presto.sql.tree.AliasedRelation;
-import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
-import com.facebook.presto.sql.tree.Node;
-import com.facebook.presto.sql.tree.Query;
-import com.facebook.presto.sql.tree.QuerySpecification;
-import com.facebook.presto.sql.tree.Table;
-import com.facebook.presto.sql.tree.TableSubquery;
+import com.facebook.presto.sql.tree.*;
+import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+
+import java.util.List;
 
 public class NewPlanner
 {
@@ -23,21 +20,21 @@ public class NewPlanner
     {
         this.analysis = analysis;
 
-        return new Visitor().process(analysis.getQuery(), null);
+        return new Visitor().process(analysis.getQuery(), new PlanningContext());
     }
 
 
     class Visitor
-        extends DefaultTraversalVisitor<RelationalExpression, Void>
+        extends DefaultTraversalVisitor<RelationalExpression, PlanningContext>
     {
         @Override
-        protected RelationalExpression visitNode(Node node, Void context)
+        protected RelationalExpression visitNode(Node node, PlanningContext context)
         {
             throw new UnsupportedOperationException("not yet implemented: " + node.getClass().getName());
         }
 
         @Override
-        protected RelationalExpression visitQuery(Query query, Void context)
+        protected RelationalExpression visitQuery(Query query, PlanningContext context)
         {
             RelationalExpression expression = process(query.getQueryBody(), context);
 
@@ -53,34 +50,69 @@ public class NewPlanner
         }
 
         @Override
-        protected RelationalExpression visitQuerySpecification(QuerySpecification node, Void context)
+        protected RelationalExpression visitQuerySpecification(QuerySpecification node, PlanningContext context)
         {
             RelationalExpression expression = process(Iterables.getOnlyElement(node.getFrom()), context);
 
-            expression = project(expression, analysis.getOutputExpressions(node));
+            expression = filter(expression, analysis.getWhere(node), context);
+            expression = group(expression, analysis.getGroupByExpressions(node), context);
+//            expression = filter(expression, analysis.getHaving(node), context);
+
+            List<FieldOrExpression> orderBy = analysis.getOrderByExpressions(node);
+            List<FieldOrExpression> outputs = analysis.getOutputExpressions(node);
+            expression = project(expression, Iterables.concat(orderBy, outputs), context);
 
             return expression;
         }
 
-        private RelationalExpression project(RelationalExpression expression, Iterable<FieldOrExpression> expressions)
+        private RelationalExpression project(RelationalExpression expression, Iterable<FieldOrExpression> expressions, PlanningContext context)
         {
             ImmutableList.Builder<RelationalExpression> parts = ImmutableList.builder();
-
-            // TODO:
-            //   context should contain
-            //      - map of qname -> ref for externally bound names
-            //      - map of qname -> input offset for names provided by underlying tuple
-
             for (FieldOrExpression fieldOrExpression : expressions) {
-//                parts.add()
+                if (fieldOrExpression.isFieldReference()) {
+                    parts.add(new FieldRef(new VariableRef("t"), fieldOrExpression.getFieldIndex()));
+                }
+                else {
+                    parts.add(process(fieldOrExpression.getExpression(), context));
+                }
             }
 
             // TODO: qualify "t" with context level to get a unique name across closure scope
-            return new FunctionCall("project", expression, new Lambda("t", new Tuple()));
+            return new FunctionCall("project", expression, new Lambda("t", new Tuple(parts.build())));
+        }
+
+        private RelationalExpression filter(RelationalExpression expression, Expression condition, PlanningContext context)
+        {
+            if (condition != null) {
+                // TODO: qualify "t" with context level to get a unique name across closure scope
+                return new FunctionCall("filter", expression, new Lambda("t", process(condition, context)));
+            }
+
+            return expression;
+        }
+
+        private RelationalExpression group(RelationalExpression expression, List<FieldOrExpression> expressions, PlanningContext context)
+        {
+            if (!expressions.isEmpty()) {
+                ImmutableList.Builder<RelationalExpression> parts = ImmutableList.builder();
+                for (FieldOrExpression fieldOrExpression : expressions) {
+                    if (fieldOrExpression.isFieldReference()) {
+                        parts.add(new FieldRef(new VariableRef("t"), fieldOrExpression.getFieldIndex()));
+                    }
+                    else {
+                        parts.add(process(fieldOrExpression.getExpression(), context));
+                    }
+                }
+
+//                context.set
+                return new FunctionCall("group", expression, new Lambda("t", new Tuple(parts.build())));
+            }
+
+            return expression;
         }
 
         @Override
-        protected RelationalExpression visitTable(Table node, Void context)
+        protected RelationalExpression visitTable(Table node, PlanningContext context)
         {
             if (!node.getName().getPrefix().isPresent()) {
                 Query namedQuery = analysis.getNamedQuery(node);
@@ -94,21 +126,20 @@ public class NewPlanner
             TupleDescriptor descriptor = analysis.getOutputDescriptor(node);
             TableHandle handle = analysis.getTableHandle(node);
 
-
             ImmutableList.Builder<ColumnLiteral> columns = ImmutableList.builder();
-            for (Field field : descriptor.getFields()) {
+            for (int i = 0; i < descriptor.getFields().size(); i++) {
+                Field field = descriptor.getFields().get(i);
                 columns.add(new ColumnLiteral(analysis.getColumn(field)));
             }
 
             // TODO: partition/implicit predicate
-            // TODO: sql name -> tuple offset mapping (for planning of callers)
 
             // call("table", "<table handle>", {"<column handle>", ...})
             return new FunctionCall("table", new TableLiteral(handle), new Tuple(columns.build()));
         }
 
         @Override
-        protected RelationalExpression visitAliasedRelation(AliasedRelation node, Void context)
+        protected RelationalExpression visitAliasedRelation(AliasedRelation node, PlanningContext context)
         {
             // TODO: sql name -> tuple offset mapping (for planning of callers)
             return process(node.getRelation(), context);
@@ -146,7 +177,7 @@ public class NewPlanner
 //        }
 
         @Override
-        protected RelationalExpression visitTableSubquery(TableSubquery node, Void context)
+        protected RelationalExpression visitTableSubquery(TableSubquery node, PlanningContext context)
         {
             return process(node.getQuery(), context);
         }
@@ -250,6 +281,48 @@ public class NewPlanner
 //                    ImmutableMap.<Symbol, com.facebook.presto.sql.tree.FunctionCall>of(),
 //                    ImmutableMap.<Symbol, FunctionHandle>of());
 //        }
-    }
 
+
+        @Override
+        protected RelationalExpression visitQualifiedNameReference(QualifiedNameReference node, PlanningContext context)
+        {
+            Integer input = analysis.getResolvedNames(node).get(node.getName());
+            return new FieldRef(new VariableRef(context.getCurrentTupleReference()), input);
+        }
+
+        @Override
+        protected RelationalExpression visitArithmeticExpression(ArithmeticExpression node, PlanningContext context)
+        {
+            RelationalExpression left = process(node.getLeft(), context);
+            RelationalExpression right = process(node.getRight(), context);
+
+            return new FunctionCall(node.getType().getValue(), left, right);
+        }
+
+        @Override
+        protected RelationalExpression visitComparisonExpression(ComparisonExpression node, PlanningContext context)
+        {
+            RelationalExpression left = process(node.getLeft(), context);
+            RelationalExpression right = process(node.getRight(), context);
+
+            return new FunctionCall(node.getType().getValue(), left, right);
+        }
+
+        @Override
+        protected RelationalExpression visitLongLiteral(LongLiteral node, PlanningContext context)
+        {
+            return new BigintLiteral(node.getValue());
+        }
+
+        @Override
+        protected RelationalExpression visitFunctionCall(com.facebook.presto.sql.tree.FunctionCall node, PlanningContext context)
+        {
+            ImmutableList.Builder<RelationalExpression> args = ImmutableList.builder();
+            for (Expression arg : node.getArguments()) {
+                args.add(process(arg, context));
+            }
+
+            return new FunctionCall(node.getName().toString(), args.build());
+        }
+    }
 }
