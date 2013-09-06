@@ -139,6 +139,8 @@ public class Main
 
             log.info("======== SERVER STARTED ========");
 
+
+            hook(injector);
             installCodeCacheGcTrigger();
         }
         catch (Throwable e) {
@@ -146,6 +148,8 @@ public class Main
             System.exit(1);
         }
     }
+
+    protected void hook(Injector injector) {}
 
     protected Iterable<? extends Module> getAdditionalModules()
     {
