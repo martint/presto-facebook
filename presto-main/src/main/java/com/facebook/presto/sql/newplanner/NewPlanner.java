@@ -5,12 +5,18 @@ import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.FieldOrExpression;
 import com.facebook.presto.sql.analyzer.TupleDescriptor;
+import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.tree.*;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.util.IterableTransformer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+
+import static com.facebook.presto.sql.tree.FunctionCall.argumentsGetter;
 
 public class NewPlanner
 {
@@ -49,18 +55,123 @@ public class NewPlanner
             return expression;
         }
 
+//        private PlanBuilder aggregate(PlanBuilder subPlan, QuerySpecification node)
+//        {
+//            if (analysis.getAggregates(node).isEmpty() && analysis.getGroupByExpressions(node).isEmpty()) {
+//                return subPlan;
+//            }
+//
+//            Set<FieldOrExpression> arguments = IterableTransformer.on(analysis.getAggregates(node))
+//                    .transformAndFlatten(argumentsGetter())
+//                    .transform(toFieldOrExpression())
+//                    .set();
+//
+//            // 1. Pre-project all scalar inputs (arguments and non-trivial group by expressions)
+//            Iterable<FieldOrExpression> inputs = Iterables.concat(analysis.getGroupByExpressions(node), arguments);
+//            if (!Iterables.isEmpty(inputs)) { // avoid an empty projection if the only aggregation is COUNT (which has no arguments)
+//                subPlan = project(subPlan, inputs);
+//            }
+//
+//            // 2. Aggregate
+//            ImmutableMap.Builder<Symbol, FunctionCall> aggregationAssignments = ImmutableMap.builder();
+//            ImmutableMap.Builder<Symbol, FunctionHandle> functions = ImmutableMap.builder();
+//
+//            // 2.a. Rewrite aggregates in terms of pre-projected inputs
+//            TranslationMap translations = new TranslationMap(subPlan.getRelationPlan(), analysis);
+//            for (FunctionCall aggregate : analysis.getAggregates(node)) {
+//                FunctionCall rewritten = (FunctionCall) subPlan.rewrite(aggregate);
+//                Symbol newSymbol = symbolAllocator.newSymbol(rewritten, analysis.getType(aggregate));
+//
+//                aggregationAssignments.put(newSymbol, rewritten);
+//                translations.put(aggregate, newSymbol);
+//
+//                functions.put(newSymbol, analysis.getFunctionInfo(aggregate).getHandle());
+//            }
+//
+//            // 2.b. Rewrite group by expressions in terms of pre-projected inputs
+//            Set<Symbol> groupBySymbols = new LinkedHashSet<>();
+//            for (FieldOrExpression fieldOrExpression : analysis.getGroupByExpressions(node)) {
+//                Symbol symbol = subPlan.translate(fieldOrExpression);
+//                groupBySymbols.add(symbol);
+//                translations.put(fieldOrExpression, symbol);
+//            }
+//
+//            return new PlanBuilder(translations, new AggregationNode(idAllocator.getNextId(), subPlan.getRoot(), ImmutableList.copyOf(groupBySymbols), aggregationAssignments.build(), functions.build()));
+//        }
+
         @Override
         protected RelationalExpression visitQuerySpecification(QuerySpecification node, PlanningContext context)
         {
             RelationalExpression expression = process(Iterables.getOnlyElement(node.getFrom()), context);
 
-            expression = filter(expression, analysis.getWhere(node), context);
-            expression = group(expression, analysis.getGroupByExpressions(node), context);
+            TranslationMap map = new TranslationMap(analysis, analysis.getOutputDescriptor(Iterables.getOnlyElement(node.getFrom())), "t");
+
+//            analysis.getResolvedNames()
+            if (analysis.getWhere(node) != null) {
+                RelationalExpression where = map.translate(analysis.getWhere(node));
+                expression = new FunctionCall("filter", expression, new Lambda("t", where));
+            }
+
+            if (!analysis.getAggregates(node).isEmpty() || !analysis.getGroupByExpressions(node).isEmpty()) {
+                // aggregate(relation, group-by-lambda, list<agg + arguments lamba>)
+                List<RelationalExpression> groupBy = new ArrayList<>();
+                for (FieldOrExpression fieldOrExpression : analysis.getGroupByExpressions(node)) {
+                    groupBy.add(map.translate(fieldOrExpression));
+                }
+
+                int i = 0;
+                List<RelationalExpression> aggregates = new ArrayList<>();
+                for (com.facebook.presto.sql.tree.FunctionCall aggregate : analysis.getAggregates(node)) {
+                    List<RelationalExpression> translatedArguments = new ArrayList<>();
+                    for (Expression argument : aggregate.getArguments()) {
+                        RelationalExpression translatedArgument = map.translate(argument);
+                        translatedArguments.add(translatedArgument);
+                    }
+                    Tuple aggregateDefinition = new Tuple(new StringLiteral(aggregate.getName().toString()), new Lambda("t", new Tuple(translatedArguments)));
+                    aggregates.add(aggregateDefinition);
+
+                    map.put(aggregate, new FieldRef(new VariableRef("t"), i++));
+                }
+
+                List<RelationalExpression> args = new ArrayList<>();
+                args.add(expression);
+                args.add(new Lambda("t", new Tuple(groupBy)));
+                args.addAll(aggregates);
+
+                expression = new FunctionCall("aggregate", args);
+            }
+
+
+            //            expression = group(expression, analysis.getGroupByExpressions(node), context);
 //            expression = filter(expression, analysis.getHaving(node), context);
+
+//            List<FieldOrExpression> orderBy = analysis.getOrderByExpressions(node);
+//            List<FieldOrExpression> outputs = analysis.getOutputExpressions(node);
+//            expression = project(expression, Iterables.concat(orderBy, outputs), context);
+
+
+
+            /*
+            PlanBuilder builder = planFrom(node);
+
+            Set<InPredicate> inPredicates = analysis.getInPredicates(node);
+            builder = appendSemiJoins(builder, inPredicates);
+
+            builder = filter(builder, analysis.getWhere(node));
+            builder = aggregate(builder, node);
+            builder = filter(builder, analysis.getHaving(node));
+
+            builder = window(builder, node);
 
             List<FieldOrExpression> orderBy = analysis.getOrderByExpressions(node);
             List<FieldOrExpression> outputs = analysis.getOutputExpressions(node);
-            expression = project(expression, Iterables.concat(orderBy, outputs), context);
+            builder = project(builder, Iterables.concat(orderBy, outputs));
+
+            builder = distinct(builder, node, outputs, orderBy);
+            builder = sort(builder, node);
+            builder = project(builder, analysis.getOutputExpressions(node));
+            builder = limit(builder, node);
+            */
 
             return expression;
         }

@@ -1,0 +1,7 @@
+SELECT k, sum(v1 + v2)
+FROM t
+GROUP BY k
+
+
+r10 = table('t', ['k', 'v1', 'v2'])
+r20 = aggregate(r10, (t) -> t.$0, ['sum', (t) -> t.$0 + t.$1])

@@ -110,6 +110,16 @@ public class TestNewPlanner
     }
 
     @Test
+    public void testGroupBy3()
+            throws Exception
+    {
+        assertEquals(
+                plan("SELECT a, sum(a + b) - avg(b + c) FROM t1 GROUP BY a"),
+                "TO DO"
+        );
+    }
+
+    @Test
     public void testHaving()
             throws Exception
     {

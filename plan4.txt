@@ -1,0 +1,33 @@
+SELECT k, sum(v)
+FROM t
+GROUP BY k
+
+
+SELECT k, (SELECT sum(v) FROM t WHERE t.k = u.k)
+FROM (
+    SELECT DISTINCT k FROM t
+) u
+
+
+
+
+r1 = table('t')
+r2 = project(r1, (t) -> t.k)
+r3 = distinct(r2)
+r4 = project(r3, (t) ->
+    u1 = table('t')
+    u2 = filter(u1, (t1) -> t1.k = t.k)
+    u3 = project(u2, (t1) -> t1.v)
+    sum(u3)
+)
+
+
+project(
+    join(
+        distinct(project(table('t'), k)),
+        groupBy(table('t'), k, sum(v)),
+        l.k = r.k),
+    $0, $1)
+
+
+

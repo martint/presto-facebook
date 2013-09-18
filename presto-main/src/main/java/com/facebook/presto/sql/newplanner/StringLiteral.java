@@ -1,5 +1,7 @@
 package com.facebook.presto.sql.newplanner;
 
+import com.google.common.base.Objects;
+
 public class StringLiteral
         implements RelationalExpression
 {
@@ -33,6 +35,12 @@ public class StringLiteral
     public int hashCode()
     {
         return value.hashCode();
+    }
+
+    @Override
+    public String toString()
+    {
+        return "string(\"" + value + "\")";
     }
 
     @Override

@@ -45,6 +45,11 @@ public class Sandbox
         return new Tuple(args);
     }
 
+    public static RelationalExpression string(String value)
+    {
+        return new StringLiteral(value);
+    }
+
     public static RelationalExpression field(RelationalExpression expression, int field)
     {
         return new FieldRef(expression, field);
@@ -53,19 +58,24 @@ public class Sandbox
     public static void main(String[] args)
             throws Exception
     {
+        call("aggregate",
+                call("table", tableRef("default.t1"), tuple(colRef("tpch:a:0"), colRef("tpch:b:1"), colRef("tpch:c:2"), colRef("tpch:d:3"))),
+                t -> tuple(field(t, 0)),
+                tuple(string("sum"), t -> tuple(call("ADD", field(t, 0), field(t, 1)))),
+                tuple(string("avg"), t -> tuple(call("ADD", field(t, 1), field(t, 2)))));
         //        call("project",
         //                call("group",
         //                        call("table", tableRef("default.t1"), tuple(colRef("tpch:a:0"), colRef("tpch:b:1"), colRef("tpch:c:2"), colRef("tpch:d:3"))),
         //                        t -> tuple(field(t, 0))),
         //                t -> tuple(field(field(t, 0), 0), call("sum", field(field(t, 1), 1))));
 
-//
-//        call("project",
-//                call("group",
-//                        call("table", tableRef("default.t1"), tuple(colRef("tpch:a:0"), colRef("tpch:b:1"), colRef("tpch:c:2"), colRef("tpch:d:3"))),
-//                        t -> tuple(field(t, 0))),
-//                t -> tuple(field(field(t, 0), 0), call("sum", call("+", field(field(t, 1), 0), field(field(t, 1), 1)))));
-//
+        //
+        //        call("project",
+        //                call("group",
+        //                        call("table", tableRef("default.t1"), tuple(colRef("tpch:a:0"), colRef("tpch:b:1"), colRef("tpch:c:2"), colRef("tpch:d:3"))),
+        //                        t -> tuple(field(t, 0))),
+        //                t -> tuple(field(field(t, 0), 0), call("sum", call("+", field(field(t, 1), 0), field(field(t, 1), 1)))));
+        //
     }
 
 }
