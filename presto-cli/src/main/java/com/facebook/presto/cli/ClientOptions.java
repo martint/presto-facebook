@@ -46,6 +46,9 @@ public class ClientOptions
     @Option(name = "--output-format", title = "output-format", description = "Output format for batch mode (default: CSV)")
     public OutputFormat outputFormat = OutputFormat.CSV;
 
+    @Option(name = "--translate-to-hiveql")
+    public boolean translateToHiveQl;
+
     public enum OutputFormat
     {
         ALIGNED,

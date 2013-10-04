@@ -15,6 +15,7 @@ package com.facebook.presto.cli;
 
 import com.facebook.presto.cli.ClientOptions.OutputFormat;
 import com.facebook.presto.client.ClientSession;
+import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.StatementSplitter;
 import com.google.common.base.Charsets;
 import com.google.common.base.Strings;
@@ -84,7 +85,12 @@ public class Console
 
         try (QueryRunner queryRunner = QueryRunner.create(session)) {
             if (hasQuery) {
-                executeCommand(queryRunner, query, clientOptions.outputFormat);
+                if (clientOptions.translateToHiveQl) {
+                    translateToHiveQl(query);
+                }
+                else {
+                    executeCommand(queryRunner, query, clientOptions.outputFormat);
+                }
             }
             else {
                 runConsole(queryRunner, session);
@@ -168,6 +174,13 @@ public class Console
         }
     }
 
+    private static void translateToHiveQl(String query)
+    {
+        StatementSplitter splitter = new StatementSplitter(query + ";");
+        for (Statement split : splitter.getCompleteStatements()) {
+            System.out.println(HiveQlFormatter.format(SqlParser.createStatement(split.statement())));
+        }
+    }
     private static void executeCommand(QueryRunner queryRunner, String query, OutputFormat outputFormat)
     {
         StatementSplitter splitter = new StatementSplitter(query + ";");
