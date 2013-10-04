@@ -38,81 +38,126 @@ import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
-import javax.annotation.Nullable;
 import java.util.Iterator;
 import java.util.List;
 
-import static com.facebook.presto.cli.HiveQlExpressionFormatter.expressionFormatterFunction;
 import static com.facebook.presto.cli.HiveQlExpressionFormatter.formatExpression;
-import static com.google.common.base.Preconditions.checkArgument;
 
 public class HiveQlFormatter
 {
-    private static final String INDENT = "   ";
 
     public static String format(Node node)
     {
         StringBuilder builder = new StringBuilder();
-        new Formatter(builder).process(node, 0);
+        new Formatter().process(node, new Output(builder));
         return builder.toString();
     }
 
-    private static class Formatter
-            extends AstVisitor<Void, Integer>
+    private static class Output
     {
-        private final StringBuilder builder;
+        private static final String INDENT = "   ";
 
-        public Formatter(StringBuilder builder)
+        private final StringBuilder builder;
+        private final int indent;
+
+        public Output(StringBuilder builder)
         {
-            this.builder = builder;
+            this(builder, 0);
         }
 
+        private Output(StringBuilder builder, int indent)
+        {
+            this.builder = builder;
+            this.indent = indent;
+        }
+
+        public Output indent()
+        {
+            return new Output(builder, indent + 1);
+        }
+
+        public Output unindent()
+        {
+            Preconditions.checkState(indent >= 0, "Already at indent 0");
+            return new Output(builder, indent - 1);
+        }
+
+        public Output appendIndented(String value)
+        {
+            builder.append(Strings.repeat(INDENT, indent))
+                    .append(value);
+
+            return this;
+        }
+
+        public Output append(String value)
+        {
+            builder.append(value);
+            return this;
+        }
+
+        public Output append(char value)
+        {
+            builder.append(value);
+            return this;
+        }
+
+        public Output append(double value)
+        {
+            builder.append(value);
+            return this;
+        }
+    }
+
+    private static class Formatter
+            extends AstVisitor<Void, Output>
+    {
         @Override
-        protected Void visitNode(Node node, Integer indent)
+        protected Void visitNode(Node node, Output output)
         {
             throw new UnsupportedOperationException("not yet implemented: " + node);
         }
 
         @Override
-        protected Void visitExpression(Expression node, Integer indent)
+        protected Void visitExpression(Expression node, Output output)
         {
-            checkArgument(indent == 0, "visitExpression should only be called at root");
-            builder.append(formatExpression(node));
+            output.append(formatExpression(node));
             return null;
         }
 
         @Override
-        protected Void visitCreateTable(CreateTable node, Integer context)
+        protected Void visitCreateTable(CreateTable node, Output output)
         {
-            builder.append("CREATE TABLE ")
+            output.appendIndented("CREATE TABLE ")
                     .append(formatIdentifier(node.getName()))
                     .append(" AS ");
 
-            process(node.getQuery(), context);
+            process(node.getQuery(), output);
 
             return null;
         }
 
         @Override
-        protected Void visitQuery(com.facebook.presto.sql.tree.Query node, Integer indent)
+        protected Void visitQuery(com.facebook.presto.sql.tree.Query node, Output output)
         {
             if (node.getWith().isPresent()) {
                 throw new IllegalArgumentException("WITH not supported by HiveQL");
             }
 
-            process(node.getQueryBody(), indent);
+            process(node.getQueryBody(), output);
 
             if (!node.getOrderBy().isEmpty()) {
-                append(indent, "ORDER BY " + Joiner.on(", ").join(Iterables.transform(node.getOrderBy(), orderByFormatterFunction())))
+                output.appendIndented("ORDER BY " + Joiner.on(", ").join(Iterables.transform(node.getOrderBy(), orderByFormatterFunction())))
                         .append('\n');
             }
 
             if (node.getLimit().isPresent()) {
-                append(indent, "LIMIT " + node.getLimit().get())
+                output.appendIndented("LIMIT " + node.getLimit().get())
                         .append('\n');
             }
 
@@ -120,94 +165,121 @@ public class HiveQlFormatter
         }
 
         @Override
-        protected Void visitQuerySpecification(QuerySpecification node, Integer indent)
+        protected Void visitQuerySpecification(QuerySpecification node, Output output)
         {
-            process(node.getSelect(), indent);
+            process(node.getSelect(), output);
 
             if (node.getFrom() != null) {
-                append(indent, "FROM");
+                output.appendIndented("FROM");
                 if (node.getFrom().size() > 1) {
-                    builder.append('\n');
-                    append(indent, "  ");
+                    output.append('\n');
+                    output.appendIndented("  ");
                     Iterator<Relation> relations = node.getFrom().iterator();
                     while (relations.hasNext()) {
-                        process(relations.next(), indent);
+                        process(relations.next(), output);
                         if (relations.hasNext()) {
-                            builder.append('\n');
-                            append(indent, ", ");
+                            output.append('\n');
+                            output.appendIndented(", ");
                         }
                     }
                 }
                 else {
-                    builder.append(' ');
-                    process(Iterables.getOnlyElement(node.getFrom()), indent);
+                    output.append(' ');
+                    process(Iterables.getOnlyElement(node.getFrom()), output);
                 }
             }
 
-            builder.append('\n');
+            output.append('\n');
 
             if (node.getWhere().isPresent()) {
-                append(indent, "WHERE " + formatExpression(node.getWhere().get()))
+                output.appendIndented("WHERE " + formatExpression(node.getWhere().get()))
                         .append('\n');
             }
 
             if (!node.getGroupBy().isEmpty()) {
-                append(indent, "GROUP BY " + Joiner.on(", ").join(Iterables.transform(node.getGroupBy(), expressionFormatterFunction())))
-                        .append('\n');
+                output.appendIndented("GROUP BY ");
+
+                for (int i = 0; i < node.getGroupBy().size(); i++) {
+                    Expression expression = node.getGroupBy().get(i);
+                    if (expression instanceof LongLiteral) {
+                        int index = (int) ((LongLiteral) expression).getValue() - 1;
+                        expression = ((SingleColumn) node.getSelect().getSelectItems().get(index)).getExpression();
+                    }
+
+                    output.append(formatExpression(expression));
+                    if (i < node.getGroupBy().size() - 1) {
+                        output.append(", ");
+                    }
+                }
+                output.append('\n');
             }
 
             if (node.getHaving().isPresent()) {
-                append(indent, "HAVING " + formatExpression(node.getHaving().get()))
+                output.appendIndented("HAVING " + formatExpression(node.getHaving().get()))
                         .append('\n');
             }
 
             if (!node.getOrderBy().isEmpty()) {
-                append(indent, "ORDER BY " + Joiner.on(", ").join(Iterables.transform(node.getOrderBy(), orderByFormatterFunction())))
-                        .append('\n');
+                output.appendIndented("ORDER BY ");
+
+                for (int i = 0; i < node.getOrderBy().size(); i++) {
+                    SortItem sortItem = node.getOrderBy().get(i);
+                    if (sortItem.getSortKey() instanceof LongLiteral) {
+                        int index = (int) ((LongLiteral) sortItem.getSortKey()).getValue() - 1;
+                        Expression expression = ((SingleColumn) node.getSelect().getSelectItems().get(index)).getExpression();
+                        sortItem = new SortItem(expression, sortItem.getOrdering(), sortItem.getNullOrdering());
+                    }
+
+                    output.append(orderByFormatterFunction().apply(sortItem));
+
+                    if (i < node.getOrderBy().size() - 1) {
+                        output.append(", ");
+                    }
+                }
+                output.append('\n');
             }
 
             if (node.getLimit().isPresent()) {
-                append(indent, "LIMIT " + node.getLimit().get())
+                output.appendIndented("LIMIT " + node.getLimit().get())
                         .append('\n');
             }
             return null;
         }
 
         @Override
-        protected Void visitSelect(Select node, Integer indent)
+        protected Void visitSelect(Select node, Output output)
         {
-            append(indent, "SELECT");
+            output.appendIndented("SELECT");
             if (node.isDistinct()) {
-                builder.append(" DISTINCT");
+                output.append(" DISTINCT");
             }
 
             if (node.getSelectItems().size() > 1) {
                 boolean first = true;
                 for (SelectItem item : node.getSelectItems()) {
-                    builder.append("\n")
-                            .append(indentString(indent))
-                            .append(first ? "  " : ", ");
+                    output.append("\n")
+                            .appendIndented(first ? "  " : ", ");
 
-                    process(item, indent);
+                    process(item, output);
                     first = false;
                 }
             }
             else {
-                builder.append(' ');
-                process(Iterables.getOnlyElement(node.getSelectItems()), indent);
+                output.append(' ');
+                process(Iterables.getOnlyElement(node.getSelectItems()), output);
             }
 
-            builder.append('\n');
+            output.append('\n');
 
             return null;
         }
 
         @Override
-        protected Void visitSingleColumn(SingleColumn node, Integer indent)
+        protected Void visitSingleColumn(SingleColumn node, Output output)
         {
-            builder.append(formatExpression(node.getExpression()));
+            output.append(formatExpression(node.getExpression()));
             if (node.getAlias().isPresent()) {
-                builder.append(' ')
+                output.append(' ')
                         .append('`')
                         .append(node.getAlias().get())
                         .append('`');
@@ -217,33 +289,33 @@ public class HiveQlFormatter
         }
 
         @Override
-        protected Void visitAllColumns(AllColumns node, Integer context)
+        protected Void visitAllColumns(AllColumns node, Output output)
         {
-            builder.append(node.toString());
+            output.append(node.toString());
 
             return null;
         }
 
         @Override
-        protected Void visitTable(Table node, Integer indent)
+        protected Void visitTable(Table node, Output output)
         {
-            builder.append(formatIdentifier(node.getName()));
+            output.append(formatIdentifier(node.getName()));
             return null;
         }
 
         @Override
-        protected Void visitJoin(Join node, Integer indent)
+        protected Void visitJoin(Join node, Output output)
         {
             JoinCriteria criteria = node.getCriteria();
             String type = node.getType().toString();
 
-            builder.append('(');
-            process(node.getLeft(), indent);
+            output.append('(');
+            process(node.getLeft(), output);
 
-            builder.append('\n');
-            append(indent, type).append(" JOIN ");
+            output.append('\n');
+            output.appendIndented(type).append(" JOIN ");
 
-            process(node.getRight(), indent);
+            process(node.getRight(), output);
 
             if (criteria instanceof JoinUsing) {
                 // TODO: translate into JOIN ON
@@ -251,7 +323,7 @@ public class HiveQlFormatter
             }
             else if (criteria instanceof JoinOn) {
                 JoinOn on = (JoinOn) criteria;
-                builder.append(" ON (")
+                output.append(" ON (")
                         .append(formatExpression(on.getExpression()))
                         .append(")");
             }
@@ -262,17 +334,17 @@ public class HiveQlFormatter
                 throw new UnsupportedOperationException("unknown join criteria: " + criteria);
             }
 
-            builder.append(")");
+            output.append(")");
 
             return null;
         }
 
         @Override
-        protected Void visitAliasedRelation(AliasedRelation node, Integer indent)
+        protected Void visitAliasedRelation(AliasedRelation node, Output output)
         {
-            process(node.getRelation(), indent);
+            process(node.getRelation(), output);
 
-            builder.append(' ')
+            output.append(' ')
                     .append(node.getAlias());
 
             if (node.getColumnNames() != null) {
@@ -283,13 +355,13 @@ public class HiveQlFormatter
         }
 
         @Override
-        protected Void visitSampledRelation(SampledRelation node, Integer indent)
+        protected Void visitSampledRelation(SampledRelation node, Output output)
         {
             if (node.getType() == SampledRelation.Type.BERNOULLI) {
                 throw new UnsupportedOperationException("TABLESAMPLE BERNOULLI not supported");
             }
 
-            process(node.getRelation(), indent);
+            process(node.getRelation(), output);
 
             double percentage;
             if (node.getSamplePercentage() instanceof DoubleLiteral) {
@@ -302,7 +374,7 @@ public class HiveQlFormatter
                 throw new UnsupportedOperationException("non-numeric sampling ratio not supported");
             }
 
-            builder.append(" TABLESAMPLE ")
+            output.append(" TABLESAMPLE ")
                     .append(" (")
                     .append(percentage)
                     .append(" PERCENT)");
@@ -311,39 +383,29 @@ public class HiveQlFormatter
         }
 
         @Override
-        protected Void visitTableSubquery(TableSubquery node, Integer indent)
+        protected Void visitTableSubquery(TableSubquery node, Output output)
         {
-            builder.append('(')
+            output.append('(')
                     .append('\n');
 
-            process(node.getQuery(), indent + 1);
+            process(node.getQuery(), output.indent());
 
-            append(indent, ")");
+            output.appendIndented(")");
 
             return null;
-        }
-
-        private StringBuilder append(int indent, String value)
-        {
-            return builder.append(indentString(indent))
-                    .append(value);
-        }
-
-        private static String indentString(int indent)
-        {
-            return Strings.repeat(INDENT, indent);
         }
     }
 
     private static String formatIdentifier(QualifiedName name)
-    {List<String> parts = Lists.transform(name.getParts(), new Function<String, String>()
     {
-        @Override
-        public String apply(String input)
+        List<String> parts = Lists.transform(name.getParts(), new Function<String, String>()
         {
-            return formatIdentifier(input.replace('@', ':'));
-        }
-    });
+            @Override
+            public String apply(String input)
+            {
+                return input.replace('@', ':');
+            }
+        });
 
         return Joiner.on('.').join(parts);
     }
