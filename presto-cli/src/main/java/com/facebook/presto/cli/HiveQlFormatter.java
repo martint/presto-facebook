@@ -309,7 +309,7 @@ public class HiveQlFormatter
             JoinCriteria criteria = node.getCriteria();
             String type = node.getType().toString();
 
-            output.append('(');
+//            output.append('(');
             process(node.getLeft(), output);
 
             output.append('\n');
@@ -334,7 +334,7 @@ public class HiveQlFormatter
                 throw new UnsupportedOperationException("unknown join criteria: " + criteria);
             }
 
-            output.append(")");
+//            output.append(")");
 
             return null;
         }
