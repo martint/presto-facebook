@@ -131,7 +131,7 @@ public class ApproximatePercentileAggregation
                 long groupId = groupIdsBlock.getGroupId(position);
 
                 // skip null values
-                if (!values.isNull(0)) {
+                if (!values.isNull()) {
 
                     DigestAndPercentile currentValue = digests.get(groupId);
                     if (currentValue == null) {
@@ -145,8 +145,8 @@ public class ApproximatePercentileAggregation
                     sizeOfValues += currentValue.digest.estimatedInMemorySizeInBytes();
 
                     // use last non-null percentile
-                    if (!percentiles.isNull(0)) {
-                        currentValue.percentile = percentiles.getDouble(0);
+                    if (!percentiles.isNull()) {
+                        currentValue.percentile = percentiles.getDouble();
                     }
                 }
             }
@@ -166,7 +166,7 @@ public class ApproximatePercentileAggregation
             for (int position = 0; position < groupIdsBlock.getPositionCount(); position++) {
                 checkState(intermediates.advanceNextPosition());
 
-                if (!intermediates.isNull(0)) {
+                if (!intermediates.isNull()) {
                     long groupId = groupIdsBlock.getGroupId(position);
 
                     DigestAndPercentile currentValue = digests.get(groupId);
@@ -176,7 +176,7 @@ public class ApproximatePercentileAggregation
                         sizeOfValues += currentValue.digest.estimatedInMemorySizeInBytes();
                     }
 
-                    SliceInput input = intermediates.getSlice(0).getInput();
+                    SliceInput input = intermediates.getSlice().getInput();
 
                     // read digest
                     sizeOfValues -= currentValue.digest.estimatedInMemorySizeInBytes();
@@ -274,12 +274,12 @@ public class ApproximatePercentileAggregation
                 checkState(values.advanceNextPosition());
                 checkState(percentiles.advanceNextPosition());
 
-                if (!values.isNull(0)) {
+                if (!values.isNull()) {
                     addValue(digest, values, parameterType);
 
                     // use last non-null percentile
-                    if (!percentiles.isNull(0)) {
-                        percentile = percentiles.getDouble(0);
+                    if (!percentiles.isNull()) {
+                        percentile = percentiles.getDouble();
                     }
                 }
             }
@@ -294,8 +294,8 @@ public class ApproximatePercentileAggregation
 
             for (int position = 0; position < block.getPositionCount(); position++) {
                 checkState(intermediates.advanceNextPosition());
-                if (!intermediates.isNull(0)) {
-                    SliceInput input = intermediates.getSlice(0).getInput();
+                if (!intermediates.isNull()) {
+                    SliceInput input = intermediates.getSlice().getInput();
                     // read digest
                     digest.merge(QuantileDigest.deserialize(input));
                     // read percentile
@@ -352,10 +352,10 @@ public class ApproximatePercentileAggregation
     {
         long value;
         if (parameterType == FIXED_INT_64) {
-            value = values.getLong(0);
+            value = values.getLong();
         }
         else if (parameterType == DOUBLE) {
-            value = doubleToSortableLong(values.getDouble(0));
+            value = doubleToSortableLong(values.getDouble());
         }
         else {
             throw new IllegalArgumentException("Expected parameter type to be FIXED_INT_64 or DOUBLE");

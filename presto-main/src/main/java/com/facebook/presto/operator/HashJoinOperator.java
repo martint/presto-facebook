@@ -303,7 +303,7 @@ public class HashJoinOperator
     private boolean currentRowJoinPositionContainsNumm()
     {
         for (int probeJoinChannel : probeJoinChannels) {
-            if (cursors[probeJoinChannel].isNull(0)) {
+            if (cursors[probeJoinChannel].isNull()) {
                 return true;
             }
         }

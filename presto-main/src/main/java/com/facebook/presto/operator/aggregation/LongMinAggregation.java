@@ -76,10 +76,10 @@ public class LongMinAggregation
 
                 long groupId = groupIdsBlock.getGroupId(position);
 
-                if (!values.isNull(0)) {
+                if (!values.isNull()) {
                     notNull.set(groupId, true);
 
-                    long value = values.getLong(0);
+                    long value = values.getLong();
                     value = Math.min(value, minValues.get(groupId));
                     minValues.set(groupId, value);
                 }
@@ -124,9 +124,9 @@ public class LongMinAggregation
 
             for (int position = 0; position < block.getPositionCount(); position++) {
                 checkState(values.advanceNextPosition());
-                if (!values.isNull(0)) {
+                if (!values.isNull()) {
                     notNull = true;
-                    min = Math.min(min, values.getLong(0));
+                    min = Math.min(min, values.getLong());
                 }
             }
         }
