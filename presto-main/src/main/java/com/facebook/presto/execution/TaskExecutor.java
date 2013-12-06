@@ -182,27 +182,28 @@ public class TaskExecutor
         completedTasksPerLevel.incrementAndGet(priorityLevel);
     }
 
-    public synchronized ListenableFuture<?> enqueueSplit(TaskHandle taskHandle, SplitRunner taskSplit)
+    public synchronized List<ListenableFuture<?>> enqueueSplits(TaskHandle taskHandle, boolean forceStart, List<? extends SplitRunner> taskSplits)
     {
-        PrioritizedSplitRunner prioritizedSplitRunner = new PrioritizedSplitRunner(taskHandle, taskSplit, ticker);
-        taskHandle.addSplit(prioritizedSplitRunner);
+        List<ListenableFuture<?>> finishedFutures = new ArrayList<>(taskSplits.size());
+        for (SplitRunner taskSplit : taskSplits) {
+            PrioritizedSplitRunner prioritizedSplitRunner = new PrioritizedSplitRunner(taskHandle, taskSplit, ticker);
 
-        scheduleTaskIfNecessary(taskHandle);
+            if (forceStart) {
+                // Note: we do not record queued time for forced splits
+                startSplit(prioritizedSplitRunner);
+            }
+            else {
+                // add this to the work queue for the task
+                taskHandle.addSplit(prioritizedSplitRunner);
+                // if task is under the limit for gaurenteed splits, start one
+                scheduleTaskIfNecessary(taskHandle);
+                // if globally we have more resources, start more
+                addNewEntrants();
+            }
 
-        addNewEntrants();
-
-        return prioritizedSplitRunner.getFinishedFuture();
-    }
-
-    public synchronized ListenableFuture<?> forceRunSplit(TaskHandle taskHandle, SplitRunner taskSplit)
-    {
-        PrioritizedSplitRunner prioritizedSplitRunner = new PrioritizedSplitRunner(taskHandle, taskSplit, ticker);
-
-        // Note: we do not record queued time for forced splits
-
-        startSplit(prioritizedSplitRunner);
-
-        return prioritizedSplitRunner.getFinishedFuture();
+            finishedFutures.add(prioritizedSplitRunner.getFinishedFuture());
+        }
+        return finishedFutures;
     }
 
     private synchronized void splitFinished(PrioritizedSplitRunner split)
