@@ -64,7 +64,7 @@ public class ClientOptions
         return new ClientSession(parseServer(server), user, source, catalog, schema, debug);
     }
 
-    private static URI parseServer(String s)
+    public static URI parseServer(String s)
     {
         s = s.toLowerCase();
         if (s.startsWith("http://") || s.startsWith("https://")) {
