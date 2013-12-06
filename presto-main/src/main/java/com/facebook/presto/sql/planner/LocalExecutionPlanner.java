@@ -615,7 +615,7 @@ public class LocalExecutionPlanner
         {
             Builder<Input, Type> inputTypes = ImmutableMap.builder();
             for (Input input : ImmutableSet.copyOf(layout.values())) {
-                TupleInfo.Type type = tupleInfos.get(input.getChannel()).getTypes().get(input.getField());
+                TupleInfo.Type type = tupleInfos.get(input.getChannel()).getType();
                 switch (type) {
                     case BOOLEAN:
                         inputTypes.put(input, Type.BOOLEAN);
