@@ -22,6 +22,7 @@ import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.metadata.Node;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.spi.Split;
+import com.facebook.presto.spi.SplitSource;
 import com.facebook.presto.split.RemoteSplit;
 import com.facebook.presto.sql.analyzer.Session;
 import com.facebook.presto.sql.planner.OutputReceiver;
@@ -40,6 +41,7 @@ import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
@@ -56,6 +58,7 @@ import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.net.URI;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -107,7 +110,7 @@ public class SqlStageExecution
 
     private final ConcurrentMap<Node, RemoteTask> tasks = new ConcurrentHashMap<>();
 
-    private final Optional<DataSource> dataSource;
+    private final Optional<SplitSource> dataSource;
     private final RemoteTaskFactory remoteTaskFactory;
     private final Session session; // only used for remote task factory
     private final int maxPendingSplitsPerNode;
@@ -118,6 +121,7 @@ public class SqlStageExecution
     private final LinkedBlockingQueue<Throwable> failureCauses = new LinkedBlockingQueue<>();
 
     private final Set<PlanNodeId> completeSources = new HashSet<>();
+    private final NodeScheduler nodeScheduler;
 
     @GuardedBy("this")
     private OutputBuffers currentOutputBuffers = INITIAL_EMPTY_OUTPUT_BUFFERS;
@@ -185,6 +189,7 @@ public class SqlStageExecution
             this.maxPendingSplitsPerNode = maxPendingSplitsPerNode;
             this.initialHashPartitions = initialHashPartitions;
             this.executor = executor;
+            this.nodeScheduler = nodeScheduler;
 
             tupleInfos = fragment.getTupleInfos();
 
@@ -494,7 +499,8 @@ public class SqlStageExecution
                 }
                 else if (fragment.getPartitioning() == PlanFragment.Partitioning.SOURCE) {
                     scheduleSourcePartitioned();
-                } else {
+                }
+                else {
                     throw new IllegalStateException("Unsupported partitioning: " + fragment.getPartitioning());
                 }
 
@@ -512,7 +518,10 @@ public class SqlStageExecution
                     }
                     log.error(e, "Error while starting stage %s", stageId);
                     cancel(true);
-                    throw e;
+                    if (e instanceof InterruptedException) {
+                        Thread.currentThread().interrupt();
+                    }
+                    throw Throwables.propagate(e);
                 }
                 Throwables.propagateIfInstanceOf(e, Error.class);
                 log.debug(e, "Error while starting stage in done query %s", stageId);
@@ -562,36 +571,46 @@ public class SqlStageExecution
     }
 
     private void scheduleSourcePartitioned()
+            throws InterruptedException
     {
         AtomicInteger nextTaskId = new AtomicInteger(0);
         long getSplitStart = System.nanoTime();
-        for (Split split : dataSource.get().getSplits()) {
-            getSplitDistribution.add(System.nanoTime() - getSplitStart);
 
-            long scheduleSplitStart = System.nanoTime();
-            Node chosen = chooseNode(nodeSelector, split, nextTaskId);
-
+        SplitSource splitSource = this.dataSource.get();
+        while (!splitSource.isFinished()) {
             // if query has been canceled, exit cleanly; query will never run regardless
             if (getState().isDone()) {
                 break;
             }
 
-            RemoteTask task = tasks.get(chosen);
-            if (task == null) {
-                scheduleTask(nextTaskId.getAndIncrement(), chosen, fragment.getPartitionedSource(), split);
-
-                // tell the sub stages to create a buffer for this task
-                addSubStageBufferId(chosen.getNodeIdentifier(), new UnpartitionedPagePartitionFunction());
-
-                scheduleTaskDistribution.add(System.nanoTime() - scheduleSplitStart);
-            }
-            else {
-                task.addSplit(fragment.getPartitionedSource(), split);
-                addSplitDistribution.add(System.nanoTime() - scheduleSplitStart);
+            Multimap<Node, Split> nodeSplits = ArrayListMultimap.create();
+            for (Split split : splitSource.getNextBatch(1000)) {
+                Node node = chooseNode(nodeSelector, split, nextTaskId);
+                nodeSplits.put(node, split);
             }
 
-            getSplitStart = System.nanoTime();
+            for (Entry<Node, Collection<Split>> taskSplits : nodeSplits.asMap().entrySet()) {
+                long scheduleSplitStart = System.nanoTime();
+                Node node = taskSplits.getKey();
+
+                RemoteTask task = tasks.get(node);
+                if (task == null) {
+                    scheduleTask(nextTaskId.getAndIncrement(), node, fragment.getPartitionedSource(), taskSplits.getValue(), true);
+
+                    // tell the sub stages to create a buffer for this task
+                    addSubStageBufferId(node.getNodeIdentifier(), new UnpartitionedPagePartitionFunction());
+
+                    scheduleTaskDistribution.add(System.nanoTime() - scheduleSplitStart);
+                }
+                else {
+                    task.addSplits(fragment.getPartitionedSource(), taskSplits.getValue());
+                    addSplitDistribution.add(System.nanoTime() - scheduleSplitStart);
+                }
+
+                getSplitStart = System.nanoTime();
+            }
         }
+
         for (RemoteTask task : tasks.values()) {
             task.noMoreSplits(fragment.getPartitionedSource());
         }
@@ -697,10 +716,10 @@ public class SqlStageExecution
 
     private RemoteTask scheduleTask(int id, Node node)
     {
-        return scheduleTask(id, node, null, null);
+        return scheduleTask(id, node, null, ImmutableList.<Split>of(), false);
     }
 
-    private RemoteTask scheduleTask(int id, Node node, PlanNodeId sourceId, Split sourceSplit)
+    private RemoteTask scheduleTask(int id, Node node, PlanNodeId sourceId, Iterable<? extends Split> sourceSplits, boolean noMoreSplits)
     {
         // before scheduling a new task update all existing tasks with new exchanges and output buffers
         addNewExchangesAndBuffers();
@@ -708,7 +727,7 @@ public class SqlStageExecution
         TaskId taskId = new TaskId(stageId, String.valueOf(id));
 
         ImmutableMultimap.Builder<PlanNodeId, Split> initialSplits = ImmutableMultimap.builder();
-        if (sourceId != null) {
+        for (Split sourceSplit : sourceSplits) {
             initialSplits.put(sourceId, sourceSplit);
         }
         for (Entry<PlanNodeId, URI> entry : exchangeLocations.get().entries()) {
@@ -731,6 +750,11 @@ public class SqlStageExecution
                 doUpdateState();
             }
         });
+
+        // set no more splits
+        if (noMoreSplits) {
+            task.noMoreSplits(fragment.getPartitionedSource());
+        }
 
         // create and update task
         task.start();
@@ -769,7 +793,7 @@ public class SqlStageExecution
         // get new exchanges and update exchange state
         Set<PlanNodeId> completeSources = updateCompleteSources();
         boolean allSourceComplete = completeSources.containsAll(fragment.getSourceIds());
-        Multimap <PlanNodeId, URI> newExchangeLocations = getNewExchangeLocations();
+        Multimap<PlanNodeId, URI> newExchangeLocations = getNewExchangeLocations();
         exchangeLocations.set(ImmutableMultimap.<PlanNodeId, URI>builder()
                 .putAll(exchangeLocations.get())
                 .putAll(newExchangeLocations)
@@ -785,7 +809,7 @@ public class SqlStageExecution
         for (RemoteTask task : tasks.values()) {
             for (Entry<PlanNodeId, URI> entry : newExchangeLocations.entries()) {
                 RemoteSplit remoteSplit = createRemoteSplitFor(task.getNodeId(), entry.getValue());
-                task.addSplit(entry.getKey(), remoteSplit);
+                task.addSplits(entry.getKey(), ImmutableList.of(remoteSplit));
             }
             task.setOutputBuffers(outputBuffers);
             for (PlanNodeId completeSource : completeSources) {

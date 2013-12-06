@@ -22,6 +22,7 @@ import com.facebook.presto.spi.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Domain;
+import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.PartitionResult;
 import com.facebook.presto.spi.Range;
@@ -29,6 +30,7 @@ import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.Split;
+import com.facebook.presto.spi.SplitSource;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.TupleDomain;
@@ -420,13 +422,13 @@ public class HiveClient
     }
 
     @Override
-    public Iterable<Split> getPartitionSplits(TableHandle tableHandle, List<Partition> partitions)
+    public SplitSource getPartitionSplits(TableHandle tableHandle, List<Partition> partitions)
     {
         checkNotNull(partitions, "partitions is null");
 
         Partition partition = Iterables.getFirst(partitions, null);
         if (partition == null) {
-            return ImmutableList.of();
+            return new FixedSplitSource(connectorId, ImmutableList.<Split>of());
         }
         checkArgument(partition instanceof HivePartition, "Partition must be a hive partition");
         SchemaTableName tableName = ((HivePartition) partition).getTableName();
@@ -445,7 +447,7 @@ public class HiveClient
             throw new TableNotFoundException(tableName);
         }
 
-        return new HiveSplitIterable(connectorId,
+        return new HiveSplitSourceProvider(connectorId,
                 table,
                 partitionNames,
                 hivePartitions,
@@ -455,7 +457,7 @@ public class HiveClient
                 maxSplitIteratorThreads,
                 hdfsEnvironment,
                 executor,
-                maxPartitionBatchSize);
+                maxPartitionBatchSize).get();
     }
 
     private Iterable<org.apache.hadoop.hive.metastore.api.Partition> getPartitions(final Table table, final SchemaTableName tableName, List<String> partitionNames)

@@ -84,7 +84,7 @@ public class TestDriver
         }
     }
 
-    @Test
+    @Test(enabled = false)
     public void testConnectionResourceHandling()
             throws Exception
     {

@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.execution.DataSource;
+import com.facebook.presto.execution.SampledSplitSource;
 import com.facebook.presto.metadata.ShardManager;
 import com.facebook.presto.spi.Partition;
 import com.facebook.presto.spi.PartitionResult;
-import com.facebook.presto.spi.Split;
+import com.facebook.presto.spi.SplitSource;
 import com.facebook.presto.spi.TupleDomain;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -44,15 +44,12 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 
-import javax.annotation.Nullable;
 import javax.inject.Inject;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ThreadLocalRandom;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -112,9 +109,9 @@ public class DistributedExecutionPlanner
                     .toList();
 
             // get dataSource for table
-            DataSource dataSource = splitManager.getPartitionSplits(node.getTable(), partitions);
+            SplitSource splitSource = splitManager.getPartitionSplits(node.getTable(), partitions);
 
-            return new NodeSplits(node.getId(), dataSource);
+            return new NodeSplits(node.getId(), splitSource);
         }
 
         private List<Partition> getPartitions(TableScanNode node)
@@ -170,19 +167,9 @@ public class DistributedExecutionPlanner
                     return node.getSource().accept(this, materializedViewPartitionPredicate);
 
                 case SYSTEM: {
-                    final double ratio = node.getSampleRatio();
                     NodeSplits nodeSplits = node.getSource().accept(this, materializedViewPartitionPredicate);
-                    DataSource dataSource = nodeSplits.dataSource.get();
-                    Iterable<Split> sampleIterable = Iterables.filter(dataSource.getSplits(), new Predicate<Split>()
-                    {
-                        public boolean apply(@Nullable Split input)
-                        {
-                            return ThreadLocalRandom.current().nextDouble() < ratio;
-                        }
-                    });
-                    DataSource sampledDataSource = new DataSource(dataSource.getDataSourceName(), sampleIterable);
-
-                    return new NodeSplits(node.getId(), sampledDataSource);
+                    SplitSource sampledSplitSource = new SampledSplitSource(nodeSplits.dataSource.get(), node.getSampleRatio());
+                    return new NodeSplits(node.getId(), sampledSplitSource);
                 }
                 default:
                     throw new UnsupportedOperationException("Sampling is not supported for type " + node.getSampleType());
@@ -245,14 +232,13 @@ public class DistributedExecutionPlanner
             // get source splits
             NodeSplits nodeSplits = node.getSource().accept(this, materializedViewWriter.getPartitionPredicate());
             checkState(nodeSplits.dataSource.isPresent(), "No splits present for import");
-            DataSource dataSource = nodeSplits.dataSource.get();
+            SplitSource splitSource = nodeSplits.dataSource.get();
 
             // record output
             outputReceivers.put(node.getId(), materializedViewWriter.getOutputReceiver());
 
             // wrap splits with table writer info
-            Iterable<Split> newSplits = materializedViewWriter.wrapSplits(nodeSplits.planNodeId, dataSource.getSplits());
-            return new NodeSplits(node.getId(), new DataSource(dataSource.getDataSourceName(), newSplits));
+            return new NodeSplits(node.getId(), materializedViewWriter.wrapSplitSource(nodeSplits.planNodeId, splitSource));
         }
 
         @Override
@@ -265,7 +251,7 @@ public class DistributedExecutionPlanner
     private class NodeSplits
     {
         private final PlanNodeId planNodeId;
-        private final Optional<DataSource> dataSource;
+        private final Optional<SplitSource> dataSource;
 
         private NodeSplits(PlanNodeId planNodeId)
         {
@@ -273,10 +259,10 @@ public class DistributedExecutionPlanner
             this.dataSource = Optional.absent();
         }
 
-        private NodeSplits(PlanNodeId planNodeId, DataSource dataSource)
+        private NodeSplits(PlanNodeId planNodeId, SplitSource splitSource)
         {
             this.planNodeId = planNodeId;
-            this.dataSource = Optional.of(dataSource);
+            this.dataSource = Optional.of(splitSource);
         }
     }
 }

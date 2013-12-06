@@ -19,10 +19,10 @@ import com.facebook.presto.hive.util.FileStatusCallback;
 import com.facebook.presto.hive.util.SuspendingExecutor;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Split;
+import com.facebook.presto.spi.SplitSource;
 import com.google.common.base.Optional;
 import com.google.common.base.Splitter;
 import com.google.common.base.Throwables;
-import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -48,6 +48,7 @@ import org.apache.hadoop.mapred.JobConf;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Properties;
@@ -70,8 +71,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
-class HiveSplitIterable
-        implements Iterable<Split>
+class HiveSplitSourceProvider
 {
     private static final Split FINISHED_MARKER = new Split()
     {
@@ -94,13 +94,7 @@ class HiveSplitIterable
         }
     };
 
-    @SuppressWarnings("ObjectEquality")
-    private static boolean isFinished(Split split)
-    {
-        return split == FINISHED_MARKER;
-    }
-
-    private final String clientId;
+    private final String connectorId;
     private final Table table;
     private final Iterable<String> partitionNames;
     private final Iterable<Partition> partitions;
@@ -113,7 +107,7 @@ class HiveSplitIterable
     private final DataSize maxSplitSize;
     private final int maxPartitionBatchSize;
 
-    HiveSplitIterable(String clientId,
+    HiveSplitSourceProvider(String connectorId,
             Table table,
             Iterable<String> partitionNames,
             Iterable<Partition> partitions,
@@ -125,7 +119,7 @@ class HiveSplitIterable
             ExecutorService executor,
             int maxPartitionBatchSize)
     {
-        this.clientId = clientId;
+        this.connectorId = connectorId;
         this.table = table;
         this.partitionNames = partitionNames;
         this.partitions = partitions;
@@ -139,26 +133,25 @@ class HiveSplitIterable
         this.classLoader = Thread.currentThread().getContextClassLoader();
     }
 
-    @Override
-    public Iterator<Split> iterator()
+    public SplitSource get()
     {
         // Each iterator has its own bounded executor and can be independently suspended
         final SuspendingExecutor suspendingExecutor = new SuspendingExecutor(new BoundedExecutor(executor, maxThreads));
-        final HiveSplitQueue hiveSplitQueue = new HiveSplitQueue(maxOutstandingSplits, suspendingExecutor);
+        final HiveSplitSource hiveSplitSource = new HiveSplitSource(connectorId, maxOutstandingSplits, suspendingExecutor);
         executor.submit(new Callable<Void>()
         {
             @Override
             public Void call()
                     throws Exception
             {
-                loadPartitionSplits(hiveSplitQueue, suspendingExecutor);
+                loadPartitionSplits(hiveSplitSource, suspendingExecutor);
                 return null;
             }
         });
-        return hiveSplitQueue;
+        return hiveSplitSource;
     }
 
-    private void loadPartitionSplits(final HiveSplitQueue hiveSplitQueue, SuspendingExecutor suspendingExecutor)
+    private void loadPartitionSplits(final HiveSplitSource hiveSplitSource, SuspendingExecutor suspendingExecutor)
             throws InterruptedException
     {
         final Semaphore semaphore = new Semaphore(maxPartitionBatchSize);
@@ -179,7 +172,7 @@ class HiveSplitIterable
                 Path partitionPath = hdfsEnvironment.getFileSystemWrapper().wrap(path);
 
                 FileSystem fs = partitionPath.getFileSystem(configuration);
-                final LastSplitMarkingQueue markerQueue = new LastSplitMarkingQueue(hiveSplitQueue);
+                final LastSplitMarkingQueue markerQueue = new LastSplitMarkingQueue(hiveSplitSource);
 
                 if (inputFormat instanceof SymlinkTextInputFormat) {
                     JobConf jobConf = new JobConf(configuration);
@@ -220,7 +213,7 @@ class HiveSplitIterable
                             markerQueue.addToQueue(createHiveSplits(partitionName, file, blockLocations, 0, file.getLen(), schema, partitionKeys, splittable));
                         }
                         catch (IOException e) {
-                            hiveSplitQueue.fail(e);
+                            hiveSplitSource.fail(e);
                         }
                     }
                 });
@@ -251,18 +244,18 @@ class HiveSplitIterable
                 @Override
                 public void onSuccess(List<Void> result)
                 {
-                    hiveSplitQueue.finished();
+                    hiveSplitSource.finished();
                 }
 
                 @Override
                 public void onFailure(Throwable t)
                 {
-                    hiveSplitQueue.fail(t);
+                    hiveSplitSource.fail(t);
                 }
             });
         }
         catch (Throwable e) {
-            hiveSplitQueue.fail(e);
+            hiveSplitSource.fail(e);
             Throwables.propagateIfInstanceOf(e, Error.class);
         }
     }
@@ -305,7 +298,7 @@ class HiveSplitIterable
                     // adjust the actual chunk size to account for the overrun when chunks are slightly bigger than necessary (see above)
                     long chunkLength = Math.min(targetChunkSize, blockLocation.getLength() - chunkOffset);
 
-                    builder.add(new HiveSplit(clientId,
+                    builder.add(new HiveSplit(connectorId,
                             table.getDbName(),
                             table.getTableName(),
                             partitionName,
@@ -324,7 +317,7 @@ class HiveSplitIterable
         }
         else {
             // not splittable, use the hosts from the first block
-            builder.add(new HiveSplit(clientId,
+            builder.add(new HiveSplit(connectorId,
                     table.getDbName(),
                     table.getTableName(),
                     partitionName,
@@ -356,14 +349,14 @@ class HiveSplitIterable
     @ThreadSafe
     private static class LastSplitMarkingQueue
     {
-        private final HiveSplitQueue hiveSplitQueue;
+        private final HiveSplitSource hiveSplitSource;
 
         private final AtomicReference<HiveSplit> bufferedSplit = new AtomicReference<>();
         private final AtomicBoolean done = new AtomicBoolean();
 
-        private LastSplitMarkingQueue(HiveSplitQueue hiveSplitQueue)
+        private LastSplitMarkingQueue(HiveSplitSource hiveSplitSource)
         {
-            this.hiveSplitQueue = checkNotNull(hiveSplitQueue, "split is null");
+            this.hiveSplitSource = checkNotNull(hiveSplitSource, "split is null");
         }
 
         public synchronized void addToQueue(Iterable<HiveSplit> splits)
@@ -374,7 +367,7 @@ class HiveSplitIterable
             for (HiveSplit split : splits) {
                 HiveSplit previousSplit = bufferedSplit.getAndSet(split);
                 if (previousSplit != null) {
-                    hiveSplitQueue.addToQueue(previousSplit);
+                    hiveSplitSource.addToQueue(previousSplit);
                 }
             }
         }
@@ -384,22 +377,24 @@ class HiveSplitIterable
             checkState(!done.getAndSet(true), "already done");
             HiveSplit finalSplit = bufferedSplit.getAndSet(null);
             if (finalSplit != null) {
-                hiveSplitQueue.addToQueue(markAsLastSplit(finalSplit));
+                hiveSplitSource.addToQueue(markAsLastSplit(finalSplit));
             }
         }
     }
 
-    private static class HiveSplitQueue
-            extends AbstractIterator<Split>
+    private static class HiveSplitSource
+            implements SplitSource
     {
+        private final String connectorId;
         private final BlockingQueue<Split> queue = new LinkedBlockingQueue<>();
         private final AtomicInteger outstandingSplitCount = new AtomicInteger();
         private final AtomicReference<Throwable> throwable = new AtomicReference<>();
         private final int maxOutstandingSplits;
         private final SuspendingExecutor suspendingExecutor;
 
-        private HiveSplitQueue(int maxOutstandingSplits, SuspendingExecutor suspendingExecutor)
+        private HiveSplitSource(String connectorId, int maxOutstandingSplits, SuspendingExecutor suspendingExecutor)
         {
+            this.connectorId = connectorId;
             this.maxOutstandingSplits = maxOutstandingSplits;
             this.suspendingExecutor = suspendingExecutor;
         }
@@ -424,26 +419,49 @@ class HiveSplitIterable
         }
 
         @Override
-        protected Split computeNext()
+        public String getDataSourceName()
+        {
+            return connectorId;
+        }
+
+        @Override
+        public List<Split> getNextBatch(int maxSize)
+                throws InterruptedException
         {
             try {
-                Split split = queue.take();
-                if (isFinished(split)) {
+                List<Split> splits = new ArrayList<>(maxSize);
+
+                splits.add(queue.take());
+                queue.drainTo(splits, maxSize - 1);
+                if (splits.get(splits.size() - 1) == FINISHED_MARKER) {
+                    splits.remove(splits.size() - 1);
                     if (throwable.get() != null) {
                         throw Throwables.propagate(throwable.get());
                     }
-
-                    return endOfData();
                 }
+
                 if (outstandingSplitCount.getAndDecrement() == maxOutstandingSplits) {
                     suspendingExecutor.resume();
                 }
-                return split;
+                return splits;
             }
             catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 throw Throwables.propagate(e);
             }
+        }
+
+        @Override
+        public boolean isFinished()
+        {
+            Split split = queue.peek();
+            if (split == FINISHED_MARKER) {
+                if (throwable.get() != null) {
+                    throw Throwables.propagate(throwable.get());
+                }
+                return true;
+            }
+            return false;
         }
     }
 
