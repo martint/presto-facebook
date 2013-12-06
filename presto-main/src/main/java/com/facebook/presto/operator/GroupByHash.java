@@ -21,7 +21,6 @@ import com.facebook.presto.tuple.TupleInfo;
 import com.facebook.presto.tuple.TupleInfo.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
-import com.google.common.primitives.Longs;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
@@ -34,6 +33,10 @@ import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
 import java.util.List;
 
+import static com.facebook.presto.operator.HashStrategyUtils.addToHashCode;
+import static com.facebook.presto.operator.HashStrategyUtils.getVariableBinaryLength;
+import static com.facebook.presto.operator.HashStrategyUtils.valueEquals;
+import static com.facebook.presto.operator.HashStrategyUtils.valueHashCode;
 import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
 import static com.facebook.presto.operator.SyntheticAddress.decodeSliceIndex;
 import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
@@ -67,7 +70,6 @@ public class GroupByHash
 
         this.pages = ObjectArrayList.wrap(new PageBuilder[1024], 0);
         this.pages.add(new PageBuilder(types));
-
 
         this.hashStrategy = new PageBuilderHashStrategy();
         this.pagePositionToGroupId = new Long2IntOpenCustomHashMap(expectedSize, hashStrategy);
@@ -438,78 +440,6 @@ public class GroupByHash
             checkState(!positionOffsets.isEmpty(), "Cannot build an empty block");
 
             return new UncompressedBlock(positionOffsets.size(), new TupleInfo(type), sliceOutput.slice());
-        }
-    }
-
-    private static int addToHashCode(int result, int hashCode)
-    {
-        result = 31 * result + hashCode;
-        return result;
-    }
-
-    private static int valueHashCode(Type type, Slice slice, int offset)
-    {
-        boolean isNull = slice.getByte(offset) != 0;
-        if (isNull) {
-            return 0;
-        }
-
-        if (type == Type.FIXED_INT_64) {
-            return Longs.hashCode(slice.getLong(offset + SIZE_OF_BYTE));
-        }
-        else if (type == Type.DOUBLE) {
-            long longValue = Double.doubleToLongBits(slice.getDouble(offset + SIZE_OF_BYTE));
-            return Longs.hashCode(longValue);
-        }
-        else if (type == Type.BOOLEAN) {
-            return slice.getByte(offset + SIZE_OF_BYTE) != 0 ? 1 : 0;
-        }
-        else if (type == Type.VARIABLE_BINARY) {
-            int sliceLength = getVariableBinaryLength(slice, offset);
-            return slice.hashCode(offset + SIZE_OF_BYTE + SIZE_OF_INT, sliceLength);
-        }
-        else {
-            throw new IllegalArgumentException("Unsupported type " + type);
-        }
-    }
-
-    private static int getVariableBinaryLength(Slice slice, int offset)
-    {
-        return slice.getInt(offset + SIZE_OF_BYTE) - SIZE_OF_INT - SIZE_OF_BYTE;
-    }
-
-    private static boolean valueEquals(Type type, Slice leftSlice, int leftOffset, Slice rightSlice, int rightOffset)
-    {
-        // check if null flags are the same
-        boolean leftIsNull = leftSlice.getByte(leftOffset) != 0;
-        boolean rightIsNull = rightSlice.getByte(rightOffset) != 0;
-        if (leftIsNull != rightIsNull) {
-            return false;
-        }
-
-        // if values are both null, they are equal
-        if (leftIsNull) {
-            return true;
-        }
-
-        if (type == Type.FIXED_INT_64 || type == Type.DOUBLE) {
-            long leftValue = leftSlice.getLong(leftOffset + SIZE_OF_BYTE);
-            long rightValue = rightSlice.getLong(rightOffset + SIZE_OF_BYTE);
-            return leftValue == rightValue;
-        }
-        else if (type == Type.BOOLEAN) {
-            boolean leftValue = leftSlice.getByte(leftOffset + SIZE_OF_BYTE) != 0;
-            boolean rightValue = rightSlice.getByte(rightOffset + SIZE_OF_BYTE) != 0;
-            return leftValue == rightValue;
-        }
-        else if (type == Type.VARIABLE_BINARY) {
-            int leftLength = getVariableBinaryLength(leftSlice, leftOffset);
-            int rightLength = getVariableBinaryLength(rightSlice, rightOffset);
-            return leftSlice.equals(leftOffset + SIZE_OF_BYTE + SIZE_OF_INT, leftLength,
-                    rightSlice, rightOffset + SIZE_OF_BYTE + SIZE_OF_INT, rightLength);
-        }
-        else {
-            throw new IllegalArgumentException("Unsupported type " + type);
         }
     }
 }
