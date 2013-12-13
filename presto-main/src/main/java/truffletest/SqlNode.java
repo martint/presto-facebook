@@ -11,12 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.truffle;
+package truffletest;
 
 import com.oracle.truffle.api.dsl.TypeSystemReference;
+import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.nodes.Node;
 
 @TypeSystemReference(SqlTypes.class)
-public class SqlNode extends Node
+public abstract class SqlNode
+    extends Node
 {
 }

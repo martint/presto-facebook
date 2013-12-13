@@ -11,38 +11,48 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.truffle;
+package truffletest;
 
+import com.oracle.truffle.api.dsl.ImplicitCast;
 import com.oracle.truffle.api.dsl.TypeCast;
 import com.oracle.truffle.api.dsl.TypeCheck;
 import com.oracle.truffle.api.dsl.TypeSystem;
 
-@TypeSystem({long.class, double.class, boolean.class, String.class})
+@TypeSystem({int.class, NullableInt.class})
 public class SqlTypes
 {
-    @TypeCheck
-    public boolean isLong(Object value)
+    @ImplicitCast
+    public NullableInt castNullableInt(int value)
     {
-        return value instanceof Long;
+        return NullableInt.valueOf(value);
     }
 
     @TypeCast
-    public long asLong(Object value)
+    public int asInteger(Object value)
     {
-        assert isLong(value);
-        return (long) value;
-    }
-
-    @TypeCheck
-    public boolean isDouble(Object value)
-    {
-        return value instanceof Number;
+        return (int) value;
     }
 
     @TypeCast
-    public double asDouble(Object value)
+    public NullableInt asNullableInt(Object value)
     {
-        assert isDouble(value);
-        return ((Number) value).doubleValue();
+        if (isInteger(value)) {
+            return NullableInt.valueOf((Integer) value);
+        }
+
+        return (NullableInt) value;
     }
+
+    @TypeCheck
+    public boolean isInteger(Object value)
+    {
+        return value instanceof Integer;
+    }
+
+    @TypeCheck
+    public boolean isNullableInt(Object value)
+    {
+        return value instanceof NullableInt || isInteger(value);
+    }
+
 }

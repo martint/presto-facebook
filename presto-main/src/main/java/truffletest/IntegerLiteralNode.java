@@ -11,12 +11,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.truffle;
+package truffletest;
 
-import com.oracle.truffle.api.dsl.TypeSystemReference;
-import com.oracle.truffle.api.nodes.Node;
+import com.oracle.truffle.api.dsl.Specialization;
 
-@TypeSystemReference(SqlTypes.class)
-public class SqlNode extends Node
+public abstract class IntegerLiteralNode
+    extends ExpressionNode
 {
+    private final int value;
+
+    public IntegerLiteralNode(int value)
+    {
+        this.value = value;
+    }
+
+    @Specialization
+    public int getValue()
+    {
+        return value;
+    }
+
+//    @Specialization
+//    public NullableInt getNullableValue()
+//    {
+//        return NullableInt.valueOf(value);
+//    }
 }

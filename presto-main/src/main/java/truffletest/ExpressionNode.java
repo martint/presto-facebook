@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.truffle;
+package truffletest;
 
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.nodes.UnexpectedResultException;
@@ -19,17 +19,17 @@ import com.oracle.truffle.api.nodes.UnexpectedResultException;
 public abstract class ExpressionNode
         extends SqlNode
 {
-    public abstract Object execute(VirtualFrame frame);
+    public abstract Object executeGeneric(VirtualFrame frame);
 
-    public long executeLong(VirtualFrame frame)
+    public NullableInt executeNullableInt(VirtualFrame frame)
             throws UnexpectedResultException
     {
-        return SqlTypesGen.SQLTYPES.expectLong(execute(frame));
+        return SqlTypesGen.SQLTYPES.expectNullableInt(executeGeneric(frame));
     }
 
-    public double executeDouble(VirtualFrame frame)
+    public int executeInt(VirtualFrame frame)
             throws UnexpectedResultException
     {
-        return SqlTypesGen.SQLTYPES.expectDouble(execute(frame));
+        return SqlTypesGen.SQLTYPES.expectInteger(executeGeneric(frame));
     }
 }

@@ -11,12 +11,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.truffle;
+package truffletest;
 
-import com.oracle.truffle.api.dsl.TypeSystemReference;
-import com.oracle.truffle.api.nodes.Node;
+import com.oracle.truffle.api.frame.VirtualFrame;
 
-@TypeSystemReference(SqlTypes.class)
-public class SqlNode extends Node
+public class ArgumentReferenceNode
+        extends ExpressionNode
 {
+    private final int index;
+
+    public ArgumentReferenceNode(int index)
+    {
+        this.index = index;
+    }
+
+    @Override
+    public Object executeGeneric(VirtualFrame frame)
+    {
+        return frame.getArguments(ArgumentsArray.class).get(index);
+    }
 }
