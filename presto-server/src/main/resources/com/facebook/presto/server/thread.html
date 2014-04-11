@@ -132,7 +132,7 @@ function redraw() {
 
         threads.forEach(function (thread) {
             if (thread.lockOwnerId) {
-                graph.addEdge(null, thread.id, thread.lockOwnerId);
+                graph.addEdge(null, thread.id, thread.lockOwnerId, { label: "" + thread.lock.id });
             }
         });
 

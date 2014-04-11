@@ -15,22 +15,38 @@ package com.facebook.presto.server;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.Function;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
+import com.google.common.collect.MultimapBuilder;
+import com.google.common.collect.Multimaps;
 import com.google.common.collect.Ordering;
 import com.google.common.io.Resources;
+import io.airlift.stats.Distribution;
+import io.airlift.units.Duration;
 
+import javax.annotation.Nullable;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 
 import java.io.IOException;
+import java.lang.management.LockInfo;
 import java.lang.management.ManagementFactory;
+import java.lang.management.MonitorInfo;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.server.ThreadResource.Info.byName;
 import static com.google.common.io.Resources.getResource;
@@ -55,27 +71,52 @@ public class ThreadResource
         ThreadMXBean mbean = ManagementFactory.getThreadMXBean();
 
         ImmutableList.Builder<Info> builder = ImmutableList.builder();
-        for (ThreadInfo info : mbean.getThreadInfo(mbean.getAllThreadIds(), Integer.MAX_VALUE)) {
+        for (ThreadInfo info : mbean.getThreadInfo(mbean.getAllThreadIds(), true, true)) {
             builder.add(new Info(
                     info.getThreadId(),
                     info.getThreadName(),
                     info.getThreadState().name(),
                     info.getLockOwnerId() == -1 ? null : info.getLockOwnerId(),
-                    toStackTrace(info.getStackTrace())));
+                    Optional.fromNullable(info.getLockInfo()).transform(toOwnedLockInfo()),
+                    Lists.transform(Arrays.asList(info.getLockedSynchronizers()), toOwnedLockInfo()),
+                    toStackTrace(info.getStackTrace(), info.getLockedMonitors())));
         }
         return Ordering.from(byName()).sortedCopy(builder.build());
     }
 
-    private static List<StackLine> toStackTrace(StackTraceElement[] stackTrace)
+    private static Function<LockInfo, OwnedLockInfo> toOwnedLockInfo()
     {
+        return new Function<LockInfo, OwnedLockInfo>() {
+            @Override
+            public OwnedLockInfo apply(LockInfo lock)
+            {
+                return new OwnedLockInfo(lock.getClassName(), lock.getIdentityHashCode());
+            }
+        };
+    }
+
+    private static List<StackLine> toStackTrace(StackTraceElement[] stackTrace, MonitorInfo[] lockedMonitors)
+    {
+        ImmutableListMultimap<Integer, MonitorInfo> locksByFrame = Multimaps.index(Arrays.asList(lockedMonitors), new Function<MonitorInfo, Integer>()
+        {
+            @Override
+            public Integer apply(MonitorInfo info)
+            {
+                return info.getLockedStackDepth();
+            }
+        });
+
         ImmutableList.Builder<StackLine> builder = ImmutableList.builder();
 
+        int depth = 0;
         for (StackTraceElement item : stackTrace) {
             builder.add(new StackLine(
                     item.getFileName(),
                     item.getLineNumber(),
                     item.getClassName(),
-                    item.getMethodName()));
+                    item.getMethodName(),
+                    Lists.transform(locksByFrame.get(depth), toOwnedLockInfo())));
+            depth++;
         }
 
         return builder.build();
@@ -87,6 +128,8 @@ public class ThreadResource
         private final String name;
         private final String state;
         private final Long lockOwnerId;
+        private final Optional<OwnedLockInfo> lock;
+        private final List<OwnedLockInfo> ownedSynchronizers;
         private final List<StackLine> stackTrace;
 
         @JsonCreator
@@ -95,12 +138,16 @@ public class ThreadResource
                 @JsonProperty("name") String name,
                 @JsonProperty("state") String state,
                 @JsonProperty("lockOwner") Long lockOwnerId,
+                @JsonProperty("lock") Optional<OwnedLockInfo> lock,
+                @JsonProperty("ownedSynchronizers") List<OwnedLockInfo> ownedSynchronizers,
                 @JsonProperty("stackTrace") List<StackLine> stackTrace)
         {
             this.id = id;
             this.name = name;
             this.state = state;
             this.lockOwnerId = lockOwnerId;
+            this.lock = lock;
+            this.ownedSynchronizers = ownedSynchronizers;
             this.stackTrace = stackTrace;
         }
 
@@ -129,6 +176,18 @@ public class ThreadResource
         }
 
         @JsonProperty
+        public Optional<OwnedLockInfo> getLock()
+        {
+            return lock;
+        }
+
+        @JsonProperty
+        public List<OwnedLockInfo> getOwnedSynchronizers()
+        {
+            return ownedSynchronizers;
+        }
+
+        @JsonProperty
         public List<StackLine> getStackTrace()
         {
             return stackTrace;
@@ -153,18 +212,21 @@ public class ThreadResource
         private final int line;
         private final String className;
         private final String method;
+        private final List<OwnedLockInfo> monitors;
 
         @JsonCreator
         public StackLine(
                 @JsonProperty("file") String file,
                 @JsonProperty("line") int line,
                 @JsonProperty("class") String className,
-                @JsonProperty("method") String method)
+                @JsonProperty("method") String method,
+                @JsonProperty("monitors") List<OwnedLockInfo> monitors)
         {
             this.file = file;
             this.line = line;
             this.className = className;
             this.method = method;
+            this.monitors = monitors;
         }
 
         @JsonProperty
@@ -190,5 +252,63 @@ public class ThreadResource
         {
             return method;
         }
+
+        @JsonProperty
+        public List<OwnedLockInfo> getMonitors()
+        {
+            return monitors;
+        }
+    }
+
+    public static class OwnedLockInfo
+    {
+        private final String className;
+        private final int id;
+
+        @JsonCreator
+        public OwnedLockInfo(@JsonProperty("className") String className, @JsonProperty("id") int id)
+        {
+            this.className = className;
+            this.id = id;
+        }
+
+        @JsonProperty
+        public String getClassName()
+        {
+            return className;
+        }
+
+        @JsonProperty
+        public int getId()
+        {
+            return id;
+        }
+    }
+
+    public static void main(String[] args)
+    {
+        Distribution distribution = new Distribution();
+
+        long start = System.nanoTime();
+        int loops = 10_000_000;
+        for (int i = 0; i < loops; i++) {
+            long value = (long) Math.max(0, ThreadLocalRandom.current().nextGaussian() * 1_000_000_000 + 500_000);
+            int weight = ThreadLocalRandom.current().nextInt(1000) + 1;
+            distribution.add(value, weight);
+        }
+        System.out.println("add");
+        System.out.println(Duration.nanosSince(start));
+        System.out.println((System.nanoTime() - start) / loops + " ns/call");
+
+        start = System.nanoTime();
+        for (int i = 0; i < loops; i++) {
+            distribution.getPercentiles(ImmutableList.of(0.05, 0.50));
+        }
+        System.out.println();
+
+        System.out.println("get percentiles");
+        System.out.println(Duration.nanosSince(start));
+        System.out.println((System.nanoTime() - start) / loops + " ns/call");
+
     }
 }
