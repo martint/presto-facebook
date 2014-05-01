@@ -56,6 +56,7 @@ public class SuspendableScheduler
     {
         for (final ResumableTask task : pending) {
             if (!waitForPermit()) {
+                // TODO: what to do with suspended and running tasks?
                 // we're done!
                 return;
             }
@@ -66,6 +67,7 @@ public class SuspendableScheduler
         // wait for active tasks to complete
         for (int i = 0; i < concurrency; i++) {
             if (!waitForPermit()) {
+                // TODO: what to do with suspended and running tasks?
                 return;
             }
         }
@@ -78,13 +80,10 @@ public class SuspendableScheduler
 
             // we might be seeing the release from close(), so check if we're done
             if (done) {
-                cleanup();
-                // TODO: cancel or wait for running tasks?
                 return false;
             }
         }
         catch (InterruptedException e) {
-            cleanup();
             Thread.currentThread().interrupt();
             return false;
         }
