@@ -55,6 +55,12 @@ public class FixedSplitSource
     }
 
     @Override
+    public void close()
+    {
+        // no op
+    }
+
+    @Override
     public boolean isFinished()
     {
         return offset >= splits.size();

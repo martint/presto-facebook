@@ -73,10 +73,14 @@ public class AsyncRecursiveWalker
 
     private void doWalk(Path path, FileStatusCallback callback, AtomicLong taskCount, SettableFuture<Void> future)
     {
+        if (future.isDone()) {
+            return;
+        }
+
         try {
             RemoteIterator<LocatedFileStatus> iterator = getLocatedFileStatusRemoteIterator(path);
 
-            while (iterator.hasNext()) {
+            while (!future.isDone() && iterator.hasNext()) {
                 LocatedFileStatus status = getLocatedFileStatus(iterator);
 
                 // ignore hidden files. Hive ignores files starting with _ and . as well.
@@ -89,9 +93,6 @@ public class AsyncRecursiveWalker
                 }
                 else {
                     callback.process(status, status.getBlockLocations());
-                }
-                if (future.isDone()) {
-                    return;
                 }
             }
         }
