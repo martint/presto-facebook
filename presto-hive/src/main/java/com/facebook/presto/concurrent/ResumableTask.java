@@ -14,9 +14,9 @@
 package com.facebook.presto.concurrent;
 
 import java.io.Closeable;
+import java.util.concurrent.Callable;
 
 public interface ResumableTask
-    extends Closeable
+    extends Closeable, Callable<ControlResult>
 {
-    ControlResult run();
 }
