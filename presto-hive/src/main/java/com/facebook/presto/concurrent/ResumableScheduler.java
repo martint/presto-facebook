@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFutureTask;
+import com.google.common.util.concurrent.SettableFuture;
 
 import javax.annotation.concurrent.GuardedBy;
 
@@ -26,6 +27,8 @@ import java.io.IOException;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.FutureTask;
@@ -51,7 +54,7 @@ import static com.google.common.base.Preconditions.checkState;
  * scheduled for execution to see a call to close() if this scheduler is shut down prematurely
  */
 public class ResumableScheduler
-        implements Closeable
+        implements Closeable, Runnable
 {
     private final Semaphore permits;
     private final Iterable<ResumableTask> pending;
@@ -153,29 +156,58 @@ public class ResumableScheduler
         }
     }
 
+    // schedule the task to run in the executor and wait for it to get started
     private void run(final ResumableTask task)
     {
-        final ListenableFutureTask<ControlResult> future = ListenableFutureTask.create(task);
+        final CountDownLatch started = new CountDownLatch(1);
+
+        final ListenableFutureTask<ControlResult> future = ListenableFutureTask.create(new Callable<ControlResult>() {
+            @Override
+            public ControlResult call()
+                    throws Exception
+            {
+                // synchronize on the task so that if it asks to be suspended but keeps running
+                // and someone else tries to resume, the subsequent execution waits for this one
+                // to complete
+                synchronized (task) {
+                    started.countDown();
+
+                    return task.call(new TaskControl() {
+                        @Override
+                        public ControlResult suspend()
+                        {
+                            synchronized (ResumableScheduler.this) {
+                                suspended.add(task);
+                            }
+                            return ControlResult.SUSPEND;
+                        }
+
+                        @Override
+                        public ControlResult finish()
+                        {
+                            return ControlResult.FINISH;
+                        }
+                    });
+                }
+            }
+        });
 
         Futures.addCallback(future, new FutureCallback<ControlResult>()
         {
             @Override
             public void onSuccess(ControlResult state)
             {
-                boolean needsClose;
+                boolean needsClose = false;
 
                 synchronized (ResumableScheduler.this) {
                     running.remove(future);
 
-                    needsClose = (state == ControlResult.FINISH || done);
-
-                    switch (state) {
-                        case FINISH:
-                            permits.release();
-                            break;
-                        case SUSPEND:
-                            suspended.add(task);
-                            break;
+                    if (done) {
+                        needsClose = true;
+                    }
+                    else if (state == ControlResult.FINISH) {
+                        needsClose = true;
+                        permits.release();
                     }
                 }
 
@@ -187,6 +219,7 @@ public class ResumableScheduler
             @Override
             public void onFailure(Throwable throwable)
             {
+                throwable.printStackTrace();
                 synchronized (ResumableScheduler.this) {
                     exception = throwable;
                     running.remove(future);
@@ -204,12 +237,15 @@ public class ResumableScheduler
                 return;
             }
             running.add(future);
+            executor.submit(future);
         }
 
-        // it's ok to submit this now. If someone calls close between the block above and
-        // this call, the task will be registered in the running list and close() will
-        // interrupt it
-        executor.submit(future);
+        try {
+            started.await();
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     private void close(ResumableTask task)
@@ -315,21 +351,22 @@ public class ResumableScheduler
             this.count = count;
         }
 
-        public ControlResult call()
+        public ControlResult call(TaskControl control)
         {
             if (count > 0) {
-                System.out.println(name + ":" + count);
+                System.out.println(name + ": " + count);
                 count--;
-                return ControlResult.SUSPEND;
+                return control.suspend();
             }
 
-            return ControlResult.FINISH;
+            return control.finish();
         }
 
         @Override
         public void close()
                 throws IOException
         {
+            System.out.println(name + ": done");
         }
     }
 }

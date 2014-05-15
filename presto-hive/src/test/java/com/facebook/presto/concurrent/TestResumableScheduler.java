@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.concurrent;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -22,6 +23,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.Phaser;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -64,30 +66,138 @@ public class TestResumableScheduler
     }
 
     @Test
-    public void testResume()
+    public void testConcurrency()
             throws Exception
     {
-        Phaser phaser = new Phaser(2);
+        final int maxConcurrency = 2;
+        final AtomicInteger running = new AtomicInteger();
+        ImmutableList<ResumableTask> tasks = ImmutableList.<ResumableTask>of(
+                new SleepingTask(running, maxConcurrency),
+                new SleepingTask(running, maxConcurrency),
+                new SleepingTask(running, maxConcurrency),
+                new SleepingTask(running, maxConcurrency),
+                new SleepingTask(running, maxConcurrency),
+                new SleepingTask(running, maxConcurrency));
 
-        List<ResumableTask> tasks = ImmutableList.<ResumableTask>of(
-                new CounterTask1(0, accumulator),
-                new CounterTask1(0, accumulator),
-                new CounterTask1(0, accumulator),
-                new CounterTask1(0, accumulator));
+        ResumableScheduler scheduler = new ResumableScheduler(tasks, executor, 2);
+        scheduler.run();
+    }
 
-        final ResumableScheduler scheduler = new ResumableScheduler(tasks, executor, 1);
+    /*
+        Ensures that a task that asks to be suspended but doesn't return immediately doesn't get executed
+        simultaneously by two threads
+     */
+    @Test
+    public void testMisbehavedSuspendWithResume()
+            throws Exception
+    {
+        final Phaser afterSuspend = new Phaser(2);
 
-        executor.submit(new Runnable()
+        List<ResumableTask> tasks = ImmutableList.<ResumableTask>of(new ResumableTask()
         {
+            private volatile boolean running;
+            private volatile int run = 0;
+
             @Override
-            public void run()
+            public ControlResult call(TaskControl control)
+                    throws InterruptedException
             {
-                scheduler.run();
+                Preconditions.checkState(!running, "Task is already running");
+
+                if (run > 0) {
+                    return control.finish();
+                }
+                run++;
+
+                try {
+                    running = true;
+
+                    // suspend but don't return immediately to allow controller
+                    // to resume us before we return
+                    control.suspend();
+
+                    // trigger resume
+                    afterSuspend.arriveAndAwaitAdvance();
+
+                    Thread.sleep(10);
+                    return ControlResult.SUSPEND;
+                }
+                finally {
+                    running = false;
+                }
+            }
+
+            @Override
+            public void close()
+                    throws IOException
+            {
             }
         });
 
+        ResumableScheduler scheduler = new ResumableScheduler(tasks, executor, 1);
+        Future<?> future = executor.submit(scheduler);
 
-        assertEquals(accumulator.get(), 4);
+        afterSuspend.arriveAndAwaitAdvance();
+        scheduler.resume();
+
+        future.get();
+    }
+
+    //    @Test
+//    public void testResume()
+//            throws Exception
+//    {
+//        Phaser phaser = new Phaser(2);
+//
+//        List<ResumableTask> tasks = ImmutableList.<ResumableTask>of(
+//                new CounterTask1(0, accumulator),
+//                new CounterTask1(0, accumulator),
+//                new CounterTask1(0, accumulator),
+//                new CounterTask1(0, accumulator));
+//
+//        final ResumableScheduler scheduler = new ResumableScheduler(tasks, executor, 1);
+//
+//        executor.submit(new Runnable()
+//        {
+//            @Override
+//            public void run()
+//            {
+//                scheduler.run();
+//            }
+//        });
+//
+//
+//        assertEquals(accumulator.get(), 4);
+//    }
+//
+
+    private static class SleepingTask
+        implements ResumableTask
+    {
+        private final AtomicInteger running;
+        private final int maxConcurrency;
+
+        public SleepingTask(AtomicInteger running, int maxConcurrency)
+        {
+            this.running = running;
+            this.maxConcurrency = maxConcurrency;
+        }
+
+        @Override
+        public ControlResult call(TaskControl control)
+        throws Exception
+        {
+            Preconditions.checkState(running.incrementAndGet() <= maxConcurrency);
+            Thread.sleep(100);
+            running.decrementAndGet();
+            return control.finish();
+        }
+
+        @Override
+        public void close()
+        throws IOException
+        {
+        }
     }
 
     private static class CounterTask1
@@ -103,16 +213,15 @@ public class TestResumableScheduler
         }
 
         @Override
-        public ControlResult call()
-                throws Exception
+        public ControlResult call(TaskControl control)
         {
             accumulator.incrementAndGet();
             if (count == 0) {
-                return ControlResult.FINISH;
+                return control.finish();
             }
 
             count--;
-            return ControlResult.SUSPEND;
+            return control.suspend();
         }
 
         @Override
@@ -122,35 +231,35 @@ public class TestResumableScheduler
         }
     }
 
-    private static class CounterTask2
-            implements ResumableTask
-    {
-        private int count;
-        private final Phaser phaser;
-
-        public CounterTask2(int count, Phaser phaser)
-        {
-            this.count = count;
-            this.phaser = phaser;
-        }
-
-        @Override
-        public ControlResult call()
-                throws Exception
-        {
-            if (count == 0) {
-                return ControlResult.FINISH;
-            }
-
-            count--;
-            phaser.arrive();
-            return ControlResult.SUSPEND;
-        }
-
-        @Override
-        public void close()
-                throws IOException
-        {
-        }
-    }
+//    private static class CounterTask2
+//            implements ResumableTask
+//    {
+//        private int count;
+//        private final Phaser phaser;
+//
+//        public CounterTask2(int count, Phaser phaser)
+//        {
+//            this.count = count;
+//            this.phaser = phaser;
+//        }
+//
+//        @Override
+//        public ControlResult call()
+//                throws Exception
+//        {
+//            if (count == 0) {
+//                return ControlResult.FINISH;
+//            }
+//
+//            count--;
+//            phaser.arrive();
+//            return ControlResult.SUSPEND;
+//        }
+//
+//        @Override
+//        public void close()
+//                throws IOException
+//        {
+//        }
+//    }
 }

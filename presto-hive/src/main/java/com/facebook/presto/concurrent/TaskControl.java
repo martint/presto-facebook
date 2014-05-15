@@ -13,28 +13,19 @@
  */
 package com.facebook.presto.concurrent;
 
-import com.google.common.base.Function;
-
-public class TaskControl
+public interface TaskControl
 {
-    private final Runnable onCompletion;
-    private final Function<ResumableTask, Void> onSuspend;
+//    public TaskControl(ResumableTask task)
+//    {
+//    }
 
-    public TaskControl(Runnable onCompletion, Function<ResumableTask, Void> onSuspend)
-    {
-        this.onCompletion = onCompletion;
-        this.onSuspend = onSuspend;
-    }
+    ControlResult suspend();
+//    {
+//        return ControlResult.SUSPEND;
+//    }
 
-    public ControlResult suspend(ResumableTask task)
-    {
-        onSuspend.apply(task);
-        return null;
-    }
-
-    public ControlResult finish()
-    {
-        onCompletion.run();
-        return null;
-    }
+    ControlResult finish();
+//    {
+//        return ControlResult.FINISH;
+//    }
 }
