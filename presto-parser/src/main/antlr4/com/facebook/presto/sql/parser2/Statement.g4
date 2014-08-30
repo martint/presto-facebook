@@ -358,7 +358,7 @@ over
     ;
 
 window
-    : p=windowPartition? o=orderClause? f=windowFrame?
+    : windowPartition? orderClause? windowFrame?
     ;
 
 windowPartition
