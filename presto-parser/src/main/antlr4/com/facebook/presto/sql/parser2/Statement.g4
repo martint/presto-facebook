@@ -23,7 +23,7 @@ singleStatement
     ;
 
 singleExpression
-    : expr EOF
+    : expression EOF
     ;
 
 statement
@@ -85,7 +85,7 @@ inlineTableExpression
     ;
 
 rowValue
-    : '(' expr (',' expr)* ')'
+    : '(' expression (',' expression)* ')'
     ;
 
 simpleQuery
@@ -113,15 +113,15 @@ fromClause
     ;
 
 whereClause
-    : WHERE expr
+    : WHERE expression
     ;
 
 groupClause
-    : GROUP BY expr (',' expr)*
+    : GROUP BY expression (',' expression)*
     ;
 
 havingClause
-    : HAVING expr
+    : HAVING expression
     ;
 
 orderClause
@@ -150,7 +150,7 @@ setQuant
     ;
 
 selectItem
-    : expr (AS? ident)?
+    : expression (AS? ident)?
     | qname '.' '*'
     | '*'
     ;
@@ -171,11 +171,11 @@ sampleType
     ;
 
 stratifyOn
-    : STRATIFY ON '(' expr (',' expr)* ')'
+    : STRATIFY ON '(' expression (',' expression)* ')'
     ;
 
 tableFactor
-    : tablePrimary ( TABLESAMPLE sampleType '(' expr ')' RESCALED? stratifyOn? )?
+    : tablePrimary ( TABLESAMPLE sampleType '(' expression ')' RESCALED? stratifyOn? )?
     ;
 
 tablePrimary
@@ -204,7 +204,7 @@ joinType
     ;
 
 joinCriteria
-    : ON expr
+    : ON expression
     | USING '(' ident (',' ident)* ')'
     ;
 
@@ -212,7 +212,7 @@ aliasedColumns
     : '(' ident (',' ident)* ')'
     ;
 
-expr
+expression
     : booleanExpression;
 
 booleanExpression
@@ -243,7 +243,7 @@ expressionTerm
     | qname
     | functionCall
     | caseExpression
-    | '(' expr ')'
+    | '(' expression ')'
     | subquery
     | expressionTerm ( AT TIME ZONE STRING | AT TIME ZONE intervalLiteral)
     | ('+' | '-') expressionTerm
@@ -256,7 +256,7 @@ expressionTerm
 
 functionCall
     : qname '(' '*' ')' over?
-    | qname '(' (setQuant? expr (',' expr)*)? ')' over?
+    | qname '(' (setQuant? expression (',' expression)*)? ')' over?
     | specialFunction
     ;
 
@@ -266,19 +266,19 @@ specialFunction
     | CURRENT_TIMESTAMP ('(' integer ')')?
     | LOCALTIME ('(' integer ')')?
     | LOCALTIMESTAMP ('(' integer ')')?
-    | SUBSTRING '(' expr FROM expr (FOR expr)? ')'
-    | EXTRACT '(' ident FROM expr ')'
-    | CAST '(' expr AS type ')'
-    | TRY_CAST '(' expr AS type ')'
+    | SUBSTRING '(' expression FROM expression (FOR expression)? ')'
+    | EXTRACT '(' ident FROM expression ')'
+    | CAST '(' expression AS type ')'
+    | TRY_CAST '(' expression AS type ')'
     ;
 
 inList
-    : '(' expr (',' expr)* ')'
+    : '(' expression (',' expression)* ')'
     | subquery
     ;
 
 sortItem
-    : expr ordering nullOrdering?
+    : expression ordering nullOrdering?
     ;
 
 ordering
@@ -341,16 +341,16 @@ type
     ;
 
 caseExpression
-    : CASE expr whenClause+ elseClause? END
+    : CASE expression whenClause+ elseClause? END
     | CASE whenClause+ elseClause? END
     ;
 
 whenClause
-    : WHEN expr THEN expr
+    : WHEN expression THEN expression
     ;
 
 elseClause
-    : ELSE expr
+    : ELSE expression
     ;
 
 over
@@ -362,7 +362,7 @@ window
     ;
 
 windowPartition
-    : PARTITION BY expr (',' expr)*
+    : PARTITION BY expression (',' expression)*
     ;
 
 windowFrame
@@ -376,7 +376,7 @@ frameBound
     : UNBOUNDED PRECEDING
     | UNBOUNDED FOLLOWING
     | CURRENT ROW
-    | expr ( PRECEDING | FOLLOWING )
+    | expression ( PRECEDING | FOLLOWING )
     ;
 
 useCollectionStmt
