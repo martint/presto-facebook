@@ -76,15 +76,15 @@ queryTerm
 queryPrimary
     : simpleQuery
     | subquery
-    | explicitTable
-    | tableValue
+    | tableExpression
+    | inlineTableExpression
     ;
 
-explicitTable
+tableExpression
     : TABLE table
     ;
 
-tableValue
+inlineTableExpression
     : VALUES rowValue (',' rowValue)*
     ;
 
