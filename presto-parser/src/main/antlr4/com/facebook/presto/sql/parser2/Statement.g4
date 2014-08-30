@@ -141,7 +141,7 @@ withQuery
     ;
 
 selectExpr
-    : setQuant? selectList
+    : setQuant? selectItem (',' selectItem)*
     ;
 
 setQuant
@@ -149,11 +149,7 @@ setQuant
     | ALL
     ;
 
-selectList
-    : selectSublist (',' selectSublist)*
-    ;
-
-selectSublist
+selectItem
     : expr (AS? ident)?
     | qname '.' '*'
     | '*'
