@@ -388,11 +388,8 @@ type
     ;
 
 caseExpression
-    : NULLIF '(' expr ',' expr ')'
-    | COALESCE '(' expr (',' expr)* ')'
-    | CASE expr whenClause+ elseClause? END
+    : CASE expr whenClause+ elseClause? END
     | CASE whenClause+ elseClause? END
-    | IF '(' expr ',' expr (',' expr)? ')'
     ;
 
 whenClause
