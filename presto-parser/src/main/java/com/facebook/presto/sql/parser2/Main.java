@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.parser2;
 
-import org.antlr.runtime.tree.TreeParser;
 import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.ParserRuleContext;
@@ -26,7 +25,7 @@ public class Main
     public static void main(String[] args)
             throws ExecutionException, InterruptedException
     {
-        String sql = "SELECT 1 INTERSECT SELECT 2 INTERSECT SELECT 3";
+        String sql = "SELECT 1 FROM T1 CROSS JOIN (T2 CROSS JOIN T3)";
         StatementLexer lexer = new StatementLexer(new ANTLRInputStream(sql));
         StatementParser parser = new StatementParser(new CommonTokenStream(lexer));
 
