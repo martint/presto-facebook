@@ -58,8 +58,7 @@ orderOrLimitQuerySpec
 
 // left-associative
 queryExprBody
-    : queryExprBody UNION setQuant? queryExprBody
-    | queryExprBody EXCEPT setQuant? queryExprBody
+    : queryExprBody (UNION | EXCEPT) setQuant? queryExprBody
     | queryTerm
     ;
 
