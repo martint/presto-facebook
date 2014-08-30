@@ -213,23 +213,10 @@ aliasedColumns
     ;
 
 expr
-    : orExpression
-    ;
-
-orExpression
-    : andExpression (OR andExpression)*
-    ;
-
-andExpression
-    : notExpression (AND notExpression)*
-    ;
-
-notExpression
-    : (NOT)* booleanTest
-    ;
-
-booleanTest
-    : booleanPrimary
+    : NOT expr
+    | expr AND expr
+    | expr OR expr
+    | booleanPrimary
     ;
 
 booleanPrimary
