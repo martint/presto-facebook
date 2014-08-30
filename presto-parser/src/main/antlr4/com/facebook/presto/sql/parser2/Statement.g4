@@ -57,16 +57,17 @@ orderOrLimitQuerySpec
     : simpleQuery (orderClause limitClause? | limitClause)
     ;
 
-// TODO left/right associativity and precedence
+// left-associative
 queryExprBody
-    : queryTerm
-      ( UNION setQuant? queryTerm
-      | EXCEPT setQuant? queryTerm
-      )*
+    : queryExprBody UNION setQuant? queryExprBody
+    | queryExprBody EXCEPT setQuant? queryExprBody
+    | queryTerm
     ;
 
+// left-associative
 queryTerm
-    : queryPrimary ( INTERSECT setQuant? queryPrimary )*
+    : queryTerm INTERSECT setQuant? queryTerm
+    | queryPrimary
     ;
 
 queryPrimary
