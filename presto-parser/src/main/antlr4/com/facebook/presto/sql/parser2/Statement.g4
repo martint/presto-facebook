@@ -151,7 +151,7 @@ setQuant
 
 selectItem
     : expression (AS? ident)?
-    | qname '.' '*'
+    | qualifiedName '.' '*'
     | '*'
     ;
 
@@ -189,7 +189,7 @@ relation
     ;
 
 table
-    : qname
+    : qualifiedName
     ;
 
 joinedTable
@@ -240,7 +240,7 @@ comparisonExpression
 
 expressionTerm
     : literal
-    | qname
+    | qualifiedName
     | functionCall
     | caseExpression
     | '(' expression ')'
@@ -255,8 +255,8 @@ expressionTerm
     ;
 
 functionCall
-    : qname '(' '*' ')' over?
-    | qname '(' (setQuant? expression (',' expression)*)? ')' over?
+    : qualifiedName '(' '*' ')' over?
+    | qualifiedName '(' (setQuant? expression (',' expression)*)? ')' over?
     | specialFunction
     ;
 
@@ -405,7 +405,7 @@ showTablesStmt
     ;
 
 showTablesFrom
-    : (FROM | IN) qname
+    : (FROM | IN) qualifiedName
     ;
 
 showTablesLike
@@ -425,13 +425,13 @@ showCatalogsStmt
     ;
 
 showColumnsStmt
-    : SHOW COLUMNS (FROM | IN) qname
-    | DESCRIBE qname
-    | DESC qname
+    : SHOW COLUMNS (FROM | IN) qualifiedName
+    | DESCRIBE qualifiedName
+    | DESC qualifiedName
     ;
 
 showPartitionsStmt
-    : SHOW PARTITIONS (FROM | IN) qname whereClause? orderClause? limitClause?
+    : SHOW PARTITIONS (FROM | IN) qualifiedName whereClause? orderClause? limitClause?
     ;
 
 showFunctionsStmt
@@ -439,27 +439,27 @@ showFunctionsStmt
     ;
 
 dropTableStmt
-    : DROP TABLE qname
+    : DROP TABLE qualifiedName
     ;
 
 insertStmt
-    : INSERT INTO qname query
+    : INSERT INTO qualifiedName query
     ;
 
 createTableStmt
-    : CREATE TABLE qname tableContentsSource
+    : CREATE TABLE qualifiedName tableContentsSource
     ;
 
 alterTableStmt
-    : ALTER TABLE qname RENAME TO qname
+    : ALTER TABLE qualifiedName RENAME TO qualifiedName
     ;
 
 createViewStmt
-    : CREATE orReplace? VIEW qname tableContentsSource
+    : CREATE orReplace? VIEW qualifiedName tableContentsSource
     ;
 
 dropViewStmt
-    : DROP VIEW qname
+    : DROP VIEW qualifiedName
     ;
 
 orReplace
@@ -520,7 +520,7 @@ columnConst
     : NOT NULL
     ;
 
-qname
+qualifiedName
     : ident ('.' ident)*
     ;
 
