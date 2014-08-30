@@ -14,6 +14,9 @@
 
 grammar Statement;
 
+// TODO: error handling
+//  - detect invalid chars in idents (@, :, etc)
+//  - replace non-reserved tokens with ident with their text
 
 singleStatement
     : statement EOF
