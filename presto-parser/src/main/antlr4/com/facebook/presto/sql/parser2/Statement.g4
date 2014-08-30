@@ -46,8 +46,9 @@ statement
 
 query
     : withClause?
-      ( orderOrLimitQuerySpec
-      | queryExprBody orderClause? limitClause?
+      ( orderOrLimitQuerySpec  // TODO: need syntactic predicate to resolve ambiguity: (orderOrLimitQuerySpec) =>
+      //
+//      | queryExprBody orderClause? limitClause?
       )
       approximateClause?
     ;
