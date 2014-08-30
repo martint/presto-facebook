@@ -159,11 +159,12 @@ selectSublist
     ;
 
 tableRef
-    : tableFactor
+    : tableRef
       ( CROSS JOIN tableFactor
       | joinType JOIN tableFactor joinCriteria
       | NATURAL joinType JOIN tableFactor
-      )*
+      )
+    | tableFactor
     ;
 
 sampleType
