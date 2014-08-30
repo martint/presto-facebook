@@ -213,69 +213,63 @@ aliasedColumns
     ;
 
 expr
-    : NOT expr
-    | expr AND expr
-    | expr OR expr
-    | predicate
+    : booleanExpression;
+
+booleanExpression
+    : NOT booleanExpression
+    | booleanExpression AND booleanExpression
+    | booleanExpression OR booleanExpression
     | EXISTS subquery
+    | comparisonExpression
     ;
 
-predicate
-    : predicatePrimary
-      ( cmpOp predicatePrimary
-      | IS DISTINCT FROM predicatePrimary
-      | IS NOT DISTINCT FROM predicatePrimary
-      | BETWEEN predicatePrimary AND predicatePrimary
-      | NOT BETWEEN predicatePrimary AND predicatePrimary
-      | LIKE predicatePrimary (ESCAPE predicatePrimary)?
-      | NOT LIKE predicatePrimary (ESCAPE predicatePrimary)?
-      | IS NULL
-      | IS NOT NULL
-      | IN inList
-      | NOT IN inList
-      )*
+comparisonExpression
+    : comparisonExpression BETWEEN comparisonExpression AND comparisonExpression
+    | comparisonExpression NOT BETWEEN comparisonExpression AND comparisonExpression
+    | comparisonExpression LIKE comparisonExpression (ESCAPE comparisonExpression)?
+    | comparisonExpression NOT LIKE comparisonExpression (ESCAPE comparisonExpression)?
+    | comparisonExpression IN inList
+    | comparisonExpression NOT IN inList
+    | expressionTerm
     ;
 
-predicatePrimary
-    : numericExpr ( '||' e=numericExpr )*
-    ;
+// 1 = 2 is null            => 1 = (2 is null)
+// false = null is null     => false = (null is null)
+// 1 BETWEEN 2 AND 3 BETWEEN 4 AND 5 => (1 BETWEEN 2 AND 3) BETWEEN 4 AND 5
+// 'a' || 'b' IS NULL => 'a' || ('b' IS NULL)
 
-numericExpr
-    : numericTerm (('+' | '-') numericTerm)*
-    ;
-
-numericTerm
-    : numericFactor (('*' | '/' | '%') numericFactor)*
-    ;
-
-numericFactor
-    : exprWithTimeZone
-    | '+' numericFactor
-    | '-' numericFactor
-    ;
-
-exprWithTimeZone
-    : exprPrimary ( AT TIME ZONE STRING | AT TIME ZONE intervalLiteral )?
-    ;
-
-exprPrimary
-    : NULL
-    | literal
-    | qnameOrFunction
-    | specialFunction
-    | number
-    | bool
-    | STRING
+expressionTerm
+    : literal
+    | qname
+    | functionCall
     | caseExpression
     | '(' expr ')'
     | subquery
+    | expressionTerm ( AT TIME ZONE STRING | AT TIME ZONE intervalLiteral)
+    | ('+' | '-') expressionTerm
+    | expressionTerm ('*' | '/' | '%') expressionTerm
+    | expressionTerm ('+' | '-') expressionTerm
+    | expressionTerm IS NOT? NULL
+    | expressionTerm '||' expressionTerm
+    | expressionTerm cmpOp expressionTerm
     ;
 
-qnameOrFunction
-    : qname
-      ( '(' '*' ')' over?
-      | '(' (setQuant? expr (',' expr)*)? ')'
-      )?
+functionCall
+    : qname '(' '*' ')' over?
+    | qname '(' (setQuant? expr (',' expr)*)? ')' over?
+    | specialFunction
+    ;
+
+specialFunction
+    : CURRENT_DATE
+    | CURRENT_TIME ('(' integer ')')?
+    | CURRENT_TIMESTAMP ('(' integer ')')?
+    | LOCALTIME ('(' integer ')')?
+    | LOCALTIMESTAMP ('(' integer ')')?
+    | SUBSTRING '(' expr FROM expr (FOR expr)? ')'
+    | EXTRACT '(' ident FROM expr ')'
+    | CAST '(' expr AS type ')'
+    | TRY_CAST '(' expr AS type ')'
     ;
 
 inList
@@ -299,7 +293,7 @@ nullOrdering
     ;
 
 cmpOp
-    : EQ | NEQ | LT | LTE | GT | GTE
+    : EQ | NEQ | LT | LTE | GT | GTE | IS DISTINCT FROM | IS NOT DISTINCT FROM
     ;
 
 subquery
@@ -307,7 +301,8 @@ subquery
     ;
 
 literal
-    : VARCHAR STRING
+    : NULL
+    | VARCHAR STRING
     | BIGINT STRING
     | DOUBLE STRING
     | BOOLEAN STRING
@@ -316,6 +311,9 @@ literal
     | TIMESTAMP STRING
     | intervalLiteral
     | ident STRING
+    | number
+    | bool
+    | STRING
     ;
 
 intervalLiteral
@@ -329,18 +327,6 @@ intervalSign
 
 intervalField
     : YEAR | MONTH | DAY | HOUR | MINUTE | SECOND
-    ;
-
-specialFunction
-    : CURRENT_DATE
-    | CURRENT_TIME ('(' integer ')')?
-    | CURRENT_TIMESTAMP ('(' integer ')')?
-    | LOCALTIME ('(' integer ')')?
-    | LOCALTIMESTAMP ('(' integer ')')?
-    | SUBSTRING '(' expr FROM expr (FOR expr)? ')'
-    | EXTRACT '(' ident FROM expr ')'
-    | CAST '(' expr AS type ')'
-    | TRY_CAST '(' expr AS type ')'
     ;
 
 // TODO: this should be 'dataType', which supports arbitrary type specifications. For now we constrain to simple types

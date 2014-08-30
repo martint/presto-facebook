@@ -11,26 +11,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.parser2;
+package com.facebook.presto.sql.parser;
 
-import org.antlr.v4.runtime.ANTLRInputStream;
-import org.antlr.v4.runtime.CommonTokenStream;
-import org.antlr.v4.runtime.ParserRuleContext;
-import org.antlr.v4.runtime.tree.Trees;
+import org.antlr.runtime.ANTLRInputStream;
+import org.antlr.runtime.ANTLRStringStream;
+import org.antlr.runtime.CommonTokenStream;
+import org.antlr.runtime.RecognitionException;
+import org.antlr.runtime.tree.CommonTree;
 
-import java.util.concurrent.ExecutionException;
-
-public class Main
+public class OldParser
 {
     public static void main(String[] args)
-            throws ExecutionException, InterruptedException
+            throws RecognitionException
     {
-        String sql = "1 BETWEEN NOT TRUE AND FALSE";
-        StatementLexer lexer = new StatementLexer(new ANTLRInputStream(sql));
+        String sql = "'a' || 'b' IS NULL";
+        StatementLexer lexer = new StatementLexer(new ANTLRStringStream(sql));
         StatementParser parser = new StatementParser(new CommonTokenStream(lexer));
 
-        ParserRuleContext result = parser.expr();
-        System.out.println(Trees.toStringTree(result, parser));
-        result.inspect(parser).get();
+        CommonTree tree = (CommonTree) parser.expr().getTree();
+
+        System.out.println(tree.toStringTree());
     }
 }
