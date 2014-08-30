@@ -45,10 +45,6 @@ statement
     ;
 
 query
-    : queryExpr
-    ;
-
-queryExpr
     : withClause?
       ( orderOrLimitQuerySpec
       | queryExprBody orderClause? limitClause?
