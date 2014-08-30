@@ -75,7 +75,7 @@ queryTerm
 
 queryPrimary
     : simpleQuery
-    | tableSubquery
+    | subquery
     | explicitTable
     | tableValue
     ;
@@ -197,15 +197,11 @@ tablePrimary
 relation
     : table
     | joinedTable
-    | tableSubquery
+    | subquery
     ;
 
 table
     : qname
-    ;
-
-tableSubquery
-    : '(' query ')'
     ;
 
 joinedTable
