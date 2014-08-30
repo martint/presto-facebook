@@ -216,11 +216,7 @@ expr
     : NOT expr
     | expr AND expr
     | expr OR expr
-    | booleanPrimary
-    ;
-
-booleanPrimary
-    : predicate
+    | predicate
     | EXISTS subquery
     ;
 
