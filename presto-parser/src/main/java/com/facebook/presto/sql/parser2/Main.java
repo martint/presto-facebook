@@ -31,7 +31,7 @@ public class Main
             throws ExecutionException, InterruptedException
     {
 //        String sql = "(SELECT 1) UNION (SELECT 2 INTERSECT SELECT 3 ORDER BY 4)";
-        String sql = "SELECT A";
+        String sql = "SELECT * FROM (SELECT A FROM B UNION SELECT C FROM D UNION SELECT E FROM F) ORDER BY G";
         StatementLexer lexer = new StatementLexer(new ANTLRInputStream(sql));
         StatementParser parser = new StatementParser(new CommonTokenStream(lexer));
 
@@ -43,10 +43,10 @@ public class Main
 //        Node ast = builder.visit(tree);
 //        System.out.println(ast);
 
-        ParseTreePattern pattern = parser.compileParseTreePattern("NOT <booleanExpression>", StatementParser.RULE_expression);
-        ParseTreeMatch match = pattern.match(tree);
-
-        System.out.println(match.succeeded());
+//        ParseTreePattern pattern = parser.compileParseTreePattern("NOT <booleanExpression>", StatementParser.RULE_expression);
+//        ParseTreeMatch match = pattern.match(tree);
+//
+//        System.out.println(match.succeeded());
 //        ParserRuleContext x = (ParserRuleContext) match.get("booleanExpression");
 //        x.inspect(parser).get();
 

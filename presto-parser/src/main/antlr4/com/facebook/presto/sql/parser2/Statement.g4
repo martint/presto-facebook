@@ -184,7 +184,8 @@ expressionTerm
     : literal
     | qualifiedName
     | functionCall
-    | caseExpression
+    | CASE expression whenClause+ elseClause? END
+    | CASE whenClause+ elseClause? END
     | '(' expression ')'
     | '(' query ')'
     | expressionTerm ( AT TIME ZONE STRING | AT TIME ZONE intervalLiteral)
@@ -255,12 +256,7 @@ literal
     ;
 
 intervalLiteral
-    : INTERVAL intervalSign? STRING intervalField ( TO intervalField )?
-    ;
-
-intervalSign
-    : '+'
-    | '-'
+    : INTERVAL ('+' | '-')? STRING intervalField ( TO intervalField )?
     ;
 
 intervalField
@@ -276,11 +272,6 @@ type
     | TIME WITH TIME ZONE
     | TIMESTAMP WITH TIME ZONE
     | ident
-    ;
-
-caseExpression
-    : CASE expression whenClause+ elseClause? END
-    | CASE whenClause+ elseClause? END
     ;
 
 whenClause
@@ -339,23 +330,13 @@ explainOption
     ;
 
 showTable
-    : SHOW TABLES showTablesFrom? showTablesLike?
-    ;
-
-showTablesFrom
-    : (FROM | IN) qualifiedName
-    ;
-
-showTablesLike
-    : LIKE STRING
+    : SHOW TABLES
+        ( (FROM | IN) qualifiedName )?
+        ( LIKE STRING )?
     ;
 
 showSchemas
-    : SHOW SCHEMAS showSchemasFrom?
-    ;
-
-showSchemasFrom
-    : (FROM | IN) ident
+    : SHOW SCHEMAS ( (FROM | IN) ident )?
     ;
 
 showCatalogs
