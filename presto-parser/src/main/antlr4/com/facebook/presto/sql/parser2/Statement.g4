@@ -212,6 +212,12 @@ aliasedColumns
     : '(' ident (',' ident)* ')'
     ;
 
+// 1 = 2 is null            => 1 = (2 is null)
+// false = null is null     => false = (null is null)
+// 1 BETWEEN 2 AND 3 BETWEEN 4 AND 5 => (1 BETWEEN 2 AND 3) BETWEEN 4 AND 5
+// 'a' || 'b' IS NULL => 'a' || ('b' IS NULL)
+
+
 expression
     : booleanExpression;
 
@@ -232,11 +238,6 @@ comparisonExpression
     | comparisonExpression NOT IN inList
     | expressionTerm
     ;
-
-// 1 = 2 is null            => 1 = (2 is null)
-// false = null is null     => false = (null is null)
-// 1 BETWEEN 2 AND 3 BETWEEN 4 AND 5 => (1 BETWEEN 2 AND 3) BETWEEN 4 AND 5
-// 'a' || 'b' IS NULL => 'a' || ('b' IS NULL)
 
 expressionTerm
     : literal
@@ -729,24 +730,24 @@ BACKQUOTED_IDENT
     ;
 
 fragment EXPONENT
-    : 'E' ('+' | '-')? DIGIT+
+    : 'E' [+-]? DIGIT+
     ;
 
 fragment DIGIT
-    : '0'..'9'
+    : [0-9]
     ;
 
 fragment LETTER
-    : 'A'..'Z'
+    : [A-Z]
     ;
 
 COMMENT
     : (
-        '--' (~('\r' | '\n'))* ('\r'? '\n')?
+        '--' ~[\r\n]* '\r'? '\n'?
         | '/*' .*? '*/'
       ) -> skip
     ;
 
 WS
-    : (' ' | '\t' | '\n' | '\r')+ -> skip
+    : [ \r\n\t]+ -> skip
     ;

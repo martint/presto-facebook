@@ -13,10 +13,15 @@
  */
 package com.facebook.presto.sql.parser2;
 
+import com.facebook.presto.sql.tree.Node;
 import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.ParserRuleContext;
+import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.Trees;
+import org.antlr.v4.runtime.tree.pattern.ParseTreeMatch;
+import org.antlr.v4.runtime.tree.pattern.ParseTreePattern;
+import org.w3c.dom.traversal.TreeWalker;
 
 import java.util.concurrent.ExecutionException;
 
@@ -25,12 +30,32 @@ public class Main
     public static void main(String[] args)
             throws ExecutionException, InterruptedException
     {
-        String sql = "1 BETWEEN NOT TRUE AND FALSE";
+        String sql = "NOT 1";
         StatementLexer lexer = new StatementLexer(new ANTLRInputStream(sql));
         StatementParser parser = new StatementParser(new CommonTokenStream(lexer));
 
-        ParserRuleContext result = parser.expr();
-        System.out.println(Trees.toStringTree(result, parser));
-        result.inspect(parser).get();
+        ParserRuleContext tree = parser.expression();
+        System.out.println(Trees.toStringTree(tree, parser));
+        tree.inspect(parser);
+
+//        AstBuilder builder = new AstBuilder(parser);
+//        Node ast = builder.visit(tree);
+//        System.out.println(ast);
+
+        ParseTreePattern pattern = parser.compileParseTreePattern("NOT <booleanExpression>", StatementParser.RULE_expression);
+        ParseTreeMatch match = pattern.match(tree);
+
+        System.out.println(match.succeeded());
+//        ParserRuleContext x = (ParserRuleContext) match.get("booleanExpression");
+//        x.inspect(parser).get();
+
+//        if (match.succeeded()) {
+//            System.out.println("success");
+//        }
+//        else {
+//            System.out.println("failure");
+//        }
+
     }
+
 }
