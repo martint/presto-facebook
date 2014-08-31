@@ -30,11 +30,11 @@ public class Main
     public static void main(String[] args)
             throws ExecutionException, InterruptedException
     {
-        String sql = "NOT 1";
+        String sql = "SELECT 1 UNION SELECT 2 INTERSECT SELECT 3";
         StatementLexer lexer = new StatementLexer(new ANTLRInputStream(sql));
         StatementParser parser = new StatementParser(new CommonTokenStream(lexer));
 
-        ParserRuleContext tree = parser.expression();
+        ParserRuleContext tree = parser.singleStatement();
         System.out.println(Trees.toStringTree(tree, parser));
         tree.inspect(parser);
 

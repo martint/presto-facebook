@@ -43,12 +43,6 @@ public class BaseStatementVisitor<T>
     }
 
     @Override
-    public T visitQueryTerm(@NotNull StatementParser.QueryTermContext ctx)
-    {
-        throw new UnsupportedOperationException("not yet implemented");
-    }
-
-    @Override
     public T visitSetQuant(@NotNull StatementParser.SetQuantContext ctx)
     {
         throw new UnsupportedOperationException("not yet implemented");

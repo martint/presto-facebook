@@ -46,9 +46,9 @@ statement
 
 query
     : withClause?
-      ( orderOrLimitQuerySpec  // TODO: need syntactic predicate to resolve ambiguity: (orderOrLimitQuerySpec) =>
-      //
-//      | queryExprBody orderClause? limitClause?
+      ( //orderOrLimitQuerySpec  // TODO: need syntactic predicate to resolve ambiguity: (orderOrLimitQuerySpec) =>
+      // |
+         queryExprBody orderClause? limitClause?
       )
       approximateClause?
     ;
@@ -59,29 +59,16 @@ orderOrLimitQuerySpec
 
 // left-associative
 queryExprBody
-    : queryExprBody (UNION | EXCEPT) setQuant? queryExprBody
-    | queryTerm
-    ;
-
-// left-associative
-queryTerm
-    : queryTerm INTERSECT setQuant? queryTerm
-    | queryPrimary
+    : queryPrimary
+    | queryExprBody INTERSECT setQuant? queryExprBody
+    | queryExprBody (UNION | EXCEPT) setQuant? queryExprBody
     ;
 
 queryPrimary
     : simpleQuery
     | subquery
-    | tableExpression
-    | inlineTableExpression
-    ;
-
-tableExpression
-    : TABLE table
-    ;
-
-inlineTableExpression
-    : VALUES rowValue (',' rowValue)*
+    | TABLE table
+    | VALUES rowValue (',' rowValue)*inlineTableExpression
     ;
 
 rowValue
