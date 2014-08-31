@@ -28,87 +28,37 @@ singleExpression
 
 statement
     : query
-    | explainStmt
-    | showTablesStmt
-    | showSchemasStmt
-    | showCatalogsStmt
-    | showColumnsStmt
-    | showPartitionsStmt
-    | showFunctionsStmt
-    | useCollectionStmt
-    | createTableStmt
-    | insertStmt
-    | dropTableStmt
-    | alterTableStmt
-    | createViewStmt
-    | dropViewStmt
+    | explain
+    | showTable
+    | showSchemas
+    | showCatalogs
+    | showColumns
+    | showPartitions
+    | showFunctions
+    | useCollection
+    | createTable
+    | insert
+    | dropTable
+    | alterTable
+    | createView
+    | dropView
     ;
 
 query
-    : withClause?
-      ( //orderOrLimitQuerySpec  // TODO: need syntactic predicate to resolve ambiguity: (orderOrLimitQuerySpec) =>
-      // |
-         queryExprBody orderClause? limitClause?
-      )
-      approximateClause?
+    : ( WITH RECURSIVE? withQuery (',' withQuery)* )?
+      queryBody
+      orderClause?
+      limitClause?
+      ( APPROXIMATE AT number CONFIDENCE )?
     ;
 
-orderOrLimitQuerySpec
-    : simpleQuery (orderClause limitClause? | limitClause)
-    ;
-
-// left-associative
-queryExprBody
-    : queryPrimary
-    | queryExprBody INTERSECT setQuant? queryExprBody
-    | queryExprBody (UNION | EXCEPT) setQuant? queryExprBody
-    ;
-
-queryPrimary
+queryBody
     : simpleQuery
-    | subquery
-    | TABLE table
-    | VALUES rowValue (',' rowValue)*inlineTableExpression
-    ;
-
-rowValue
-    : '(' expression (',' expression)* ')'
-    ;
-
-simpleQuery
-    : selectClause
-      fromClause?
-      whereClause?
-      groupClause?
-      havingClause?
-    ;
-
-approximateClause
-    : APPROXIMATE AT number CONFIDENCE
-    ;
-
-withClause
-    : WITH RECURSIVE? withList
-    ;
-
-selectClause
-    : SELECT selectExpr
-    ;
-
-fromClause
-    : FROM tableRef (',' tableRef)*
-    ;
-
-whereClause
-    : WHERE expression
-    ;
-
-groupClause
-    : GROUP BY expression (',' expression)*
-    ;
-
-havingClause
-    : HAVING expression
+    | '(' query ')'
+    | TABLE qualifiedName
+    | VALUES rowValue (',' rowValue)
+    | queryBody INTERSECT setQuant? queryBody
+    | queryBody (UNION | EXCEPT) setQuant? queryBody
     ;
 
 orderClause
@@ -119,16 +69,24 @@ limitClause
     : LIMIT integer
     ;
 
-withList
-    : withQuery (',' withQuery)*
+simpleQuery
+    : SELECT setQuant? selectItem (',' selectItem)*
+      ( FROM tableRef (',' tableRef)* )?
+      whereClause?
+      ( GROUP BY expression (',' expression)* )?
+      ( HAVING expression )?
+    ;
+
+rowValue
+    : '(' expression (',' expression)* ')'
     ;
 
 withQuery
-    : ident aliasedColumns? AS subquery
+    : ident aliasedColumns? AS '(' query ')'
     ;
 
-selectExpr
-    : setQuant? selectItem (',' selectItem)*
+whereClause
+    : WHERE expression
     ;
 
 setQuant
@@ -170,13 +128,9 @@ tablePrimary
     ;
 
 relation
-    : table
-    | joinedTable
-    | subquery
-    ;
-
-table
     : qualifiedName
+    | joinedTable
+    | '(' query ')'
     ;
 
 joinedTable
@@ -212,7 +166,7 @@ booleanExpression
     : NOT booleanExpression
     | booleanExpression AND booleanExpression
     | booleanExpression OR booleanExpression
-    | EXISTS subquery
+    | EXISTS '(' query ')'
     | comparisonExpression
     ;
 
@@ -232,7 +186,7 @@ expressionTerm
     | functionCall
     | caseExpression
     | '(' expression ')'
-    | subquery
+    | '(' query ')'
     | expressionTerm ( AT TIME ZONE STRING | AT TIME ZONE intervalLiteral)
     | ('+' | '-') expressionTerm
     | expressionTerm ('*' | '/' | '%') expressionTerm
@@ -262,7 +216,7 @@ specialFunction
 
 inList
     : '(' expression (',' expression)* ')'
-    | subquery
+    | '(' query ')'
     ;
 
 sortItem
@@ -282,10 +236,6 @@ nullOrdering
 
 cmpOp
     : EQ | NEQ | LT | LTE | GT | GTE | IS DISTINCT FROM | IS NOT DISTINCT FROM
-    ;
-
-subquery
-    : '(' query ')'
     ;
 
 literal
@@ -367,12 +317,12 @@ frameBound
     | expression ( PRECEDING | FOLLOWING )
     ;
 
-useCollectionStmt
+useCollection
     : USE CATALOG ident
     | USE SCHEMA ident
     ;
 
-explainStmt
+explain
     : EXPLAIN explainOptions? statement
     ;
 
@@ -388,7 +338,7 @@ explainOption
     | TYPE DISTRIBUTED
     ;
 
-showTablesStmt
+showTable
     : SHOW TABLES showTablesFrom? showTablesLike?
     ;
 
@@ -400,7 +350,7 @@ showTablesLike
     : LIKE STRING
     ;
 
-showSchemasStmt
+showSchemas
     : SHOW SCHEMAS showSchemasFrom?
     ;
 
@@ -408,45 +358,45 @@ showSchemasFrom
     : (FROM | IN) ident
     ;
 
-showCatalogsStmt
+showCatalogs
     : SHOW CATALOGS
     ;
 
-showColumnsStmt
+showColumns
     : SHOW COLUMNS (FROM | IN) qualifiedName
     | DESCRIBE qualifiedName
     | DESC qualifiedName
     ;
 
-showPartitionsStmt
+showPartitions
     : SHOW PARTITIONS (FROM | IN) qualifiedName whereClause? orderClause? limitClause?
     ;
 
-showFunctionsStmt
+showFunctions
     : SHOW FUNCTIONS
     ;
 
-dropTableStmt
+dropTable
     : DROP TABLE qualifiedName
     ;
 
-insertStmt
+insert
     : INSERT INTO qualifiedName query
     ;
 
-createTableStmt
+createTable
     : CREATE TABLE qualifiedName tableContentsSource
     ;
 
-alterTableStmt
+alterTable
     : ALTER TABLE qualifiedName RENAME TO qualifiedName
     ;
 
-createViewStmt
+createView
     : CREATE orReplace? VIEW qualifiedName tableContentsSource
     ;
 
-dropViewStmt
+dropView
     : DROP VIEW qualifiedName
     ;
 

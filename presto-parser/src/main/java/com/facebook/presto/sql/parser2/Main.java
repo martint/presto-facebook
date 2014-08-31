@@ -30,7 +30,8 @@ public class Main
     public static void main(String[] args)
             throws ExecutionException, InterruptedException
     {
-        String sql = "SELECT 1 UNION SELECT 2 INTERSECT SELECT 3";
+//        String sql = "(SELECT 1) UNION (SELECT 2 INTERSECT SELECT 3 ORDER BY 4)";
+        String sql = "SELECT A";
         StatementLexer lexer = new StatementLexer(new ANTLRInputStream(sql));
         StatementParser parser = new StatementParser(new CommonTokenStream(lexer));
 
