@@ -45,7 +45,7 @@ statement
     ;
 
 query
-    : ( WITH RECURSIVE? withQuery (',' withQuery)* )?
+    : ( WITH RECURSIVE? namedQuery (',' namedQuery)* )?
       queryBody
       orderClause?
       limitClause?
@@ -57,8 +57,8 @@ queryBody
     | '(' query ')'
     | TABLE qualifiedName
     | VALUES rowValue (',' rowValue)
-    | queryBody INTERSECT setQuant? queryBody
-    | queryBody (UNION | EXCEPT) setQuant? queryBody
+    | queryBody INTERSECT setQuantifier? queryBody
+    | queryBody (UNION | EXCEPT) setQuantifier? queryBody
     ;
 
 orderClause
@@ -70,7 +70,7 @@ limitClause
     ;
 
 simpleQuery
-    : SELECT setQuant? selectItem (',' selectItem)*
+    : SELECT setQuantifier? selectItem (',' selectItem)*
       ( FROM tableRef (',' tableRef)* )?
       whereClause?
       ( GROUP BY expression (',' expression)* )?
@@ -81,7 +81,7 @@ rowValue
     : '(' expression (',' expression)* ')'
     ;
 
-withQuery
+namedQuery
     : ident aliasedColumns? AS '(' query ')'
     ;
 
@@ -89,7 +89,7 @@ whereClause
     : WHERE expression
     ;
 
-setQuant
+setQuantifier
     : DISTINCT
     | ALL
     ;
@@ -102,11 +102,17 @@ selectItem
 
 tableRef
     : tableRef
-      ( CROSS JOIN tableFactor
-      | joinType JOIN tableFactor joinCriteria
-      | NATURAL joinType JOIN tableFactor
+      ( CROSS JOIN tablePrimary
+      | joinType JOIN tablePrimary joinCriteria
+      | NATURAL joinType JOIN tablePrimary
       )
-    | tableFactor
+    | tablePrimary
+    ;
+
+tablePrimary
+    : ( qualifiedName | '(' tableRef ')' | '(' query ')')
+      ( AS? ident aliasedColumns? )?
+      ( TABLESAMPLE sampleType '(' expression ')' RESCALED? stratifyOn? )?
     ;
 
 sampleType
@@ -119,23 +125,6 @@ stratifyOn
     : STRATIFY ON '(' expression (',' expression)* ')'
     ;
 
-tableFactor
-    : tablePrimary ( TABLESAMPLE sampleType '(' expression ')' RESCALED? stratifyOn? )?
-    ;
-
-tablePrimary
-    : relation ( AS? ident aliasedColumns? )?
-    ;
-
-relation
-    : qualifiedName
-    | joinedTable
-    | '(' query ')'
-    ;
-
-joinedTable
-    : '(' tableRef ')'
-    ;
 
 joinType
     : INNER?
@@ -199,7 +188,7 @@ expressionTerm
 
 functionCall
     : qualifiedName '(' '*' ')' over?
-    | qualifiedName '(' (setQuant? expression (',' expression)*)? ')' over?
+    | qualifiedName '(' (setQuantifier? expression (',' expression)*)? ')' over?
     | specialFunction
     ;
 
