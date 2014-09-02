@@ -13,31 +13,56 @@
  */
 package com.facebook.presto.sql.parser2;
 
-import com.facebook.presto.sql.tree.Node;
 import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.ParserRuleContext;
-import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.Trees;
 import org.antlr.v4.runtime.tree.pattern.ParseTreeMatch;
 import org.antlr.v4.runtime.tree.pattern.ParseTreePattern;
-import org.w3c.dom.traversal.TreeWalker;
 
+import javax.swing.JDialog;
+
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class Main
 {
     public static void main(String[] args)
-            throws ExecutionException, InterruptedException
+            throws ExecutionException, InterruptedException, IOException
     {
-//        String sql = "(SELECT 1) UNION (SELECT 2 INTERSECT SELECT 3 ORDER BY 4)";
-        String sql = "SELECT * FROM (SELECT A FROM B UNION SELECT C FROM D UNION SELECT E FROM F) ORDER BY G";
-        StatementLexer lexer = new StatementLexer(new ANTLRInputStream(sql));
-        StatementParser parser = new StatementParser(new CommonTokenStream(lexer));
+        List<String> queries = Files.readAllLines(Paths.get("/tmp/queries.txt"), UTF_8);
 
-        ParserRuleContext tree = parser.singleStatement();
-        System.out.println(Trees.toStringTree(tree, parser));
-        tree.inspect(parser);
+        for (String query : queries) {
+            System.out.println(query);
+
+            StatementLexer lexer = new StatementLexer(new CaseInsensitiveStream2(new ANTLRInputStream(query)));
+            StatementParser parser = new StatementParser(new CommonTokenStream(lexer));
+
+            ParserRuleContext tree = parser.singleStatement();
+//            System.out.println(Trees.toStringTree(tree, parser));
+            System.out.println();
+
+//            JDialog dialog = tree.inspect(parser).get();
+//            final CountDownLatch latch = new CountDownLatch(1);
+//            dialog.addWindowListener(new WindowAdapter()
+//            {
+//                @Override
+//                public void windowClosed(WindowEvent e)
+//                {
+//                    latch.countDown();
+//                }
+//            });
+//
+//            latch.await();
+        }
 
 //        AstBuilder builder = new AstBuilder(parser);
 //        Node ast = builder.visit(tree);
@@ -45,7 +70,7 @@ public class Main
 
 //        ParseTreePattern pattern = parser.compileParseTreePattern("NOT <booleanExpression>", StatementParser.RULE_expression);
 //        ParseTreeMatch match = pattern.match(tree);
-//
+
 //        System.out.println(match.succeeded());
 //        ParserRuleContext x = (ParserRuleContext) match.get("booleanExpression");
 //        x.inspect(parser).get();
@@ -57,6 +82,5 @@ public class Main
 //            System.out.println("failure");
 //        }
 
+        }
     }
-
-}

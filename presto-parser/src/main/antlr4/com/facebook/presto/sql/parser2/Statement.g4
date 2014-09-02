@@ -59,7 +59,7 @@ queryBody
     : simpleQuery
     | '(' query ')'
     | TABLE qualifiedName
-    | VALUES rowValue (',' rowValue)
+    | VALUES rowValue (',' rowValue)*
     | queryBody INTERSECT setQuantifier? queryBody
     | queryBody (UNION | EXCEPT) setQuantifier? queryBody
     ;
@@ -105,9 +105,9 @@ selectItem
 
 tableRef
     : tableRef
-      ( CROSS JOIN tablePrimary
-      | joinType JOIN tablePrimary joinCriteria
-      | NATURAL joinType JOIN tablePrimary
+      ( CROSS JOIN tableRef
+      | joinType JOIN tableRef joinCriteria
+      | NATURAL joinType JOIN tableRef
       )
     | tablePrimary
     ;
@@ -449,14 +449,11 @@ CURRENT_TIMESTAMP: 'CURRENT_TIMESTAMP';
 LOCALTIME: 'LOCALTIME';
 LOCALTIMESTAMP: 'LOCALTIMESTAMP';
 EXTRACT: 'EXTRACT';
-COALESCE: 'COALESCE';
-NULLIF: 'NULLIF';
 CASE: 'CASE';
 WHEN: 'WHEN';
 THEN: 'THEN';
 ELSE: 'ELSE';
 END: 'END';
-IF: 'IF';
 JOIN: 'JOIN';
 CROSS: 'CROSS';
 OUTER: 'OUTER';
