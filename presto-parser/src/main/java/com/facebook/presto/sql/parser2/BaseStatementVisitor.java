@@ -20,7 +20,6 @@ public class BaseStatementVisitor<T>
     extends AbstractParseTreeVisitor<T>
     implements StatementVisitor<T>
 {
-
     @Override
     public T visitExpression(@NotNull StatementParser.ExpressionContext ctx)
     {
@@ -46,49 +45,13 @@ public class BaseStatementVisitor<T>
     }
 
     @Override
-    public T visitShowSchemas(@NotNull StatementParser.ShowSchemasContext ctx)
-    {
-        throw new UnsupportedOperationException("not yet implemented");
-    }
-
-    @Override
-    public T visitShowTablesFrom(@NotNull StatementParser.ShowTablesFromContext ctx)
-    {
-        throw new UnsupportedOperationException("not yet implemented");
-    }
-
-    @Override
     public T visitLimitClause(@NotNull StatementParser.LimitClauseContext ctx)
     {
         throw new UnsupportedOperationException("not yet implemented");
     }
 
     @Override
-    public T visitCreateView(@NotNull StatementParser.CreateViewContext ctx)
-    {
-        throw new UnsupportedOperationException("not yet implemented");
-    }
-
-    @Override
     public T visitInList(@NotNull StatementParser.InListContext ctx)
-    {
-        throw new UnsupportedOperationException("not yet implemented");
-    }
-
-    @Override
-    public T visitShowPartitions(@NotNull StatementParser.ShowPartitionsContext ctx)
-    {
-        throw new UnsupportedOperationException("not yet implemented");
-    }
-
-    @Override
-    public T visitAlterTable(@NotNull StatementParser.AlterTableContext ctx)
-    {
-        throw new UnsupportedOperationException("not yet implemented");
-    }
-
-    @Override
-    public T visitShowColumns(@NotNull StatementParser.ShowColumnsContext ctx)
     {
         throw new UnsupportedOperationException("not yet implemented");
     }
@@ -101,12 +64,6 @@ public class BaseStatementVisitor<T>
 
     @Override
     public T visitExplainOption(@NotNull StatementParser.ExplainOptionContext ctx)
-    {
-        throw new UnsupportedOperationException("not yet implemented");
-    }
-
-    @Override
-    public T visitSetQuant(@NotNull StatementParser.SetQuantContext ctx)
     {
         throw new UnsupportedOperationException("not yet implemented");
     }
@@ -130,19 +87,7 @@ public class BaseStatementVisitor<T>
     }
 
     @Override
-    public T visitTableFactor(@NotNull StatementParser.TableFactorContext ctx)
-    {
-        throw new UnsupportedOperationException("not yet implemented");
-    }
-
-    @Override
     public T visitOrdering(@NotNull StatementParser.OrderingContext ctx)
-    {
-        throw new UnsupportedOperationException("not yet implemented");
-    }
-
-    @Override
-    public T visitExplainOptions(@NotNull StatementParser.ExplainOptionsContext ctx)
     {
         throw new UnsupportedOperationException("not yet implemented");
     }
@@ -154,31 +99,13 @@ public class BaseStatementVisitor<T>
     }
 
     @Override
-    public T visitIntervalSign(@NotNull StatementParser.IntervalSignContext ctx)
-    {
-        throw new UnsupportedOperationException("not yet implemented");
-    }
-
-    @Override
-    public T visitShowTablesLike(@NotNull StatementParser.ShowTablesLikeContext ctx)
+    public T visitExplainOptions(@NotNull StatementParser.ExplainOptionsContext ctx)
     {
         throw new UnsupportedOperationException("not yet implemented");
     }
 
     @Override
     public T visitColumnConst(@NotNull StatementParser.ColumnConstContext ctx)
-    {
-        throw new UnsupportedOperationException("not yet implemented");
-    }
-
-    @Override
-    public T visitDropView(@NotNull StatementParser.DropViewContext ctx)
-    {
-        throw new UnsupportedOperationException("not yet implemented");
-    }
-
-    @Override
-    public T visitRelation(@NotNull StatementParser.RelationContext ctx)
     {
         throw new UnsupportedOperationException("not yet implemented");
     }
@@ -220,19 +147,7 @@ public class BaseStatementVisitor<T>
     }
 
     @Override
-    public T visitDropTable(@NotNull StatementParser.DropTableContext ctx)
-    {
-        throw new UnsupportedOperationException("not yet implemented");
-    }
-
-    @Override
     public T visitIntervalField(@NotNull StatementParser.IntervalFieldContext ctx)
-    {
-        throw new UnsupportedOperationException("not yet implemented");
-    }
-
-    @Override
-    public T visitWindow(@NotNull StatementParser.WindowContext ctx)
     {
         throw new UnsupportedOperationException("not yet implemented");
     }
@@ -245,18 +160,6 @@ public class BaseStatementVisitor<T>
 
     @Override
     public T visitTableElement(@NotNull StatementParser.TableElementContext ctx)
-    {
-        throw new UnsupportedOperationException("not yet implemented");
-    }
-
-    @Override
-    public T visitShowTable(@NotNull StatementParser.ShowTableContext ctx)
-    {
-        throw new UnsupportedOperationException("not yet implemented");
-    }
-
-    @Override
-    public T visitExplain(@NotNull StatementParser.ExplainContext ctx)
     {
         throw new UnsupportedOperationException("not yet implemented");
     }
@@ -275,18 +178,6 @@ public class BaseStatementVisitor<T>
 
     @Override
     public T visitTableContentsSource(@NotNull StatementParser.TableContentsSourceContext ctx)
-    {
-        throw new UnsupportedOperationException("not yet implemented");
-    }
-
-    @Override
-    public T visitWithQuery(@NotNull StatementParser.WithQueryContext ctx)
-    {
-        throw new UnsupportedOperationException("not yet implemented");
-    }
-
-    @Override
-    public T visitCreateTable(@NotNull StatementParser.CreateTableContext ctx)
     {
         throw new UnsupportedOperationException("not yet implemented");
     }
@@ -334,31 +225,25 @@ public class BaseStatementVisitor<T>
     }
 
     @Override
-    public T visitTableElementList(@NotNull StatementParser.TableElementListContext ctx)
-    {
-        throw new UnsupportedOperationException("not yet implemented");
-    }
-
-    @Override
     public T visitOrderClause(@NotNull StatementParser.OrderClauseContext ctx)
     {
         throw new UnsupportedOperationException("not yet implemented");
     }
 
     @Override
-    public T visitCaseExpression(@NotNull StatementParser.CaseExpressionContext ctx)
+    public T visitTableElementList(@NotNull StatementParser.TableElementListContext ctx)
+    {
+        throw new UnsupportedOperationException("not yet implemented");
+    }
+
+    @Override
+    public T visitSetQuantifier(@NotNull StatementParser.SetQuantifierContext ctx)
     {
         throw new UnsupportedOperationException("not yet implemented");
     }
 
     @Override
     public T visitCharType(@NotNull StatementParser.CharTypeContext ctx)
-    {
-        throw new UnsupportedOperationException("not yet implemented");
-    }
-
-    @Override
-    public T visitJoinedTable(@NotNull StatementParser.JoinedTableContext ctx)
     {
         throw new UnsupportedOperationException("not yet implemented");
     }
@@ -376,7 +261,7 @@ public class BaseStatementVisitor<T>
     }
 
     @Override
-    public T visitShowCatalogs(@NotNull StatementParser.ShowCatalogsContext ctx)
+    public T visitNamedQuery(@NotNull StatementParser.NamedQueryContext ctx)
     {
         throw new UnsupportedOperationException("not yet implemented");
     }
@@ -407,12 +292,6 @@ public class BaseStatementVisitor<T>
 
     @Override
     public T visitQualifiedName(@NotNull StatementParser.QualifiedNameContext ctx)
-    {
-        throw new UnsupportedOperationException("not yet implemented");
-    }
-
-    @Override
-    public T visitShowSchemasFrom(@NotNull StatementParser.ShowSchemasFromContext ctx)
     {
         throw new UnsupportedOperationException("not yet implemented");
     }
@@ -454,12 +333,6 @@ public class BaseStatementVisitor<T>
     }
 
     @Override
-    public T visitUseCollection(@NotNull StatementParser.UseCollectionContext ctx)
-    {
-        throw new UnsupportedOperationException("not yet implemented");
-    }
-
-    @Override
     public T visitNonReserved(@NotNull StatementParser.NonReservedContext ctx)
     {
         throw new UnsupportedOperationException("not yet implemented");
@@ -485,18 +358,6 @@ public class BaseStatementVisitor<T>
 
     @Override
     public T visitJoinType(@NotNull StatementParser.JoinTypeContext ctx)
-    {
-        throw new UnsupportedOperationException("not yet implemented");
-    }
-
-    @Override
-    public T visitInsert(@NotNull StatementParser.InsertContext ctx)
-    {
-        throw new UnsupportedOperationException("not yet implemented");
-    }
-
-    @Override
-    public T visitShowFunctions(@NotNull StatementParser.ShowFunctionsContext ctx)
     {
         throw new UnsupportedOperationException("not yet implemented");
     }

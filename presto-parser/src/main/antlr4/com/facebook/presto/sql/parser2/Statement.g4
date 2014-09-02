@@ -28,20 +28,23 @@ singleExpression
 
 statement
     : query
-    | explain
-    | showTable
-    | showSchemas
-    | showCatalogs
-    | showColumns
-    | showPartitions
-    | showFunctions
-    | useCollection
-    | createTable
-    | insert
-    | dropTable
-    | alterTable
-    | createView
-    | dropView
+    | EXPLAIN explainOptions? statement
+    | SHOW TABLES ( (FROM | IN) qualifiedName )? ( LIKE STRING )?
+    | SHOW SCHEMAS ( (FROM | IN) ident )?
+    | SHOW CATALOGS
+    | SHOW COLUMNS (FROM | IN) qualifiedName
+    | DESCRIBE qualifiedName
+    | DESC qualifiedName
+    | SHOW PARTITIONS (FROM | IN) qualifiedName whereClause? orderClause? limitClause?
+    | SHOW FUNCTIONS
+    | USE CATALOG ident
+    | USE SCHEMA ident
+    | CREATE TABLE qualifiedName tableContentsSource
+    | DROP TABLE qualifiedName
+    | INSERT INTO qualifiedName query
+    | ALTER TABLE qualifiedName RENAME TO qualifiedName
+    | CREATE orReplace? VIEW qualifiedName tableContentsSource
+    | DROP VIEW qualifiedName
     ;
 
 query
@@ -124,7 +127,6 @@ sampleType
 stratifyOn
     : STRATIFY ON '(' expression (',' expression)* ')'
     ;
-
 
 joinType
     : INNER?
@@ -210,12 +212,11 @@ inList
     ;
 
 sortItem
-    : expression ordering nullOrdering?
+    : expression ordering? nullOrdering?
     ;
 
 ordering
-    :
-    | ASC
+    : ASC
     | DESC
     ;
 
@@ -272,11 +273,7 @@ elseClause
     ;
 
 over
-    : OVER '(' window ')'
-    ;
-
-window
-    : windowPartition? orderClause? windowFrame?
+    : OVER '(' windowPartition? orderClause? windowFrame? ')'
     ;
 
 windowPartition
@@ -297,15 +294,6 @@ frameBound
     | expression ( PRECEDING | FOLLOWING )
     ;
 
-useCollection
-    : USE CATALOG ident
-    | USE SCHEMA ident
-    ;
-
-explain
-    : EXPLAIN explainOptions? statement
-    ;
-
 explainOptions
     : '(' explainOption (',' explainOption)* ')'
     ;
@@ -316,58 +304,6 @@ explainOption
     | FORMAT JSON
     | TYPE LOGICAL
     | TYPE DISTRIBUTED
-    ;
-
-showTable
-    : SHOW TABLES
-        ( (FROM | IN) qualifiedName )?
-        ( LIKE STRING )?
-    ;
-
-showSchemas
-    : SHOW SCHEMAS ( (FROM | IN) ident )?
-    ;
-
-showCatalogs
-    : SHOW CATALOGS
-    ;
-
-showColumns
-    : SHOW COLUMNS (FROM | IN) qualifiedName
-    | DESCRIBE qualifiedName
-    | DESC qualifiedName
-    ;
-
-showPartitions
-    : SHOW PARTITIONS (FROM | IN) qualifiedName whereClause? orderClause? limitClause?
-    ;
-
-showFunctions
-    : SHOW FUNCTIONS
-    ;
-
-dropTable
-    : DROP TABLE qualifiedName
-    ;
-
-insert
-    : INSERT INTO qualifiedName query
-    ;
-
-createTable
-    : CREATE TABLE qualifiedName tableContentsSource
-    ;
-
-alterTable
-    : ALTER TABLE qualifiedName RENAME TO qualifiedName
-    ;
-
-createView
-    : CREATE orReplace? VIEW qualifiedName tableContentsSource
-    ;
-
-dropView
-    : DROP VIEW qualifiedName
     ;
 
 orReplace
