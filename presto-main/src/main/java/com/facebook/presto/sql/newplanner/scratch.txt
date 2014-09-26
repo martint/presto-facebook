@@ -1,0 +1,165 @@
+SELECT a, b
+FROM T
+WHERE a > (SELECT x FROM U WHERE b = y)
+
+
+r1 = filter(
+    table("T"),
+    (t0) -> t0.a > coerce(filter(table("U"), (t1) -> t1.y = t0.b)))
+
+
+
+
+=====================
+
+SELECT k1 * k2, sum(a * b) * sum(c * d), sum((SELECT x FROM u WHERE y = a))
+FROM t
+WHERE a > c AND b = (SELECT x FROM u WHERE y = a)
+GROUP BY k1 * k2
+HAVING sum(a * c) > 0
+ORDER BY sum(b * d)
+
+
+FROM t
+WHERE a > c AND b = (SELECT x FROM u WHERE y = a)
+GROUP BY k1 * k2
+HAVING sum(a * c) > 0
+SELECT k1 * k2, sum(a * b) * sum(c * d), sum((SELECT x FROM u WHERE y = a))
+ORDER BY sum(b * d)
+
+
+Expressions
+    a > c AND b = (SELECT x FROM u WHERE y = a)
+    k1 * k2
+    sum(a * c) > 0
+    sum(a * b) * sum(c * d)
+    sum((SELECT x FROM u WHERE y = a))
+    sum(b * d)
+
+Translated expressions
+    a > c AND b = (SELECT x FROM u WHERE y = a)
+    k1 * k2
+    sum(a * c) > 0
+    sum(a * b) * sum(c * d)
+    sum((SELECT x FROM u WHERE y = a))
+    sum(b * d)
+
+Aggregates
+    sum(a * c)
+    sum(a * b)
+    sum(c * d)
+    sum(b * d)
+    sum((SELECT x FROM u WHERE y = a))
+
+Scalar expressions
+    a > c AND b = (SELECT x FROM u WHERE y = a)
+    k1 * k2
+    a * c
+    a * b
+    c * d
+    b * d
+    (SELECT x FROM u WHERE y = a)
+
+
+
+SELECT k1 * k2, sum(a * b) * sum(c * d), sum((SELECT x FROM u WHERE y = a))
+FROM t
+WHERE a > c AND b = (SELECT x FROM u WHERE y = d)
+GROUP BY k1 * k2
+HAVING sum(a * c) > 0
+ORDER BY sum(b * d)
+
+(project
+    (order-by
+        (filter
+            (group-by-agg
+                (project
+                    (filter
+                        (table "t")                                    // [k1, k2, a, b, c, d]
+                        (and
+                            (> $[2] $[4])                              // a > c
+                            (= $[3] (let t = $                         // b = ...
+                                        (filter
+                                            (table "u")                // [x, y]
+                                            (= $[1] t[2]))))))         // y = a
+                    ((* $[0] $[1])                                     // k1 * k2
+                     (* $[2] $[4])                                     // a * c
+                     (* $[2] $[3])                                     // a * b
+                     (* $[4] $[5])                                     // c * d
+                     (* $[3] $[5])                                     // b * d
+                     (let t = $
+                        (filter
+                          (table "u")
+                          (= $[1] t[5])))))                            // y = d
+                ($[0])                                                 // k1 * k2
+                ((sum $[1])                                            // sum(a * c)
+                 (sum $[2])                                            // sum(a * b)
+                 (sum $[3])                                            // sum(c * d)
+                 (sum $[4])                                            // sum(b * d)
+                 (sum $[5])))                                          // sum((select ...))
+            (> $[1] 0))                                                // sum(a * c) > 0
+        ($[4]))
+    (($[0])                                                            // k1 * k2
+     (+ $[2] $[3])                                                     // sum(a * b) * sum(c * d)
+     ($[5])))                                                          // sum((select...))
+
+
+
+
+
+
+T: [k1, k2, a, b, c, d]
+
+plan from clause:
+    r0 = table("t")   row_type(r0) = [k1, k2, a, b, c, d]
+
+
+analyze expressions
+    expand select clause
+    resolve group by, order by ordinals
+    for expr : [group by, having, order by, where, select]
+        analyze(expr, scope)
+
+    analyze(expr, scope) :=
+        walk expr recursively
+            if sub-expr is "function call"
+                resolve function + any coercions needed for args
+                    record function + arg pos -> coercion chain
+                if function is aggregation
+                    record aggregate
+            if sub-expr is "subquery"
+                translate subquery recursively
+                record sub-expr -> translation
+            if sub-expr is "name"
+                get reference expression (variable + field) from scope
+                    magic variable "$" + offset reference for fields in FROM clause
+                    bind "$" to unique variable in parent scope if resolving from parent scope
+            record sub-expr -> type
+
+
+project all scalar inputs (including where clause)
+filter (based on single input from previous projects)
+
+
+
+
+
+FROM t
+WHERE a > c AND b = (SELECT x FROM u WHERE y = a)
+GROUP BY k1 * k2
+   => a, b, c, d are now of type ARRAY
+      scalar operations become vector operations
+         e.g., a * c = element-wise *
+      vector vs scalar operations only allowed if the scalar is bound to a constant in the group
+        i.e., literals or constant expressions, or group by expressions
+        e.g.,
+            a * 5
+            a * (k1 * k2)
+
+    having and order by expressions must evaluate to scalars
+    how about select expressions?
+        aggregates that produce arrays? E.g., collect()
+
+HAVING sum(a * c) > 0
+SELECT k1 * k2, sum(a * b) * sum(c * d), sum((SELECT x FROM u WHERE y = a))
+ORDER BY sum(b * d)
