@@ -36,14 +36,6 @@ Expressions
     sum((SELECT x FROM u WHERE y = a))
     sum(b * d)
 
-Translated expressions
-    a > c AND b = (SELECT x FROM u WHERE y = a)
-    k1 * k2
-    sum(a * c) > 0
-    sum(a * b) * sum(c * d)
-    sum((SELECT x FROM u WHERE y = a))
-    sum(b * d)
-
 Aggregates
     sum(a * c)
     sum(a * b)
@@ -62,12 +54,23 @@ Scalar expressions
 
 
 
-SELECT k1 * k2, sum(a * b) * sum(c * d), sum((SELECT x FROM u WHERE y = a))
+SELECT k1 * k2, sum(a * b) * sum(c * d), sum(1 + (SELECT x FROM u WHERE y = a))
 FROM t
 WHERE a > c AND b = (SELECT x FROM u WHERE y = d)
 GROUP BY k1 * k2
 HAVING sum(a * c) > 0
 ORDER BY sum(b * d)
+
+(query
+    (table "t")
+    (let t = $
+        (...filter...)
+        (...agg...)
+        (...output...)
+        (...having...)
+        (...sort...))
+    (limit))
+
 
 (project
     (order-by
@@ -76,32 +79,34 @@ ORDER BY sum(b * d)
                 (project
                     (filter
                         (table "t")                                    // [k1, k2, a, b, c, d]
-                        (and
-                            (> $[2] $[4])                              // a > c
-                            (= $[3] (let t = $                         // b = ...
-                                        (filter
-                                            (table "u")                // [x, y]
-                                            (= $[1] t[2]))))))         // y = a
+                        (let t0 = $
+                            (and
+                                (> $[2] $[4])                          // a > c
+                                (= $[3]                                // b = ...
+                                    (filter
+                                        (table "u")                    // [x, y]
+                                        (= $[1] t0[2]))))))            // y = a
                     ((* $[0] $[1])                                     // k1 * k2
                      (* $[2] $[4])                                     // a * c
                      (* $[2] $[3])                                     // a * b
                      (* $[4] $[5])                                     // c * d
                      (* $[3] $[5])                                     // b * d
-                     (let t = $
-                        (filter
-                          (table "u")
-                          (= $[1] t[5])))))                            // y = d
+                     (let t1 = $
+                        (+ 1
+                            (filter
+                                (table "u")
+                                (= $[1] t1[5])))))                     // y = d
                 ($[0])                                                 // k1 * k2
                 ((sum $[1])                                            // sum(a * c)
                  (sum $[2])                                            // sum(a * b)
                  (sum $[3])                                            // sum(c * d)
                  (sum $[4])                                            // sum(b * d)
-                 (sum $[5])))                                          // sum((select ...))
+                 (sum $[5])))                                          // sum(1 + (select ...))
             (> $[1] 0))                                                // sum(a * c) > 0
         ($[4]))
     (($[0])                                                            // k1 * k2
      (+ $[2] $[3])                                                     // sum(a * b) * sum(c * d)
-     ($[5])))                                                          // sum((select...))
+     ($[5])))                                                          // sum(1 + (select...))
 
 
 

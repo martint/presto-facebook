@@ -1,0 +1,42 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.facebook.presto.sql.newplanner.expression;
+
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.relational.RowExpression;
+import com.google.common.base.Function;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
+
+import java.util.List;
+
+public class ProjectExpression
+    extends RelationalExpression
+{
+    public ProjectExpression(int id, RelationalExpression input, List<RowExpression> projections)
+    {
+        super(id, Lists.transform(projections, typeGetter()), ImmutableList.of(input));
+    }
+
+    private static Function<? super RowExpression, Type> typeGetter()
+    {
+        return new Function<RowExpression, Type>() {
+            @Override
+            public Type apply(RowExpression input)
+            {
+                return input.getType();
+            }
+        };
+    }
+}
