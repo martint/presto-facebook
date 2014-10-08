@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.newplanner;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataUtil;
@@ -79,11 +80,11 @@ import static com.google.common.base.Preconditions.checkArgument;
 public class SqlToRelationalTranslator
 {
     private final Metadata metadata;
-    private final ConnectorSession session;
+    private final Session session;
 
     private int nextId;
 
-    public SqlToRelationalTranslator(Metadata metadata, ConnectorSession session)
+    public SqlToRelationalTranslator(Metadata metadata, Session session)
     {
         this.metadata = metadata;
         this.session = session;
@@ -246,11 +247,29 @@ public class SqlToRelationalTranslator
 
         Scope scope = new Scope(parentScope, from.getFields());
 
+
+        // TODO:
+        //     1. extract all name references & subqueries
+        //     2. add projection for all references
+        //     3. add filter rewritten using projection
+        //     4. if agg
+        //           a. add projection for group by keys + agg arguments
+        //           b. add aggregate calls
+        //           c. add projection for agg expressions
+        //           d. add filter for rewritten having clause
+        //     5. add windows
+        //     6. add project for order by expression
+        //     7. add distinct
+        //     8. add order by
+        //     9. add project for outputs
+        //    10. add limit
+
+
+
         // analyze where clause
         if (query.getWhere().isPresent()) {
             TranslatedRowExpression where = translate(query.getWhere().get(), scope);
         }
-
 
 
         ExpressionAnalyzer analyzer = new ExpressionAnalyzer(scope, this);
