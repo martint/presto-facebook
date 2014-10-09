@@ -13,6 +13,46 @@
  */
 package com.facebook.presto.sql.newplanner.expression;
 
+import com.facebook.presto.spi.block.SortOrder;
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
+
 public class TopNExpression
+    extends RelationalExpression
 {
+    private final List<Integer> sortFields;
+    private final List<SortOrder> sortOrders;
+    private final long count;
+
+    public TopNExpression(int id, RelationalExpression input, List<Integer> sortFields, List<SortOrder> sortOrders, long count)
+    {
+        super(id, input.getType(), ImmutableList.of(input));
+
+        // TODO: preconditions
+        this.sortFields = sortFields;
+        this.sortOrders = sortOrders;
+        this.count = count;
+    }
+
+    @Override
+    public String toStringTree(int indent)
+    {
+        StringBuilder builder = new StringBuilder();
+        builder.append(Utils.indent(indent) + "- topN" + "\n")
+                .append(Utils.indent(indent + 1) + "row type: " + getType() + "\n")
+                .append(Utils.indent(indent + 1) + "count: " + count + "\n")
+                .append(Utils.indent(indent + 1) + "sort fields: " + "\n");
+
+        for (int i = 0; i < sortFields.size(); i++) {
+            builder.append(Utils.indent(indent + 2) + "#" + sortFields.get(i) + " " + sortOrders.get(i) + "\n");
+        }
+
+        builder.append(Utils.indent(indent + 1) + "input:" + "\n")
+                .append(getInputs().get(0).toStringTree(indent + 2));
+
+        return builder.toString();
+    }
+
+
 }

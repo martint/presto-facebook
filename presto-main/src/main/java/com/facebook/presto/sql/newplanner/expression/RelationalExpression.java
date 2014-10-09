@@ -14,28 +14,29 @@
 package com.facebook.presto.sql.newplanner.expression;
 
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Preconditions;
+import com.facebook.presto.sql.newplanner.RelationalExpressionType;
+import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.*;
+import static com.google.common.base.Preconditions.checkNotNull;
 
-public class RelationalExpression
+public abstract class RelationalExpression
 {
     private final int id;
     private final List<RelationalExpression> inputs;
-    private final List<Type> rowType;
+    private final RelationalExpressionType type;
 
     // TODO: traits or physical properties
 
-    public RelationalExpression(int id, List<Type> rowType, List<RelationalExpression> inputs)
+    public RelationalExpression(int id, RelationalExpressionType type, List<RelationalExpression> inputs)
     {
-        checkNotNull(rowType, "rowType is null");
+        checkNotNull(type, "type is null");
         checkNotNull(inputs, "inputs is null");
 
         this.id = id;
         this.inputs = inputs;
-        this.rowType = rowType;
+        this.type = type;
     }
 
     public int getId()
@@ -43,13 +44,28 @@ public class RelationalExpression
         return id;
     }
 
-    public List<Type> getRowType()
+    public RelationalExpressionType getType()
     {
-        return rowType;
+        return type;
     }
 
     public List<RelationalExpression> getInputs()
     {
         return inputs;
+    }
+
+    public static RelationalExpressionType concat(RelationalExpressionType left, RelationalExpressionType right)
+    {
+        List<Type> types = ImmutableList.<Type>builder()
+                .addAll(left.getRowType())
+                .addAll(right.getRowType())
+                .build();
+
+        return new RelationalExpressionType(types);
+    }
+
+    public String toStringTree(int indent)
+    {
+        throw new UnsupportedOperationException("not yet implemented");
     }
 }

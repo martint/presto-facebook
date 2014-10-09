@@ -21,24 +21,16 @@ import com.facebook.presto.metadata.QualifiedTableName;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.AggregateExtractor;
 import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.FieldOrExpression;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.analyzer.TupleDescriptor;
-import com.facebook.presto.sql.newplanner.expression.AggregationExpression;
 import com.facebook.presto.sql.newplanner.expression.FilterExpression;
-import com.facebook.presto.sql.newplanner.expression.JoinExpression;
 import com.facebook.presto.sql.newplanner.expression.LimitExpression;
-import com.facebook.presto.sql.newplanner.expression.ProjectExpression;
 import com.facebook.presto.sql.newplanner.expression.RelationalExpression;
 import com.facebook.presto.sql.newplanner.expression.SortExpression;
-import com.facebook.presto.sql.newplanner.expression.TableExpression;
-import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.relational.Expressions;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.Expression;
@@ -61,7 +53,6 @@ import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Sets;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -69,7 +60,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_ORDINAL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_CATALOG;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_SCHEMA;
@@ -208,7 +198,8 @@ public class SqlToRelationalTranslator
         for (Field field : descriptor.getAllFields()) {
             types.add(field.getType());
         }
-        return new TranslatedRelationalExpression(descriptor, new TableExpression(nextId(), table.getName(), types), ImmutableList.<ResolvedName>of());
+//        return new TranslatedRelationalExpression(descriptor, new TableExpression(nextId(), table.getName(), types), ImmutableList.<ResolvedName>of());
+        throw new UnsupportedOperationException("not yet implemented");
     }
 
 
@@ -303,7 +294,7 @@ public class SqlToRelationalTranslator
         RelationalExpression result = from.getExpression();
 
         if (query.getWhere().isPresent()) {
-            result = filter(from.getExpression(), translate(query.getWhere().get(), scope));
+//            result = filter(from.getExpression(), translate(query.getWhere().get(), scope));
         }
 
         // compute expanded select expressions and make sure they reference valid fields
@@ -323,8 +314,9 @@ public class SqlToRelationalTranslator
 //        }
 
         TupleDescriptor outputDescriptor = from.getFields(); // TODO: compute output descriptor
-        return new TranslatedRelationalExpression(outputDescriptor, result, boundVariables);
+//        return new TranslatedRelationalExpression(outputDescriptor, result, boundVariables);
 
+        throw new UnsupportedOperationException("not yet implemented");
         /*
         List<FieldOrExpression> outputExpressions = analyzeSelect(node, tupleDescriptor, scope);
         List<FieldOrExpression> groupByExpressions = analyzeGroupBy(node, tupleDescriptor, scope, outputExpressions);
@@ -386,7 +378,7 @@ public class SqlToRelationalTranslator
         int i = 0;
         ImmutableList.Builder<RowExpression> groupByExpressions = ImmutableList.builder();
         for (Expression expression : query.getGroupBy()) { // TODO: set?
-            groupByExpressions.add(translate(expression, context));
+//            groupByExpressions.add(translate(expression, context));
             mappings.put(expression, i);
             i++;
         }
@@ -394,12 +386,12 @@ public class SqlToRelationalTranslator
         // 2.b. Rewrite aggregates in terms of pre-projected inputs
         ImmutableList.Builder<RowExpression> aggregateExpressions = ImmutableList.builder();
         for (FunctionCall aggregate : aggregates) { // TODO: set?
-            aggregateExpressions.add((translate(aggregate, context)));
+//            aggregateExpressions.add((translate(aggregate, context)));
             mappings.put(aggregate, i);
             i++;
         }
 
-        result = new AggregationExpression(nextId(), result, groupByExpressions.build(), aggregateExpressions.build());
+//        result = new AggregationExpression(nextId(), result, groupByExpressions.build(), aggregateExpressions.build());
 
         return result;
     }
@@ -411,13 +403,14 @@ public class SqlToRelationalTranslator
         Map<Expression, Integer> mappings = new HashMap<>();
         int i = 0;
         for (Expression projection : projections) { // TODO: set?
-            translated.add(translate(projection, context));
+//            translated.add(translate(projection, context));
             mappings.put(projection, i);
             i++;
         }
 
         // TODO: return mappings so that translator can rewrite expressions
-        return new ProjectExpression(nextId(), input, translated.build());
+//        return new ProjectExpression(nextId(), input, translated.build());
+        throw new UnsupportedOperationException("not yet implemented");
     }
 
     private List<FunctionCall> extractAggregates(Iterable<Expression> expressions)
@@ -472,6 +465,7 @@ public class SqlToRelationalTranslator
 
         // TODO: introduce "let" if necessary (i.e., there are bound variables for the current scope)
         // TODO: translate expression
+        throw new UnsupportedOperationException("not yet implemented");
     }
 
     private RelationalExpression filter(RelationalExpression expression, RowExpression filter)
@@ -497,7 +491,8 @@ public class SqlToRelationalTranslator
 //            RowExpression translated = translate(fieldOrExpression, mappings);
         }
 
-        return new SortExpression(nextId(), input);
+//        return new SortExpression(nextId(), input, sortFields, sortOrders);
+        throw new UnsupportedOperationException("not yet implemented");
     }
 
     private FieldOrExpression resolveOrdinal(TupleDescriptor descriptor, Expression expression, String message)

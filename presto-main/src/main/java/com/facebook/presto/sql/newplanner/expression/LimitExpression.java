@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.newplanner.expression;
 
+import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.collect.ImmutableList;
 
 public class LimitExpression
@@ -22,7 +23,7 @@ public class LimitExpression
 
     public LimitExpression(int id, RelationalExpression expression, long limit)
     {
-        super(id, expression.getRowType(), ImmutableList.of(expression));
+        super(id, expression.getType(), ImmutableList.of(expression));
         this.limit = limit;
     }
 
@@ -30,4 +31,19 @@ public class LimitExpression
     {
         return limit;
     }
+
+    @Override
+    public String toStringTree(int indent)
+    {
+        StringBuilder builder = new StringBuilder();
+        builder.append(Utils.indent(indent) + "- limit" + "\n")
+                .append(Utils.indent(indent + 1) + "row type: " + getType() + "\n")
+                .append(Utils.indent(indent + 1) + "count:" + limit + "\n");
+
+        builder.append(Utils.indent(indent + 1) + "input:" + "\n")
+                .append(getInputs().get(0).toStringTree(indent + 2));
+
+        return builder.toString();
+    }
+
 }

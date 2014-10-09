@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.relational.optimizer.ExpressionOptimizer;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
@@ -46,6 +47,7 @@ import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
+import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.StringLiteral;
@@ -57,12 +59,14 @@ import com.facebook.presto.type.UnknownType;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import io.airlift.slice.Slices;
 
 import java.nio.charset.StandardCharsets;
 import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -105,9 +109,22 @@ public final class SqlToRowExpressionTranslator
     {
     }
 
+    public static RowExpression translate(Expression expression, IdentityHashMap<Expression, Type> types, Map<Symbol, Integer> symbolToFieldMapping, Metadata metadata, Session session, boolean optimize)
+    {
+        RowExpression result = new Visitor(types, metadata, session.getTimeZoneKey(), symbolToFieldMapping).process(expression, null);
+
+        Preconditions.checkNotNull(result, "translated expression is null");
+
+        if (optimize) {
+            ExpressionOptimizer optimizer = new ExpressionOptimizer(metadata.getFunctionRegistry(), metadata.getTypeManager(), session);
+            return optimizer.optimize(result);
+        }
+
+        return result;
+    }
     public static RowExpression translate(Expression expression, IdentityHashMap<Expression, Type> types, Metadata metadata, Session session, boolean optimize)
     {
-        RowExpression result = new Visitor(types, metadata, session.getTimeZoneKey()).process(expression, null);
+        RowExpression result = new Visitor(types, metadata, session.getTimeZoneKey(), ImmutableMap.<Symbol, Integer>of()).process(expression, null);
 
         Preconditions.checkNotNull(result, "translated expression is null");
 
@@ -134,12 +151,14 @@ public final class SqlToRowExpressionTranslator
         private final IdentityHashMap<Expression, Type> types;
         private final Metadata metadata;
         private final TimeZoneKey timeZoneKey;
+        private final Map<Symbol, Integer> symbolToFieldMapping;
 
-        private Visitor(IdentityHashMap<Expression, Type> types, Metadata metadata, TimeZoneKey timeZoneKey)
+        private Visitor(IdentityHashMap<Expression, Type> types, Metadata metadata, TimeZoneKey timeZoneKey, Map<Symbol, Integer> symbolToFieldMapping)
         {
             this.types = types;
             this.metadata = metadata;
             this.timeZoneKey = timeZoneKey;
+            this.symbolToFieldMapping = symbolToFieldMapping;
         }
 
         @Override
@@ -152,6 +171,15 @@ public final class SqlToRowExpressionTranslator
         protected RowExpression visitInputReference(InputReference node, Void context)
         {
             return field(node.getChannel(), types.get(node));
+        }
+
+        @Override
+        protected RowExpression visitQualifiedNameReference(QualifiedNameReference node, Void context)
+        {
+            Integer field = symbolToFieldMapping.get(Symbol.fromQualifiedName(node.getName()));
+            Preconditions.checkArgument(field != null, "Field for %s not found", node.getName());
+
+            return field(field, types.get(node));
         }
 
         @Override

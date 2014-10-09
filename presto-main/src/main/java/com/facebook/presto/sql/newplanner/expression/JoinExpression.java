@@ -26,7 +26,7 @@ public class JoinExpression
 
     public JoinExpression(int id, JoinNode.Type type, RelationalExpression left, RelationalExpression right, RowExpression condition)
     {
-        super(id, ImmutableList.copyOf(Iterables.concat(left.getRowType(), right.getRowType())), ImmutableList.of(left, right));
+        super(id, RelationalExpression.concat(left.getType(), right.getType()), ImmutableList.of(left, right));
         this.type = type;
         this.condition = condition;
     }

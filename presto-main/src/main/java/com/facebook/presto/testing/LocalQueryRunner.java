@@ -71,6 +71,8 @@ import com.facebook.presto.sql.analyzer.Analyzer;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
+import com.facebook.presto.sql.newplanner.PlanToRelationalExpressionTranslator;
+import com.facebook.presto.sql.newplanner.expression.RelationalExpression;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.CompilerConfig;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
@@ -370,6 +372,9 @@ public class LocalQueryRunner
         if (printPlan) {
             System.out.println(PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata));
         }
+
+        RelationalExpression translated = new PlanToRelationalExpressionTranslator().translate(plan.getRoot(), metadata, sqlParser, session, plan.getTypes());
+        System.out.println(translated.toStringTree(0));
 
         SubPlan subplan = new PlanFragmenter().createSubPlans(plan);
         if (!subplan.getChildren().isEmpty()) {

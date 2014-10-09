@@ -18,6 +18,7 @@ import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.facebook.presto.tpch.testing.SampledTpchConnectorFactory;
 import com.google.common.collect.ImmutableMap;
+import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
@@ -69,5 +70,12 @@ public class TestLocalQueries
                 .setTimeZoneKey(UTC_KEY)
                 .setLocale(ENGLISH)
                 .build();
+    }
+
+    @Test
+    public void testSomething()
+            throws Exception
+    {
+        computeActual("SELECT orderkey, orderkey + 1 FROM orders where orderstatus ='O' ORDER BY custkey, orderdate DESC");
     }
 }

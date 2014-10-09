@@ -11,28 +11,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.newplanner.optimizer;
+package com.facebook.presto.sql.newplanner;
 
-import com.facebook.presto.sql.newplanner.Scope;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.spi.type.Type;
+import com.google.common.base.Joiner;
 
-public class Workbench
+import java.util.List;
+
+public class RelationalExpressionType
 {
-    /**
-     * @param variable name of the variable bound to each row in the FROM clause
-     */
-    public Workbench(String variable, Scope scope)
+    private final List<Type> rowType;
+
+    public RelationalExpressionType(List<Type> rowType)
     {
+        this.rowType = rowType;
     }
 
-    public void add(Expression expression)
+    public List<Type> getRowType()
     {
-        throw new UnsupportedOperationException("not yet implemented");
+        return rowType;
     }
 
-    public FunctionCall getAggregates()
+    @Override
+    public String toString()
     {
-        throw new UnsupportedOperationException("not yet implemented");
+        return "(" + Joiner.on(", ").join(rowType) + ")";
     }
 }

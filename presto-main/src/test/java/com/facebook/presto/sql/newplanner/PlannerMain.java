@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.newplanner;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.connector.system.SystemTablesMetadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.QualifiedTableName;
@@ -20,10 +21,8 @@ import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.metadata.TestingMetadata;
 import com.facebook.presto.metadata.ViewDefinition;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.sql.AstDumper;
 import com.facebook.presto.sql.SqlFormatter;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -34,15 +33,12 @@ import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 
-import java.util.Locale;
-
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 
 public class PlannerMain
 {
-    private static final ConnectorSession SESSION = new ConnectorSession("user", "test", "tpch", "default", UTC_KEY, Locale.ENGLISH, null, null);
+    private static final Session SESSION = null;
 
     public static void main(String[] args)
     {

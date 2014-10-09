@@ -25,17 +25,17 @@ import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.transform;
 
 public class AggregationExpression
-        extends RelationalExpression
+//        extends RelationalExpression
 {
-    public AggregationExpression(int id, RelationalExpression input, List<RowExpression> groupBy, List<RowExpression> aggregates)
-    {
-        super(id, getTypes(groupBy, aggregates), ImmutableList.of(input));
-    }
-
-    private static List<Type> getTypes(List<RowExpression> groupBy, List<RowExpression> aggregates)
-    {
-        return ImmutableList.copyOf(concat(
-                transform(groupBy, typeGetter()),
-                transform(aggregates, typeGetter())));
-    }
+//    public AggregationExpression(int id, RelationalExpression input, List<RowExpression> groupBy, List<RowExpression> aggregates)
+//    {
+//        super(id, getTypes(groupBy, aggregates), ImmutableList.of(input));
+//    }
+//
+//    private static List<Type> getTypes(List<RowExpression> groupBy, List<RowExpression> aggregates)
+//    {
+//        return ImmutableList.copyOf(concat(
+//                transform(groupBy, typeGetter()),
+//                transform(aggregates, typeGetter())));
+//    }
 }

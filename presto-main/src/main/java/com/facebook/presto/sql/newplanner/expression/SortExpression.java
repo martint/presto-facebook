@@ -13,14 +13,39 @@
  */
 package com.facebook.presto.sql.newplanner.expression;
 
+import com.facebook.presto.spi.block.SortOrder;
 import com.google.common.collect.ImmutableList;
 
+import java.util.List;
+
 public class SortExpression
-    extends RelationalExpression
+        extends RelationalExpression
 {
-    // TODO: add sortby expressions
-    public SortExpression(int id, RelationalExpression input)
+    private final List<Integer> sortFields;
+    private final List<SortOrder> sortOrders;
+
+    public SortExpression(int id, RelationalExpression input, List<Integer> sortFields, List<SortOrder> sortOrders)
     {
-        super(id, input.getRowType(), ImmutableList.of(input));
+        super(id, input.getType(), ImmutableList.of(input));
+        this.sortFields = sortFields;
+        this.sortOrders = sortOrders;
+    }
+
+    @Override
+    public String toStringTree(int indent)
+    {
+        StringBuilder builder = new StringBuilder();
+        builder.append(Utils.indent(indent) + "- sort" + "\n")
+                .append(Utils.indent(indent + 1) + "row type: " + getType() + "\n")
+                .append(Utils.indent(indent + 1) + "sort fields: " + "\n");
+
+        for (int i = 0; i < sortFields.size(); i++) {
+            builder.append(Utils.indent(indent + 2) + "#" + sortFields.get(i) + " " + sortOrders.get(i) + "\n");
+        }
+
+        builder.append(Utils.indent(indent + 1) + "input:" + "\n")
+                .append(getInputs().get(0).toStringTree(indent + 2));
+
+        return builder.toString();
     }
 }

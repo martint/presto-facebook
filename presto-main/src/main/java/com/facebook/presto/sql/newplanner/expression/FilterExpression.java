@@ -13,11 +13,8 @@
  */
 package com.facebook.presto.sql.newplanner.expression;
 
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.collect.ImmutableList;
-
-import java.util.List;
 
 public class FilterExpression
     extends RelationalExpression
@@ -26,7 +23,23 @@ public class FilterExpression
 
     public FilterExpression(int id, RelationalExpression input, RowExpression condition)
     {
-        super(id, input.getRowType(), ImmutableList.of(input));
+        super(id, input.getType(), ImmutableList.of(input));
         this.condition = condition;
     }
+
+    @Override
+    public String toStringTree(int indent)
+    {
+        StringBuilder builder = new StringBuilder();
+        builder.append(Utils.indent(indent) + "- filter" + "\n")
+                .append(Utils.indent(indent + 1) + "row type: " + getType() + "\n")
+                .append(Utils.indent(indent + 1) + "condition: " + "\n")
+                .append(Utils.indent(indent + 2) + condition + "\n");
+
+        builder.append(Utils.indent(indent + 1) + "input:" + "\n")
+                .append(getInputs().get(0).toStringTree(indent + 2));
+
+        return builder.toString();
+    }
+
 }

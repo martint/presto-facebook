@@ -13,7 +13,10 @@
  */
 package com.facebook.presto.sql.newplanner.expression;
 
+import com.facebook.presto.metadata.ColumnHandle;
+import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.newplanner.RelationalExpressionType;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 
@@ -22,11 +25,26 @@ import java.util.List;
 public class TableExpression
     extends RelationalExpression
 {
-    private final QualifiedName name;
+    private final TableHandle table;
+    private final List<ColumnHandle> columns;
 
-    public TableExpression(int id, QualifiedName name, List<Type> rowType)
+    public TableExpression(int id, TableHandle table, List<ColumnHandle> columns, RelationalExpressionType type)
     {
-        super(id, rowType, ImmutableList.<RelationalExpression>of());
-        this.name = name;
+        super(id, type, ImmutableList.<RelationalExpression>of());
+        this.table = table;
+        this.columns = columns;
+    }
+
+    @Override
+    public String toStringTree(int indent)
+    {
+        StringBuilder builder = new StringBuilder();
+        builder.append(Utils.indent(indent) + "- table(" + table + ")" + "\n");
+        builder.append(Utils.indent(indent + 1) + "row type: " + getType() + "\n");
+        builder.append(Utils.indent(indent + 1) + "columns:" + "\n");
+        for (ColumnHandle column : columns) {
+            builder.append(Utils.indent(indent + 2) + column + "\n");
+        }
+        return builder.toString();
     }
 }
