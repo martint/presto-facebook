@@ -1,0 +1,4 @@
+- UnionExpression is not implementable. Add rule to turn it into an 1:N exchange (in memory or distributed)
+- Merge TableScan->Filter->Project into ScanFilterProject expression
+- Merge Filter->Project into FilterProject expression
+

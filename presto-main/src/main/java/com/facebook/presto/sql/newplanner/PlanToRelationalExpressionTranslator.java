@@ -28,6 +28,7 @@ import com.facebook.presto.sql.newplanner.expression.RelationalExpression;
 import com.facebook.presto.sql.newplanner.expression.SortExpression;
 import com.facebook.presto.sql.newplanner.expression.TableExpression;
 import com.facebook.presto.sql.newplanner.expression.TopNExpression;
+import com.facebook.presto.sql.newplanner.expression.UnionExpression;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
@@ -63,6 +64,7 @@ import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.util.IterableTransformer;
+import com.google.common.base.Functions;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -347,7 +349,17 @@ public class PlanToRelationalExpressionTranslator
         @Override
         public TranslationResult visitUnion(UnionNode node, Void context)
         {
-            throw new UnsupportedOperationException("not yet implemented");
+            List<Type> types = IterableTransformer.on(node.getOutputSymbols())
+                    .transform(forMap(this.types))
+                    .list();
+
+            ImmutableList.Builder<RelationalExpression> children = ImmutableList.builder();
+            for (PlanNode child : node.getSources()) {
+                children.add(child.accept(this, null).getExpression());
+            }
+
+            UnionExpression result = new UnionExpression(nextId(), new RelationalExpressionType(types), children.build());
+            return new TranslationResult(result, node.getOutputSymbols());
         }
 
         @Override

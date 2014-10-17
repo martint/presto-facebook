@@ -23,6 +23,10 @@ import com.facebook.presto.operator.AggregationOperator;
 import com.facebook.presto.operator.DriverFactory;
 import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.operator.FilterAndProjectOperator;
+import com.facebook.presto.operator.FilterFunctions;
+import com.facebook.presto.operator.GenericPageProcessor;
+import com.facebook.presto.operator.InMemoryExchange;
+import com.facebook.presto.operator.InMemoryExchangeSourceOperator;
 import com.facebook.presto.operator.LimitOperator.LimitOperatorFactory;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.OrderByOperator.OrderByOperatorFactory;
@@ -48,16 +52,21 @@ import com.facebook.presto.sql.newplanner.expression.RelationalExpression;
 import com.facebook.presto.sql.newplanner.expression.SortExpression;
 import com.facebook.presto.sql.newplanner.expression.TableExpression;
 import com.facebook.presto.sql.newplanner.expression.TopNExpression;
+import com.facebook.presto.sql.newplanner.expression.UnionExpression;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.relational.ConstantExpression;
 import com.facebook.presto.sql.relational.Expressions;
 import com.facebook.presto.sql.relational.RowExpression;
+import com.facebook.presto.util.IterableTransformer;
+import com.facebook.presto.util.MoreFunctions;
 import com.google.common.base.Optional;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSetMultimap;
+import com.google.common.collect.Ordering;
 import com.google.common.collect.SetMultimap;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
@@ -263,6 +272,28 @@ public class NewLocalExecutionPlanner
         OperatorFactory operatorFactory = new AggregationOperator.AggregationOperatorFactory(expression.getId(), AggregationNode.Step.SINGLE, accumulatorFactories);
         return append(process(expression.getInputs().get(0)), operatorFactory);
     }
+
+//    private List<OperatorFactory> process(UnionExpression expression)
+//    {
+//        InMemoryExchange inMemoryExchange = new InMemoryExchange(expression.getType().getRowType());
+//
+//        for (int i = 0; i < expression.getInputs().size(); i++) {
+//            List<OperatorFactory> childOperators = process(expression.getInputs().get(i));
+//
+//            operatorFactories.add(inMemoryExchange.createSinkFactory(expression.getId()));
+//
+//            DriverFactory driverFactory = new DriverFactory(subContext.isInputDriver(), false, childOperators);
+//            context.addDriverFactory(driverFactory);
+//        }
+//        inMemoryExchange.noMoreSinkFactories();
+//
+//        // the main driver is not an input... the union sources are the input for the plan
+//        context.setInputDriver(false);
+//
+//        InMemoryExchangeSourceOperator.InMemoryExchangeSourceOperatorFactory result = new InMemoryExchangeSourceOperator.InMemoryExchangeSourceOperatorFactory(context.getNextOperatorId(), inMemoryExchange);
+//        ret
+//
+//    }
 
     private static <T> List<T> append(List<T> list, T element)
     {

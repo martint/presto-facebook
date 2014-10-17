@@ -91,6 +91,5 @@ public class AggregationExpression
                 .append(getInputs().get(0).toStringTree(indent + 2));
 
         return builder.toString();
-
     }
 }
