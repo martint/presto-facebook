@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.newplanner.expression.FilterExpression;
+import com.facebook.presto.sql.newplanner.expression.InlineTableExpression;
 import com.facebook.presto.sql.newplanner.expression.LimitExpression;
 import com.facebook.presto.sql.newplanner.expression.ProjectExpression;
 import com.facebook.presto.sql.newplanner.expression.RelationalExpression;
@@ -51,12 +52,13 @@ import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
+import com.facebook.presto.sql.relational.ConstantExpression;
 import com.facebook.presto.sql.relational.Expressions;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.util.IterableTransformer;
-import com.google.common.base.Functions;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -66,6 +68,7 @@ import java.util.Map;
 
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.analyzeExpressionsWithSymbols;
 import static com.google.common.base.Functions.forMap;
+import static com.google.common.base.Preconditions.checkArgument;
 
 public class PlanToRelationalExpressionTranslator
 {
@@ -107,7 +110,7 @@ public class PlanToRelationalExpressionTranslator
         @Override
         public TranslationResult visitFilter(FilterNode node, Void context)
         {
-            IdentityHashMap<Expression, Type> expressionTypes = analyzeExpressions(ImmutableList.of(node.getPredicate()), node.getOutputSymbols());
+            IdentityHashMap<Expression, Type> expressionTypes = analyzeExpressions(ImmutableList.of(node.getPredicate()), node.getSource().getOutputSymbols());
 
             TranslationResult child = node.getSource().accept(this, null);
             RowExpression condition = SqlToRowExpressionTranslator.translate(node.getPredicate(), expressionTypes, child.getSymbolToFieldMapping(), metadata, session, false);
@@ -209,7 +212,28 @@ public class PlanToRelationalExpressionTranslator
         @Override
         public TranslationResult visitValues(ValuesNode node, Void context)
         {
-            throw new UnsupportedOperationException("not yet implemented");
+            ImmutableList.Builder<Type> rowType = ImmutableList.builder();
+
+            for (Symbol output : node.getOutputSymbols()) {
+                rowType.add(types.get(output));
+            }
+
+            ImmutableList.Builder<List<ConstantExpression>> rowsBuilder = ImmutableList.builder();
+            for (List<Expression> row : node.getRows()) {
+                ImmutableList.Builder<ConstantExpression> rowBuilder = ImmutableList.builder();
+                for (Expression expression : row) {
+                    IdentityHashMap<Expression, Type> expressionTypes = analyzeExpressions(ImmutableList.of(expression), ImmutableList.<Symbol>of());
+                    RowExpression translated = SqlToRowExpressionTranslator.translate(expression, expressionTypes, ImmutableMap.<Symbol, Integer>of(), metadata, session, true);
+
+                    checkArgument(translated instanceof ConstantExpression, "Expression in inline table must be constant");
+                    rowBuilder.add((ConstantExpression) translated);
+                }
+
+                rowsBuilder.add(rowBuilder.build());
+            }
+
+            InlineTableExpression result = new InlineTableExpression(nextId(), rowType.build(), rowsBuilder.build());
+            return new TranslationResult(result, node.getOutputSymbols());
         }
 
         @Override

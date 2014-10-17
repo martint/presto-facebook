@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.block.BlockUtils;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.Metadata;
@@ -28,12 +29,15 @@ import com.facebook.presto.operator.PageProcessor;
 import com.facebook.presto.operator.RecordSinkManager;
 import com.facebook.presto.operator.TableScanOperator.TableScanOperatorFactory;
 import com.facebook.presto.operator.TopNOperator.TopNOperatorFactory;
+import com.facebook.presto.operator.ValuesOperator;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
+import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.PageSourceProvider;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.newplanner.expression.FilterExpression;
+import com.facebook.presto.sql.newplanner.expression.InlineTableExpression;
 import com.facebook.presto.sql.newplanner.expression.LimitExpression;
 import com.facebook.presto.sql.newplanner.expression.ProjectExpression;
 import com.facebook.presto.sql.newplanner.expression.RelationalExpression;
@@ -42,6 +46,7 @@ import com.facebook.presto.sql.newplanner.expression.TableExpression;
 import com.facebook.presto.sql.newplanner.expression.TopNExpression;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
+import com.facebook.presto.sql.relational.ConstantExpression;
 import com.facebook.presto.sql.relational.Expressions;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.base.Optional;
@@ -137,6 +142,9 @@ public class NewLocalExecutionPlanner
         else if (expression instanceof SortExpression) {
             return process((SortExpression) expression);
         }
+        else if (expression instanceof InlineTableExpression) {
+            return process((InlineTableExpression) expression);
+        }
 
         throw new UnsupportedOperationException("not yet implemented");
     }
@@ -210,6 +218,21 @@ public class NewLocalExecutionPlanner
                 false); // TODO: partial
 
         return append(process(expression.getInputs().get(0)), operatorFactory);
+    }
+
+    private List<OperatorFactory> process(InlineTableExpression expression)
+    {
+        PageBuilder pageBuilder = new PageBuilder(expression.getType().getRowType());
+        for (List<ConstantExpression> row : expression.getRows()) {
+            pageBuilder.declarePosition();
+            for (int i = 0; i < row.size(); i++) {
+                ConstantExpression constant = row.get(i);
+                BlockUtils.appendObject(constant.getType(), pageBuilder.getBlockBuilder(i), constant.getValue());
+            }
+        }
+
+        OperatorFactory operatorFactory = new ValuesOperator.ValuesOperatorFactory(expression.getId(), expression.getType().getRowType(), ImmutableList.of(pageBuilder.build()));
+        return ImmutableList.of(operatorFactory);
     }
 
     private static <T> List<T> append(List<T> list, T element)
@@ -302,8 +325,6 @@ public class NewLocalExecutionPlanner
             return indexLookupToProbeInput;
         }
     }
-
-
 
     private class Visitor
     {
@@ -487,7 +508,6 @@ public class NewLocalExecutionPlanner
 //
 //            return new PhysicalOperation(operatorFactory, outputMappings.build(), source);
 //        }
-
 
 //        @Override
 //        public PhysicalOperation visitDistinctLimit(DistinctLimitNode node, LocalExecutionPlanContext context)
