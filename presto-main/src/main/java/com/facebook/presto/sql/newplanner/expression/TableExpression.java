@@ -18,9 +18,12 @@ import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.newplanner.RelationalExpressionType;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public class TableExpression
     extends RelationalExpression
@@ -31,8 +34,22 @@ public class TableExpression
     public TableExpression(int id, TableHandle table, List<ColumnHandle> columns, RelationalExpressionType type)
     {
         super(id, type, ImmutableList.<RelationalExpression>of());
+
+        checkNotNull(table, "table is null");
+        checkNotNull(columns, "columns is null");
+
         this.table = table;
-        this.columns = columns;
+        this.columns = ImmutableList.copyOf(columns);
+    }
+
+    public TableHandle getTable()
+    {
+        return table;
+    }
+
+    public List<ColumnHandle> getColumns()
+    {
+        return columns;
     }
 
     @Override

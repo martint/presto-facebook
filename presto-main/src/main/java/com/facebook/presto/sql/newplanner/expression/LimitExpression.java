@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.newplanner.expression;
 
-import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.collect.ImmutableList;
 
 public class LimitExpression

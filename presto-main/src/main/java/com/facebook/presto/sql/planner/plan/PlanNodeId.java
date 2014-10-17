@@ -63,4 +63,9 @@ public class PlanNodeId
     {
         return id.hashCode();
     }
+
+    public static PlanNodeId valueOf(int id)
+    {
+        return new PlanNodeId(Integer.toString(id));
+    }
 }

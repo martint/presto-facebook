@@ -78,6 +78,7 @@ import com.facebook.presto.sql.planner.CompilerConfig;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import com.facebook.presto.sql.planner.LogicalPlanner;
+import com.facebook.presto.sql.planner.NewLocalExecutionPlanner;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.planner.PlanNodeIdAllocator;
@@ -381,25 +382,20 @@ public class LocalQueryRunner
             throw new AssertionError("Expected subplan to have no children");
         }
 
-        LocalExecutionPlanner executionPlanner = new LocalExecutionPlanner(
-                metadata,
-                sqlParser,
-                pageSourceManager,
-                indexManager,
-                pageSinkManager,
-                null,
-                compiler,
-                new IndexJoinLookupStats(),
-                new CompilerConfig().setInterpreterEnabled(false), // make sure tests fail if compiler breaks
-                new TaskManagerConfig()
-        );
+//        NewLocalExecutionPlanner executionPlanner = new NewLocalExecutionPlanner(
+//                metadata,
+//                sqlParser,
+//                pageSourceManager,
+//                indexManager,
+//                pageSinkManager,
+//                null,
+//                compiler,
+//                new IndexJoinLookupStats(),
+//                new CompilerConfig().setInterpreterEnabled(false), // make sure tests fail if compiler breaks
+//                new TaskManagerConfig()
+//        );
 
-        // plan query
-        LocalExecutionPlan localExecutionPlan = executionPlanner.plan(session,
-                subplan.getFragment().getRoot(),
-                subplan.getFragment().getOutputLayout(),
-                plan.getTypes(),
-                outputFactory);
+        LocalExecutionPlan localExecutionPlan = executionPlanner.plan(session, translated, outputFactory);
 
         // generate sources
         List<TaskSource> sources = new ArrayList<>();

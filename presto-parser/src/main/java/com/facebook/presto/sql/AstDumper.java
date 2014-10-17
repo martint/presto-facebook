@@ -111,11 +111,9 @@ public final class AstDumper
             begin(node, indent);
             process(node.getSelect(), indent + 1);
 
-            if (node.getFrom() != null) {
+            if (node.getFrom().isPresent()) {
                 begin("from", indent + 1);
-                for (Relation relation : node.getFrom()) {
-                    process(relation, indent + 2);
-                }
+                process(node.getFrom().get(), indent + 2);
                 end(indent + 1);
             }
 

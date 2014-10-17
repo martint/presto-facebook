@@ -19,12 +19,17 @@ import com.google.common.collect.ImmutableList;
 public class FilterExpression
     extends RelationalExpression
 {
-    private final RowExpression condition;
+    private final RowExpression predicate;
 
-    public FilterExpression(int id, RelationalExpression input, RowExpression condition)
+    public FilterExpression(int id, RelationalExpression input, RowExpression predicate)
     {
         super(id, input.getType(), ImmutableList.of(input));
-        this.condition = condition;
+        this.predicate = predicate;
+    }
+
+    public RowExpression getPredicate()
+    {
+        return predicate;
     }
 
     @Override
@@ -34,7 +39,7 @@ public class FilterExpression
         builder.append(Utils.indent(indent) + "- filter" + "\n")
                 .append(Utils.indent(indent + 1) + "row type: " + getType() + "\n")
                 .append(Utils.indent(indent + 1) + "condition: " + "\n")
-                .append(Utils.indent(indent + 2) + condition + "\n");
+                .append(Utils.indent(indent + 2) + predicate + "\n");
 
         builder.append(Utils.indent(indent + 1) + "input:" + "\n")
                 .append(getInputs().get(0).toStringTree(indent + 2));

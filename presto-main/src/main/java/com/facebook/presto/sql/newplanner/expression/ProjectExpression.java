@@ -33,6 +33,11 @@ public class ProjectExpression
         this.projections = projections;
     }
 
+    public List<RowExpression> getProjections()
+    {
+        return projections;
+    }
+
     @Override
     public String toStringTree(int indent)
     {

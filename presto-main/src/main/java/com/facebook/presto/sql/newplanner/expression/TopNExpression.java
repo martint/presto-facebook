@@ -29,10 +29,24 @@ public class TopNExpression
     {
         super(id, input.getType(), ImmutableList.of(input));
 
-        // TODO: preconditions
-        this.sortFields = sortFields;
-        this.sortOrders = sortOrders;
+        this.sortFields = ImmutableList.copyOf(sortFields);
+        this.sortOrders = ImmutableList.copyOf(sortOrders);
         this.count = count;
+    }
+
+    public List<Integer> getSortFields()
+    {
+        return sortFields;
+    }
+
+    public List<SortOrder> getSortOrders()
+    {
+        return sortOrders;
+    }
+
+    public long getCount()
+    {
+        return count;
     }
 
     @Override

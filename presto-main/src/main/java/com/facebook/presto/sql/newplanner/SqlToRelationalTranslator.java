@@ -234,7 +234,7 @@ public class SqlToRelationalTranslator
     public TranslatedRelationalExpression translate(QuerySpecification query, Scope parentScope)
     {
         // TODO: introduce FromNode and support for implicit cross joins
-        TranslatedRelationalExpression from = translate(Iterables.getOnlyElement(query.getFrom()), parentScope);
+        TranslatedRelationalExpression from = translate(query.getFrom().get(), parentScope);
 
         Scope scope = new Scope(parentScope, from.getFields());
 

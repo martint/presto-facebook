@@ -39,7 +39,6 @@ import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
-import com.facebook.presto.sql.planner.plan.RowNumberLimitNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SinkNode;
@@ -286,12 +285,6 @@ public class PlanToRelationalExpressionTranslator
 
         @Override
         public TranslationResult visitMarkDistinct(MarkDistinctNode node, Void context)
-        {
-            throw new UnsupportedOperationException("not yet implemented");
-        }
-
-        @Override
-        public TranslationResult visitRowNumberLimit(RowNumberLimitNode node, Void context)
         {
             throw new UnsupportedOperationException("not yet implemented");
         }

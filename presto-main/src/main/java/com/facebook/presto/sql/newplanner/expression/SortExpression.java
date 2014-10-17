@@ -27,8 +27,18 @@ public class SortExpression
     public SortExpression(int id, RelationalExpression input, List<Integer> sortFields, List<SortOrder> sortOrders)
     {
         super(id, input.getType(), ImmutableList.of(input));
-        this.sortFields = sortFields;
-        this.sortOrders = sortOrders;
+        this.sortFields = ImmutableList.copyOf(sortFields);
+        this.sortOrders = ImmutableList.copyOf(sortOrders);
+    }
+
+    public List<Integer> getSortFields()
+    {
+        return sortFields;
+    }
+
+    public List<SortOrder> getSortOrders()
+    {
+        return sortOrders;
     }
 
     @Override
