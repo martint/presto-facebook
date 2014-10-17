@@ -50,7 +50,7 @@ public class InlineTableExpression
                 .append(Utils.indent(indent + 1) + "rows:" + "\n");
 
         for (List<ConstantExpression> row : rows) {
-            builder.append(Utils.indent(indent + 2) + "(" + Joiner.on(", ").join(row) + ")");
+            builder.append(Utils.indent(indent + 2) + "(" + Joiner.on(", ").join(row) + ")" + "\n");
         }
 
         return builder.toString();

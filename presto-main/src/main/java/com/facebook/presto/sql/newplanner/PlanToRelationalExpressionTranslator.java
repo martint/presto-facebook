@@ -16,8 +16,10 @@ package com.facebook.presto.sql.newplanner;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.newplanner.expression.AggregationExpression;
 import com.facebook.presto.sql.newplanner.expression.FilterExpression;
 import com.facebook.presto.sql.newplanner.expression.InlineTableExpression;
 import com.facebook.presto.sql.newplanner.expression.LimitExpression;
@@ -52,16 +54,20 @@ import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
+import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.ConstantExpression;
 import com.facebook.presto.sql.relational.Expressions;
+import com.facebook.presto.sql.relational.InputReferenceExpression;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.util.IterableTransformer;
-import com.google.common.base.Preconditions;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -104,7 +110,44 @@ public class PlanToRelationalExpressionTranslator
         @Override
         public TranslationResult visitAggregation(AggregationNode node, Void context)
         {
-            throw new UnsupportedOperationException("not yet implemented");
+            TranslationResult child = node.getSource().accept(this, null);
+
+            if (node.getGroupBy().isEmpty()) {
+                List<Type> outputTypes = new ArrayList<>();
+                List<Signature> aggregates = new ArrayList<>();
+                List<List<Integer>> arguments = new ArrayList<>();
+                List<Optional<Integer>> filters = new ArrayList<>();
+                for (Symbol output : node.getOutputSymbols()) {
+                    outputTypes.add(types.get(output));
+
+                    Symbol mask = node.getMasks().get(output);
+                    if (mask != null) {
+                        filters.add(Optional.of(child.getSymbolToFieldMapping().get(mask)));
+                    }
+                    else {
+                        filters.add(Optional.<Integer>absent());
+                    }
+
+                    FunctionCall aggregation = node.getAggregations().get(output);
+                    IdentityHashMap<Expression, Type> expressionTypes = analyzeExpressions(ImmutableList.<Expression>of(aggregation), node.getSource().getOutputSymbols());
+
+                    CallExpression translated = (CallExpression) SqlToRowExpressionTranslator.translate(aggregation, expressionTypes, child.getSymbolToFieldMapping(), metadata, session, false);
+                    aggregates.add(translated.getSignature());
+
+                    // TODO: arguments
+                    List<Integer> args = new ArrayList<>();
+                    for (RowExpression arg : translated.getArguments()) {
+                        args.add(((InputReferenceExpression) arg).getField());
+                    }
+
+                    arguments.add(args);
+                }
+                AggregationExpression result = new AggregationExpression(nextId(), child.getExpression(), new RelationalExpressionType(outputTypes), aggregates, filters, arguments);
+                return new TranslationResult(result, node.getOutputSymbols());
+            }
+            else {
+                throw new UnsupportedOperationException("not yet implemented: hash aggs");
+            }
         }
 
         @Override

@@ -66,6 +66,6 @@ public abstract class RelationalExpression
 
     public String toStringTree(int indent)
     {
-        throw new UnsupportedOperationException("not yet implemented");
+        throw new UnsupportedOperationException("not yet implemented: " + getClass().getName());
     }
 }

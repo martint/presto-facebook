@@ -18,6 +18,8 @@ import com.facebook.presto.block.BlockUtils;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.operator.AggregationOperator;
 import com.facebook.presto.operator.DriverFactory;
 import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.operator.FilterAndProjectOperator;
@@ -30,12 +32,14 @@ import com.facebook.presto.operator.RecordSinkManager;
 import com.facebook.presto.operator.TableScanOperator.TableScanOperatorFactory;
 import com.facebook.presto.operator.TopNOperator.TopNOperatorFactory;
 import com.facebook.presto.operator.ValuesOperator;
+import com.facebook.presto.operator.aggregation.AccumulatorFactory;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.PageSourceProvider;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
+import com.facebook.presto.sql.newplanner.expression.AggregationExpression;
 import com.facebook.presto.sql.newplanner.expression.FilterExpression;
 import com.facebook.presto.sql.newplanner.expression.InlineTableExpression;
 import com.facebook.presto.sql.newplanner.expression.LimitExpression;
@@ -45,6 +49,7 @@ import com.facebook.presto.sql.newplanner.expression.SortExpression;
 import com.facebook.presto.sql.newplanner.expression.TableExpression;
 import com.facebook.presto.sql.newplanner.expression.TopNExpression;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.relational.ConstantExpression;
 import com.facebook.presto.sql.relational.Expressions;
@@ -145,6 +150,9 @@ public class NewLocalExecutionPlanner
         else if (expression instanceof InlineTableExpression) {
             return process((InlineTableExpression) expression);
         }
+        else if (expression instanceof AggregationExpression) {
+            return process((AggregationExpression) expression);
+        }
 
         throw new UnsupportedOperationException("not yet implemented");
     }
@@ -233,6 +241,27 @@ public class NewLocalExecutionPlanner
 
         OperatorFactory operatorFactory = new ValuesOperator.ValuesOperatorFactory(expression.getId(), expression.getType().getRowType(), ImmutableList.of(pageBuilder.build()));
         return ImmutableList.of(operatorFactory);
+    }
+
+    private List<OperatorFactory> process(AggregationExpression expression)
+    {
+        List<AccumulatorFactory> accumulatorFactories = new ArrayList<>();
+
+        for (int i = 0; i < expression.getAggregates().size(); i++) {
+            Signature aggregate = expression.getAggregates().get(i);
+            List<Integer> arguments = expression.getArguments().get(i);
+            Optional<Integer> filter = expression.getFilterFields().get(i);
+
+            AccumulatorFactory result = metadata.getExactFunction(aggregate)
+                    .getAggregationFunction()
+                    .bind(arguments, filter, Optional.<Integer>absent(), 1.0); // TODO: sample weight, confidence
+
+            accumulatorFactories.add(result);
+        }
+
+        // TODO: partial, final
+        OperatorFactory operatorFactory = new AggregationOperator.AggregationOperatorFactory(expression.getId(), AggregationNode.Step.SINGLE, accumulatorFactories);
+        return append(process(expression.getInputs().get(0)), operatorFactory);
     }
 
     private static <T> List<T> append(List<T> list, T element)
@@ -325,15 +354,6 @@ public class NewLocalExecutionPlanner
             return indexLookupToProbeInput;
         }
     }
-
-    private class Visitor
-    {
-        private final Session session;
-
-        private Visitor(Session session)
-        {
-            this.session = session;
-        }
 
 //        @Override
 //        public PhysicalOperation visitExchange(ExchangeNode node, LocalExecutionPlanContext context)
@@ -887,36 +907,6 @@ public class NewLocalExecutionPlanner
 //        }
 
 //        @Override
-//        public PhysicalOperation visitValues(ValuesNode node, LocalExecutionPlanContext context)
-//        {
-//            List<Type> outputTypes = new ArrayList<>();
-//
-//            for (Symbol symbol : node.getOutputSymbols()) {
-//                Type type = checkNotNull(context.getTypes().get(symbol), "No type for symbol %s", symbol);
-//                outputTypes.add(type);
-//            }
-//
-//            PageBuilder pageBuilder = new PageBuilder(outputTypes);
-//            for (List<Expression> row : node.getRows()) {
-//                pageBuilder.declarePosition();
-//                IdentityHashMap<Expression, Type> expressionTypes = getExpressionTypes(
-//                        context.getSession(),
-//                        metadata,
-//                        sqlParser,
-//                        ImmutableMap.<Symbol, Type>of(),
-//                        ImmutableList.copyOf(row));
-//                for (int i = 0; i < row.size(); i++) {
-//                    // evaluate the literal value
-//                    Object result = ExpressionInterpreter.expressionInterpreter(row.get(i), metadata, context.getSession(), expressionTypes).evaluate(0);
-//                    BlockUtils.appendObject(outputTypes.get(i), pageBuilder.getBlockBuilder(i), result);
-//                }
-//            }
-//
-//            OperatorFactory operatorFactory = new ValuesOperatorFactory(context.getNextOperatorId(), outputTypes, ImmutableList.of(pageBuilder.build()));
-//            return new PhysicalOperation(operatorFactory, makeLayout(node));
-//        }
-
-//        @Override
 //        public PhysicalOperation visitUnnest(UnnestNode node, LocalExecutionPlanContext context)
 //        {
 //            PhysicalOperation source = node.getSource().accept(this, context);
@@ -1462,7 +1452,6 @@ public class NewLocalExecutionPlanner
 //
 //            return new PhysicalOperation(operatorFactory, outputMappings.build(), source);
 //        }
-    }
 
 //    private RecordSink getRecordSink(TableWriterNode node)
 //    {
