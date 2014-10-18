@@ -15,8 +15,8 @@ package com.facebook.presto.sql.newplanner.expression;
 
 import com.google.common.collect.ImmutableList;
 
-public class LimitExpression
-    extends RelationalExpression
+public final class LimitExpression
+        extends RelationalExpression
 {
     private final long limit;
 
@@ -44,5 +44,4 @@ public class LimitExpression
 
         return builder.toString();
     }
-
 }

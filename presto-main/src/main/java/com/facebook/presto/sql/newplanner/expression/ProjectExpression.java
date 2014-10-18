@@ -22,7 +22,7 @@ import com.google.common.collect.Lists;
 
 import java.util.List;
 
-public class ProjectExpression
+public final class ProjectExpression
         extends RelationalExpression
 {
     private final List<RowExpression> projections;

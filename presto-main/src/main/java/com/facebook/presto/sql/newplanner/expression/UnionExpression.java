@@ -17,7 +17,7 @@ import com.facebook.presto.sql.newplanner.RelationalExpressionType;
 
 import java.util.List;
 
-public class UnionExpression
+public final class UnionExpression
         extends RelationalExpression
 {
     public UnionExpression(int id, RelationalExpressionType type, List<RelationalExpression> inputs)

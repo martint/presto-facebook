@@ -24,7 +24,7 @@ import com.google.common.collect.Iterables;
 import java.util.List;
 
 // markDistinct(Row<A, B, ...>, (r) -> (...)):Row<A, B, ..., BOOLEAN>
-public class MarkDistinctExpression
+public final class MarkDistinctExpression
         extends RelationalExpression
 {
     private final List<Integer> distinctFields;

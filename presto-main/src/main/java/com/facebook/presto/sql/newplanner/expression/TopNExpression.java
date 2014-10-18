@@ -18,8 +18,8 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-public class TopNExpression
-    extends RelationalExpression
+public final class TopNExpression
+        extends RelationalExpression
 {
     private final List<Integer> sortFields;
     private final List<SortOrder> sortOrders;
@@ -67,6 +67,4 @@ public class TopNExpression
 
         return builder.toString();
     }
-
-
 }

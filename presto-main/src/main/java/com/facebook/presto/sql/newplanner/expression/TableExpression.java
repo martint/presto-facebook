@@ -25,8 +25,8 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class TableExpression
-    extends RelationalExpression
+public final class TableExpression
+        extends RelationalExpression
 {
     private final TableHandle table;
     private final List<ColumnHandle> columns;

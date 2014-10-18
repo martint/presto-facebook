@@ -16,8 +16,8 @@ package com.facebook.presto.sql.newplanner.expression;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.collect.ImmutableList;
 
-public class FilterExpression
-    extends RelationalExpression
+public final class FilterExpression
+        extends RelationalExpression
 {
     private final RowExpression predicate;
 
@@ -46,5 +46,4 @@ public class FilterExpression
 
         return builder.toString();
     }
-
 }

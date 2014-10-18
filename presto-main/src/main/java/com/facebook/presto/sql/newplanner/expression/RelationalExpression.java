@@ -39,17 +39,17 @@ public abstract class RelationalExpression
         this.type = type;
     }
 
-    public int getId()
+    public final int getId()
     {
         return id;
     }
 
-    public RelationalExpressionType getType()
+    public final RelationalExpressionType getType()
     {
         return type;
     }
 
-    public List<RelationalExpression> getInputs()
+    public final List<RelationalExpression> getInputs()
     {
         return inputs;
     }
@@ -64,8 +64,5 @@ public abstract class RelationalExpression
         return new RelationalExpressionType(types);
     }
 
-    public String toStringTree(int indent)
-    {
-        throw new UnsupportedOperationException("not yet implemented: " + getClass().getName());
-    }
+    public abstract String toStringTree(int indent);
 }

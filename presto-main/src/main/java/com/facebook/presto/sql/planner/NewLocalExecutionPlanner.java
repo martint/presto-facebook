@@ -46,6 +46,7 @@ import com.facebook.presto.split.PageSourceProvider;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.newplanner.expression.AggregationExpression;
 import com.facebook.presto.sql.newplanner.expression.FilterExpression;
+import com.facebook.presto.sql.newplanner.expression.GroupByAggregationExpression;
 import com.facebook.presto.sql.newplanner.expression.InlineTableExpression;
 import com.facebook.presto.sql.newplanner.expression.LimitExpression;
 import com.facebook.presto.sql.newplanner.expression.MarkDistinctExpression;
@@ -259,6 +260,27 @@ public class NewLocalExecutionPlanner
     }
 
     private List<OperatorFactory> process(AggregationExpression expression)
+    {
+        List<AccumulatorFactory> accumulatorFactories = new ArrayList<>();
+
+        for (int i = 0; i < expression.getAggregates().size(); i++) {
+            Signature aggregate = expression.getAggregates().get(i);
+            List<Integer> arguments = expression.getArguments().get(i);
+            Optional<Integer> filter = expression.getFilterFields().get(i);
+
+            AccumulatorFactory result = metadata.getExactFunction(aggregate)
+                    .getAggregationFunction()
+                    .bind(arguments, filter, Optional.<Integer>absent(), 1.0); // TODO: sample weight, confidence
+
+            accumulatorFactories.add(result);
+        }
+
+        // TODO: partial, final
+        OperatorFactory operatorFactory = new AggregationOperator.AggregationOperatorFactory(expression.getId(), AggregationNode.Step.SINGLE, accumulatorFactories);
+        return append(process(expression.getInputs().get(0)), operatorFactory);
+    }
+
+    private List<OperatorFactory> process(GroupByAggregationExpression expression)
     {
         List<AccumulatorFactory> accumulatorFactories = new ArrayList<>();
 

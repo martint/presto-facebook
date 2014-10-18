@@ -18,7 +18,7 @@ import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
-public class JoinExpression
+public final class JoinExpression
     extends RelationalExpression
 {
     private final JoinNode.Type type;
@@ -29,5 +29,11 @@ public class JoinExpression
         super(id, RelationalExpression.concat(left.getType(), right.getType()), ImmutableList.of(left, right));
         this.type = type;
         this.condition = condition;
+    }
+
+    @Override
+    public String toStringTree(int indent)
+    {
+        throw new UnsupportedOperationException("not yet implemented");
     }
 }

@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-public class SortExpression
+public final class SortExpression
         extends RelationalExpression
 {
     private final List<Integer> sortFields;

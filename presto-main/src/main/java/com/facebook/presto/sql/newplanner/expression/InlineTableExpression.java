@@ -23,8 +23,8 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class InlineTableExpression
-    extends RelationalExpression
+public final class InlineTableExpression
+        extends RelationalExpression
 {
     private final List<List<ConstantExpression>> rows;
 
