@@ -23,6 +23,7 @@ import com.facebook.presto.sql.newplanner.expression.AggregationExpression;
 import com.facebook.presto.sql.newplanner.expression.FilterExpression;
 import com.facebook.presto.sql.newplanner.expression.InlineTableExpression;
 import com.facebook.presto.sql.newplanner.expression.LimitExpression;
+import com.facebook.presto.sql.newplanner.expression.MarkDistinctExpression;
 import com.facebook.presto.sql.newplanner.expression.ProjectExpression;
 import com.facebook.presto.sql.newplanner.expression.RelationalExpression;
 import com.facebook.presto.sql.newplanner.expression.SortExpression;
@@ -365,7 +366,14 @@ public class PlanToRelationalExpressionTranslator
         @Override
         public TranslationResult visitMarkDistinct(MarkDistinctNode node, Void context)
         {
-            throw new UnsupportedOperationException("not yet implemented");
+            TranslationResult child = node.getSource().accept(this, null);
+
+            List<Integer> distinctFields = IterableTransformer.on(node.getDistinctSymbols())
+                    .transform(forMap(child.getSymbolToFieldMapping()))
+                    .list();
+
+            MarkDistinctExpression result = new MarkDistinctExpression(nextId(), child.getExpression(), distinctFields);
+            return new TranslationResult(result, node.getOutputSymbols());
         }
 
         @Override

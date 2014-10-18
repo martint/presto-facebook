@@ -75,7 +75,7 @@ public class AggregationExpression
 
         for (int i = 0; i < aggregates.size(); i++) {
             builder.append(Utils.indent(indent + 2) + "function: " + aggregates.get(i) + "\n");
-            builder.append(Utils.indent(indent + 2) + "inputs: " + Joiner.on(", ").join(IterableTransformer.on(arguments.get(i)).transform(new Function<Integer, String>() {
+            builder.append(Utils.indent(indent + 2) + "arguments: " + Joiner.on(", ").join(IterableTransformer.on(arguments.get(i)).transform(new Function<Integer, String>() {
                 @Override
                 public String apply(Integer input)
                 {

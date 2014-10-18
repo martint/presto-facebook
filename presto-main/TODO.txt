@@ -2,3 +2,5 @@
 - Merge TableScan->Filter->Project into ScanFilterProject expression
 - Merge Filter->Project into FilterProject expression
 
+- Show relational expression signatures in plan (this will force us to think about how they map to functional model)
+

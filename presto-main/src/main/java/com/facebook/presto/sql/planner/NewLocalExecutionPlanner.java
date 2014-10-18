@@ -28,6 +28,7 @@ import com.facebook.presto.operator.GenericPageProcessor;
 import com.facebook.presto.operator.InMemoryExchange;
 import com.facebook.presto.operator.InMemoryExchangeSourceOperator;
 import com.facebook.presto.operator.LimitOperator.LimitOperatorFactory;
+import com.facebook.presto.operator.MarkDistinctOperator;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.OrderByOperator.OrderByOperatorFactory;
 import com.facebook.presto.operator.OutputFactory;
@@ -47,6 +48,7 @@ import com.facebook.presto.sql.newplanner.expression.AggregationExpression;
 import com.facebook.presto.sql.newplanner.expression.FilterExpression;
 import com.facebook.presto.sql.newplanner.expression.InlineTableExpression;
 import com.facebook.presto.sql.newplanner.expression.LimitExpression;
+import com.facebook.presto.sql.newplanner.expression.MarkDistinctExpression;
 import com.facebook.presto.sql.newplanner.expression.ProjectExpression;
 import com.facebook.presto.sql.newplanner.expression.RelationalExpression;
 import com.facebook.presto.sql.newplanner.expression.SortExpression;
@@ -55,6 +57,7 @@ import com.facebook.presto.sql.newplanner.expression.TopNExpression;
 import com.facebook.presto.sql.newplanner.expression.UnionExpression;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.relational.ConstantExpression;
@@ -161,6 +164,9 @@ public class NewLocalExecutionPlanner
         }
         else if (expression instanceof AggregationExpression) {
             return process((AggregationExpression) expression);
+        }
+        else if (expression instanceof MarkDistinctExpression) {
+            return process((MarkDistinctExpression) expression);
         }
 
         throw new UnsupportedOperationException("not yet implemented");
@@ -271,6 +277,14 @@ public class NewLocalExecutionPlanner
         // TODO: partial, final
         OperatorFactory operatorFactory = new AggregationOperator.AggregationOperatorFactory(expression.getId(), AggregationNode.Step.SINGLE, accumulatorFactories);
         return append(process(expression.getInputs().get(0)), operatorFactory);
+    }
+
+    private List<OperatorFactory> process(MarkDistinctExpression expression)
+    {
+        RelationalExpression input = expression.getInputs().get(0); // TODO: maybe pass expression's output type to MarkDistinctOperatorFactory instead of letting it build the list by appending BOOLEAN
+        MarkDistinctOperator.MarkDistinctOperatorFactory operatorFactory = new MarkDistinctOperator.MarkDistinctOperatorFactory(expression.getId(), input.getType().getRowType(), expression.getDistinctFields());
+
+        return append(process(input), operatorFactory);
     }
 
 //    private List<OperatorFactory> process(UnionExpression expression)
