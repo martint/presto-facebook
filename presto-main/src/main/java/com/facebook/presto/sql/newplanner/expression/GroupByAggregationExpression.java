@@ -20,6 +20,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 
 import java.util.List;
 
@@ -61,6 +62,11 @@ public final class GroupByAggregationExpression
     public List<List<Integer>> getArguments()
     {
         return arguments;
+    }
+
+    public RelationalExpression getInput()
+    {
+        return Iterables.getOnlyElement(getInputs());
     }
 
     @Override

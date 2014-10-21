@@ -21,6 +21,7 @@ import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.newplanner.expression.AggregationExpression;
 import com.facebook.presto.sql.newplanner.expression.FilterExpression;
+import com.facebook.presto.sql.newplanner.expression.GroupByAggregationExpression;
 import com.facebook.presto.sql.newplanner.expression.InlineTableExpression;
 import com.facebook.presto.sql.newplanner.expression.LimitExpression;
 import com.facebook.presto.sql.newplanner.expression.MarkDistinctExpression;
@@ -64,6 +65,7 @@ import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Functions;
 import com.google.common.base.Optional;
@@ -132,24 +134,55 @@ public class PlanToRelationalExpressionTranslator
                     }
 
                     FunctionCall aggregation = node.getAggregations().get(output);
-                    IdentityHashMap<Expression, Type> expressionTypes = analyzeExpressions(ImmutableList.<Expression>of(aggregation), node.getSource().getOutputSymbols());
+                    aggregates.add(node.getFunctions().get(output));
 
-                    CallExpression translated = (CallExpression) SqlToRowExpressionTranslator.translate(aggregation, expressionTypes, child.getSymbolToFieldMapping(), metadata, session, false);
-                    aggregates.add(translated.getSignature());
-
-                    // TODO: arguments
                     List<Integer> args = new ArrayList<>();
-                    for (RowExpression arg : translated.getArguments()) {
-                        args.add(((InputReferenceExpression) arg).getField());
+                    for (Expression expression : aggregation.getArguments()) {
+                        Symbol symbol = Symbol.fromQualifiedName(((QualifiedNameReference) expression).getName());
+                        args.add((child.getSymbolToFieldMapping().get(symbol)));
                     }
-
                     arguments.add(args);
                 }
                 AggregationExpression result = new AggregationExpression(nextId(), child.getExpression(), new RelationalExpressionType(outputTypes), aggregates, filters, arguments);
                 return new TranslationResult(result, node.getOutputSymbols());
             }
             else {
-                throw new UnsupportedOperationException("not yet implemented: hash aggs");
+                List<Type> outputTypes = new ArrayList<>();
+                List<Signature> aggregates = new ArrayList<>();
+                List<List<Integer>> arguments = new ArrayList<>();
+                List<Optional<Integer>> filters = new ArrayList<>();
+                List<Integer> groupingInputs = new ArrayList<>();
+
+                for (Symbol symbol : node.getGroupBy()) {
+                    groupingInputs.add(child.getSymbolToFieldMapping().get(symbol));
+                    outputTypes.add(types.get(symbol));
+                }
+
+                for (Symbol aggregate : node.getAggregations().keySet()) {
+                    outputTypes.add(types.get(aggregate));
+
+                    Symbol mask = node.getMasks().get(aggregate);
+                    if (mask != null) {
+                        filters.add(Optional.of(child.getSymbolToFieldMapping().get(mask)));
+                    }
+                    else {
+                        filters.add(Optional.<Integer>absent());
+                    }
+
+                    FunctionCall aggregation = node.getAggregations().get(aggregate);
+                    aggregates.add(node.getFunctions().get(aggregate));
+
+                    List<Integer> args = new ArrayList<>();
+                    for (Expression expression : aggregation.getArguments()) {
+                        Symbol symbol = Symbol.fromQualifiedName(((QualifiedNameReference) expression).getName());
+                        args.add((child.getSymbolToFieldMapping().get(symbol)));
+                    }
+                    arguments.add(args);
+                }
+
+
+                GroupByAggregationExpression result = new GroupByAggregationExpression(nextId(), child.getExpression(), new RelationalExpressionType(outputTypes), groupingInputs, aggregates, filters, arguments);
+                return new TranslationResult(result, node.getOutputSymbols());
             }
         }
 
@@ -407,6 +440,7 @@ public class PlanToRelationalExpressionTranslator
 
         public Map<Symbol, Integer> getSymbolToFieldMapping()
         {
+            // TODO: do this in constructor
             ImmutableMap.Builder<Symbol, Integer> builder = ImmutableMap.builder();
             for (int i = 0; i < outputs.size(); i++) {
                 Symbol symbol = outputs.get(i);

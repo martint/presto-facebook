@@ -75,7 +75,7 @@ public abstract class AbstractTestQueryFramework
         return queryRunner.getNodeCount();
     }
 
-    protected MaterializedResult computeActual(@Language("SQL") String sql)
+    protected MaterializedResult computeActual(String sql)
     {
         return computeActual(getSession(), sql);
     }
@@ -85,7 +85,7 @@ public abstract class AbstractTestQueryFramework
         return queryRunner.execute(session, sql).toJdbcTypes();
     }
 
-    protected void assertQuery(@Language("SQL") String sql)
+    protected void assertQuery(String sql)
             throws Exception
     {
         QueryAssertions.assertQuery(queryRunner, getSession(), sql, h2QueryRunner, sql, false);
@@ -97,7 +97,7 @@ public abstract class AbstractTestQueryFramework
         QueryAssertions.assertQuery(queryRunner, getSession(), sql, h2QueryRunner, sql, true);
     }
 
-    protected void assertQuery(@Language("SQL") String actual, @Language("SQL") String expected)
+    protected void assertQuery(String actual, String expected)
             throws Exception
     {
         QueryAssertions.assertQuery(queryRunner, getSession(), actual, h2QueryRunner, expected, false);
@@ -131,7 +131,7 @@ public abstract class AbstractTestQueryFramework
                 expected);
     }
 
-    protected MaterializedResult computeExpected(@Language("SQL") String sql, List<? extends Type> resultTypes)
+    protected MaterializedResult computeExpected(String sql, List<? extends Type> resultTypes)
     {
         return h2QueryRunner.execute(getSession(), sql, resultTypes);
     }

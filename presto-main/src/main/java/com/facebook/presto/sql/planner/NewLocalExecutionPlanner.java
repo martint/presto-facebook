@@ -25,6 +25,7 @@ import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.operator.FilterAndProjectOperator;
 import com.facebook.presto.operator.FilterFunctions;
 import com.facebook.presto.operator.GenericPageProcessor;
+import com.facebook.presto.operator.HashAggregationOperator;
 import com.facebook.presto.operator.InMemoryExchange;
 import com.facebook.presto.operator.InMemoryExchangeSourceOperator;
 import com.facebook.presto.operator.LimitOperator.LimitOperatorFactory;
@@ -64,12 +65,15 @@ import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.relational.ConstantExpression;
 import com.facebook.presto.sql.relational.Expressions;
 import com.facebook.presto.sql.relational.RowExpression;
+import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.util.IterableTransformer;
 import com.facebook.presto.util.MoreFunctions;
+import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSetMultimap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.SetMultimap;
 import io.airlift.log.Logger;
@@ -169,8 +173,11 @@ public class NewLocalExecutionPlanner
         else if (expression instanceof MarkDistinctExpression) {
             return process((MarkDistinctExpression) expression);
         }
+        else if (expression instanceof GroupByAggregationExpression) {
+            return process((GroupByAggregationExpression) expression);
+        }
 
-        throw new UnsupportedOperationException("not yet implemented");
+        throw new UnsupportedOperationException("not yet implemented: " + expression.getClass().getName());
     }
 
     private List<OperatorFactory> process(TableExpression expression)
@@ -280,10 +287,19 @@ public class NewLocalExecutionPlanner
         return append(process(expression.getInputs().get(0)), operatorFactory);
     }
 
-    private List<OperatorFactory> process(GroupByAggregationExpression expression)
+    private List<OperatorFactory> process(final GroupByAggregationExpression expression)
     {
-        List<AccumulatorFactory> accumulatorFactories = new ArrayList<>();
+        List<Type> groupByTypes = IterableTransformer.on(expression.getGroupingInputs())
+                .transform(new Function<Integer, Type>()
+                {
+                    @Override
+                    public Type apply(Integer input)
+                    {
+                        return expression.getInput().getType().getRowType().get(input);
+                    }
+                }).list();
 
+        List<AccumulatorFactory> accumulatorFactories = new ArrayList<>();
         for (int i = 0; i < expression.getAggregates().size(); i++) {
             Signature aggregate = expression.getAggregates().get(i);
             List<Integer> arguments = expression.getArguments().get(i);
@@ -296,8 +312,14 @@ public class NewLocalExecutionPlanner
             accumulatorFactories.add(result);
         }
 
-        // TODO: partial, final
-        OperatorFactory operatorFactory = new AggregationOperator.AggregationOperatorFactory(expression.getId(), AggregationNode.Step.SINGLE, accumulatorFactories);
+        OperatorFactory operatorFactory = new HashAggregationOperator.HashAggregationOperatorFactory(
+                expression.getId(),
+                groupByTypes,
+                expression.getGroupingInputs(),
+                AggregationNode.Step.SINGLE, // TODO: partial, final
+                accumulatorFactories,
+                10_000);
+
         return append(process(expression.getInputs().get(0)), operatorFactory);
     }
 
