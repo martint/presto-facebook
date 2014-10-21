@@ -29,7 +29,7 @@ public final class UnionExpression
     public String toStringTree(int indent)
     {
         StringBuilder builder = new StringBuilder();
-        builder.append(Utils.indent(indent) + "- union" + "\n")
+        builder.append(Utils.indent(indent) + "- union(...):" + getType() + "\n")
                 .append(Utils.indent(indent + 1) + "row type: " + getType() + "\n");
 
         for (RelationalExpression input : getInputs()) {

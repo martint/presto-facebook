@@ -35,8 +35,7 @@ public final class LimitExpression
     public String toStringTree(int indent)
     {
         StringBuilder builder = new StringBuilder();
-        builder.append(Utils.indent(indent) + "- limit" + "\n")
-                .append(Utils.indent(indent + 1) + "row type: " + getType() + "\n")
+        builder.append(Utils.indent(indent) + "- limit(...):" + getType() + "\n")
                 .append(Utils.indent(indent + 1) + "count:" + limit + "\n");
 
         builder.append(Utils.indent(indent + 1) + "input:" + "\n")

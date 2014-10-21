@@ -36,8 +36,7 @@ public final class FilterExpression
     public String toStringTree(int indent)
     {
         StringBuilder builder = new StringBuilder();
-        builder.append(Utils.indent(indent) + "- filter" + "\n")
-                .append(Utils.indent(indent + 1) + "row type: " + getType() + "\n")
+        builder.append(Utils.indent(indent) + "- filter(...):" + getType() + "\n")
                 .append(Utils.indent(indent + 1) + "condition: " + "\n")
                 .append(Utils.indent(indent + 2) + predicate + "\n");
 

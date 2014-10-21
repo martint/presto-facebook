@@ -45,8 +45,7 @@ public final class SortExpression
     public String toStringTree(int indent)
     {
         StringBuilder builder = new StringBuilder();
-        builder.append(Utils.indent(indent) + "- sort" + "\n")
-                .append(Utils.indent(indent + 1) + "row type: " + getType() + "\n")
+        builder.append(Utils.indent(indent) + "- sort(...):" + getType() + "\n")
                 .append(Utils.indent(indent + 1) + "sort fields: " + "\n");
 
         for (int i = 0; i < sortFields.size(); i++) {

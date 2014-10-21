@@ -73,8 +73,7 @@ public final class GroupByAggregationExpression
     public String toStringTree(int indent)
     {
         StringBuilder builder = new StringBuilder();
-        builder.append(Utils.indent(indent) + "- aggregation" + "\n")
-                .append(Utils.indent(indent + 1) + "row type: " + getType() + "\n")
+        builder.append(Utils.indent(indent) + "- groupByAggregation():" + getType() + "\n")
                 .append(Utils.indent(indent + 1) + "grouping:" + Joiner.on(", ").join(IterableTransformer.on(groupingInputs).transform(new Function<Integer, String>()
                 {
                     @Override

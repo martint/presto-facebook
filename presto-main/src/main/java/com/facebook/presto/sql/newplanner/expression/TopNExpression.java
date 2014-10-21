@@ -53,8 +53,7 @@ public final class TopNExpression
     public String toStringTree(int indent)
     {
         StringBuilder builder = new StringBuilder();
-        builder.append(Utils.indent(indent) + "- topN" + "\n")
-                .append(Utils.indent(indent + 1) + "row type: " + getType() + "\n")
+        builder.append(Utils.indent(indent) + "- topN(...):" + getType() + "\n")
                 .append(Utils.indent(indent + 1) + "count: " + count + "\n")
                 .append(Utils.indent(indent + 1) + "sort fields: " + "\n");
 

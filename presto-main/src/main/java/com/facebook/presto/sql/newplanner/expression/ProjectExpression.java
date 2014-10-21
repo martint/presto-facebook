@@ -42,8 +42,7 @@ public final class ProjectExpression
     public String toStringTree(int indent)
     {
         StringBuilder builder = new StringBuilder();
-        builder.append(Utils.indent(indent) + "- project" + "\n")
-                .append(Utils.indent(indent + 1) + "row type: " + getType() + "\n")
+        builder.append(Utils.indent(indent) + "- project(...):" + getType() + "\n")
                 .append(Utils.indent(indent + 1) + "projections:" + "\n");
 
         for (RowExpression projection : projections) {

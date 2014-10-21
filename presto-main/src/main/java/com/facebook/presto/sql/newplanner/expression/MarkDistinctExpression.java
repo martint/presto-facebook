@@ -44,8 +44,7 @@ public final class MarkDistinctExpression
     public String toStringTree(int indent)
     {
         StringBuilder builder = new StringBuilder();
-        builder.append(Utils.indent(indent) + "- markDistinct" + "\n")
-                .append(Utils.indent(indent + 1) + "row type: " + getType() + "\n")
+        builder.append(Utils.indent(indent) + "- markDistinct(...)" + getType() + "\n")
                 .append(Utils.indent(indent + 2) + "fields: " + Joiner.on(", ").join(IterableTransformer.on(distinctFields).transform(new Function<Integer, String>()
                 {
                     @Override

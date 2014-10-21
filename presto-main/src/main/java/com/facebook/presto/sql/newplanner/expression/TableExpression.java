@@ -56,8 +56,8 @@ public final class TableExpression
     public String toStringTree(int indent)
     {
         StringBuilder builder = new StringBuilder();
-        builder.append(Utils.indent(indent) + "- table(" + table + ")" + "\n");
-        builder.append(Utils.indent(indent + 1) + "row type: " + getType() + "\n");
+        builder.append(Utils.indent(indent) + "- table(...):" + getType() + "\n");
+        builder.append(Utils.indent(indent + 1) + "name: " + table + "\n");
         builder.append(Utils.indent(indent + 1) + "columns:" + "\n");
         for (ColumnHandle column : columns) {
             builder.append(Utils.indent(indent + 2) + column + "\n");

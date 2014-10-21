@@ -45,8 +45,7 @@ public final class InlineTableExpression
     public String toStringTree(int indent)
     {
         StringBuilder builder = new StringBuilder();
-        builder.append(Utils.indent(indent) + "- inline table" + "\n")
-                .append(Utils.indent(indent + 1) + "row type: " + getType() + "\n")
+        builder.append(Utils.indent(indent) + "- inlineTable():" + getType() + "\n")
                 .append(Utils.indent(indent + 1) + "rows:" + "\n");
 
         for (List<ConstantExpression> row : rows) {
