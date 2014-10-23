@@ -13,26 +13,10 @@
  */
 package com.facebook.presto.sql.newplanner.optimizer;
 
-import com.facebook.presto.sql.newplanner.Scope;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.newplanner.expression.RelationalExpression;
+import com.google.common.base.Optional;
 
-public class Workbench
+public interface OptimizerRule
 {
-    /**
-     * @param variable name of the variable bound to each row in the FROM clause
-     */
-    public Workbench(String variable, Scope scope)
-    {
-    }
-
-    public void add(Expression expression)
-    {
-        throw new UnsupportedOperationException("not yet implemented");
-    }
-
-    public FunctionCall getAggregates()
-    {
-        throw new UnsupportedOperationException("not yet implemented");
-    }
+    Optional<RelationalExpression> apply(RelationalExpression expression);
 }

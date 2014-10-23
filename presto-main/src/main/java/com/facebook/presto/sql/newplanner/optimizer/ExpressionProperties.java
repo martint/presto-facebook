@@ -13,6 +13,19 @@
  */
 package com.facebook.presto.sql.newplanner.optimizer;
 
-public class HeuristicOptimizer
+public class ExpressionProperties
 {
+    // global:
+    //   partitioning scheme
+
+    // local:
+    //   sorting columns
+    //   grouping columns
+
+    // domain
+    // uniqueness
+
+    // maybe?
+    //   estimated cardinality
+    //   histograms
 }
