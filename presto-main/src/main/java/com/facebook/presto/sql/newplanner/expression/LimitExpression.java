@@ -14,6 +14,11 @@
 package com.facebook.presto.sql.newplanner.expression;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
+
+import java.util.List;
+
+import static com.google.common.base.Preconditions.checkArgument;
 
 public final class LimitExpression
         extends RelationalExpression
@@ -29,6 +34,13 @@ public final class LimitExpression
     public long getLimit()
     {
         return limit;
+    }
+
+    @Override
+    public RelationalExpression copyWithInputs(int id, List<RelationalExpression> inputs)
+    {
+        checkArgument(inputs.size() == 1, "Expected 1 input");
+        return new LimitExpression(id, Iterables.getOnlyElement(inputs), limit);
     }
 
     @Override

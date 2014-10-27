@@ -15,14 +15,13 @@ package com.facebook.presto.sql.newplanner.expression;
 
 import com.facebook.presto.metadata.ColumnHandle;
 import com.facebook.presto.metadata.TableHandle;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.newplanner.RelationalExpressionType;
-import com.facebook.presto.sql.tree.QualifiedName;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public final class TableExpression
@@ -50,6 +49,13 @@ public final class TableExpression
     public List<ColumnHandle> getColumns()
     {
         return columns;
+    }
+
+    @Override
+    public RelationalExpression copyWithInputs(int id, List<RelationalExpression> inputs)
+    {
+        checkArgument(inputs.isEmpty(), "Expected 0 inputs");
+        return new TableExpression(id, table, columns, getType());
     }
 
     @Override

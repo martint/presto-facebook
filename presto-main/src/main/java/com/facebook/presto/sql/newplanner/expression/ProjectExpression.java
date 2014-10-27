@@ -18,9 +18,12 @@ import com.facebook.presto.sql.newplanner.RelationalExpressionType;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
 import java.util.List;
+
+import static com.google.common.base.Preconditions.checkArgument;
 
 public final class ProjectExpression
         extends RelationalExpression
@@ -36,6 +39,13 @@ public final class ProjectExpression
     public List<RowExpression> getProjections()
     {
         return projections;
+    }
+
+    @Override
+    public RelationalExpression copyWithInputs(int id, List<RelationalExpression> inputs)
+    {
+        checkArgument(inputs.size() == 1, "Expected 1 input");
+        return new ProjectExpression(id, Iterables.getOnlyElement(inputs), projections);
     }
 
     @Override

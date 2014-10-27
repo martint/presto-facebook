@@ -24,6 +24,8 @@ import com.google.common.collect.Iterables;
 
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 public final class GroupByAggregationExpression
         extends RelationalExpression
 {
@@ -67,6 +69,13 @@ public final class GroupByAggregationExpression
     public RelationalExpression getInput()
     {
         return Iterables.getOnlyElement(getInputs());
+    }
+
+    @Override
+    public RelationalExpression copyWithInputs(int id, List<RelationalExpression> inputs)
+    {
+        checkArgument(inputs.size() == 1, "Expected only one input expression");
+        return new GroupByAggregationExpression(id, Iterables.getOnlyElement(inputs), getType(), groupingInputs, aggregates, filterFields, arguments);
     }
 
     @Override

@@ -14,38 +14,27 @@
 package com.facebook.presto.sql.newplanner.expression;
 
 import com.facebook.presto.sql.newplanner.RelationalExpressionType;
+import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkArgument;
-
-public final class UnionExpression
+public class EquivalenceGroupReferenceExpression
         extends RelationalExpression
 {
-    public UnionExpression(int id, RelationalExpressionType type, List<RelationalExpression> inputs)
+    public EquivalenceGroupReferenceExpression(int id, int groupId, RelationalExpressionType type)
     {
-        super(id, type, inputs);
+        super(id, type, ImmutableList.<RelationalExpression>of());
     }
 
     @Override
     public RelationalExpression copyWithInputs(int id, List<RelationalExpression> inputs)
     {
-        checkArgument(inputs.size() >= 2, "Expected at least 2 inputs");
-        return new UnionExpression(id, getType(), inputs);
+        throw new UnsupportedOperationException("not yet implemented");
     }
 
     @Override
     public String toStringTree(int indent)
     {
-        StringBuilder builder = new StringBuilder();
-        builder.append(Utils.indent(indent) + "- union(...):" + getType() + "\n")
-                .append(Utils.indent(indent + 1) + "row type: " + getType() + "\n");
-
-        for (RelationalExpression input : getInputs()) {
-            builder.append(Utils.indent(indent + 1) + "inputs:" + "\n")
-                    .append(input.toStringTree(indent + 2));
-        }
-
-        return builder.toString();
+        throw new UnsupportedOperationException("not yet implemented");
     }
 }

@@ -15,8 +15,11 @@ package com.facebook.presto.sql.newplanner.expression;
 
 import com.facebook.presto.spi.block.SortOrder;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 
 import java.util.List;
+
+import static com.google.common.base.Preconditions.checkArgument;
 
 public final class SortExpression
         extends RelationalExpression
@@ -39,6 +42,13 @@ public final class SortExpression
     public List<SortOrder> getSortOrders()
     {
         return sortOrders;
+    }
+
+    @Override
+    public RelationalExpression copyWithInputs(int id, List<RelationalExpression> inputs)
+    {
+        checkArgument(inputs.size() == 1, "Expected 1 input");
+        return new SortExpression(id, Iterables.getOnlyElement(inputs), sortFields, sortOrders);
     }
 
     @Override

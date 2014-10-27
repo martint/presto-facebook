@@ -59,6 +59,8 @@ public abstract class RelationalExpression
         return inputs;
     }
 
+    public abstract RelationalExpression copyWithInputs(int id, List<RelationalExpression> inputs);
+
     public static RelationalExpressionType concat(RelationalExpressionType left, RelationalExpressionType right)
     {
         List<Type> types = ImmutableList.<Type>builder()

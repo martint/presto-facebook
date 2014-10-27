@@ -13,20 +13,27 @@
  */
 package com.facebook.presto.sql.newplanner.optimizer;
 
-public class ExpressionProperties
+import com.facebook.presto.sql.newplanner.expression.RelationalExpression;
+
+import javax.annotation.concurrent.NotThreadSafe;
+
+import java.util.ArrayList;
+import java.util.List;
+
+@NotThreadSafe
+public class EquivalenceGroup
 {
-    // global:
-    //   partitioning scheme
+    private final int id;
+    private final List<RelationalExpression> expressions = new ArrayList<>();
 
-    // local:
-    //   sorting columns
-    //   grouping columns
+    public EquivalenceGroup(int id, List<RelationalExpression> expressions)
+    {
+        this.id = id;
+        this.expressions.addAll(expressions);
+    }
 
-    // domain
-    // uniqueness
-    // functional dependencies
-
-    // maybe?
-    //   estimated cardinality
-    //   histograms
+    public List<RelationalExpression> getExpressions()
+    {
+        return expressions;
+    }
 }

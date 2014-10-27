@@ -15,6 +15,11 @@ package com.facebook.presto.sql.newplanner.expression;
 
 import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
+
+import java.util.List;
+
+import static com.google.common.base.Preconditions.checkArgument;
 
 public final class FilterExpression
         extends RelationalExpression
@@ -30,6 +35,13 @@ public final class FilterExpression
     public RowExpression getPredicate()
     {
         return predicate;
+    }
+
+    @Override
+    public RelationalExpression copyWithInputs(int id, List<RelationalExpression> inputs)
+    {
+        checkArgument(inputs.size() == 1, "Expected only one input expression");
+        return new FilterExpression(id, Iterables.getOnlyElement(inputs), predicate);
     }
 
     @Override

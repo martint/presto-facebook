@@ -14,23 +14,16 @@
 package com.facebook.presto.sql.newplanner.expression;
 
 import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.newplanner.RelationalExpressionType;
-import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.util.IterableTransformer;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
-
-import javax.annotation.Nullable;
 
 import java.util.List;
 
-import static com.facebook.presto.sql.relational.RowExpression.typeGetter;
 import static com.google.common.collect.Iterables.concat;
-import static com.google.common.collect.Iterables.transform;
 
 public final class AggregationExpression
         extends RelationalExpression
@@ -62,6 +55,12 @@ public final class AggregationExpression
     public List<List<Integer>> getArguments()
     {
         return arguments;
+    }
+
+    @Override
+    public RelationalExpression copyWithInputs(int id, List<RelationalExpression> inputs)
+    {
+        throw new UnsupportedOperationException("not yet implemented");
     }
 
     @Override

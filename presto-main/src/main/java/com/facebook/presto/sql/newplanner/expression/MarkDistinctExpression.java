@@ -23,6 +23,8 @@ import com.google.common.collect.Iterables;
 
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 // markDistinct(Row<A, B, ...>, (r) -> (...)):Row<A, B, ..., BOOLEAN>
 public final class MarkDistinctExpression
         extends RelationalExpression
@@ -38,6 +40,13 @@ public final class MarkDistinctExpression
     public List<Integer> getDistinctFields()
     {
         return distinctFields;
+    }
+
+    @Override
+    public RelationalExpression copyWithInputs(int id, List<RelationalExpression> inputs)
+    {
+        checkArgument(inputs.size() == 1, "Expected 1 input");
+        return new MarkDistinctExpression(id, Iterables.getOnlyElement(inputs), distinctFields);
     }
 
     @Override

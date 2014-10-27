@@ -16,7 +16,10 @@ package com.facebook.presto.sql.newplanner.expression;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
+
+import java.util.List;
+
+import static com.google.common.base.Preconditions.checkArgument;
 
 public final class JoinExpression
     extends RelationalExpression
@@ -29,6 +32,13 @@ public final class JoinExpression
         super(id, RelationalExpression.concat(left.getType(), right.getType()), ImmutableList.of(left, right));
         this.type = type;
         this.condition = condition;
+    }
+
+    @Override
+    public RelationalExpression copyWithInputs(int id, List<RelationalExpression> inputs)
+    {
+        checkArgument(inputs.size() == 2, "Expected 2 inputs");
+        return new JoinExpression(id, type, inputs.get(0), inputs.get(1), condition);
     }
 
     @Override

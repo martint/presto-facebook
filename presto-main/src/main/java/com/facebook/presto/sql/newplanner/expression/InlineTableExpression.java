@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public final class InlineTableExpression
@@ -39,6 +40,13 @@ public final class InlineTableExpression
     public List<List<ConstantExpression>> getRows()
     {
         return rows;
+    }
+
+    @Override
+    public RelationalExpression copyWithInputs(int id, List<RelationalExpression> inputs)
+    {
+        checkArgument(inputs.isEmpty(), "Expected 0 inputs");
+        return new InlineTableExpression(id, getType().getRowType(), rows);
     }
 
     @Override

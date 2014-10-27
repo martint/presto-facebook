@@ -14,13 +14,19 @@
 package com.facebook.presto.sql.newplanner.optimizer;
 
 import com.facebook.presto.sql.newplanner.expression.RelationalExpression;
-import com.google.common.base.Optional;
+import com.google.common.base.Function;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import org.eclipse.jetty.util.ArrayQueue;
+
+import javax.annotation.Nullable;
 
 import java.util.List;
 import java.util.Queue;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Predicates.equalTo;
+import static com.google.common.base.Predicates.isNull;
 
 public class TopDownOptimizer
 {
@@ -33,30 +39,46 @@ public class TopDownOptimizer
         this.rules = rules;
     }
 
-    // TODO: memoize
-    public RelationalExpression optimize(RelationalExpression expression, ExpressionProperties requiredProperties)
+    public RelationalExpression optimize(RelationalExpression expression)
     {
-        Queue<RelationalExpression> equivalences = new ArrayQueue<>();
-        equivalences.add(expression);
+        Blackboard blackboard = new Blackboard(expression);
 
-        while (!equivalences.isEmpty()) {
-            RelationalExpression current = equivalences.poll();
+        final ExpressionProperties requiredProperties = null; // TODO: what are the required properties for input expression?
+        int group = blackboard.getRootGroup();
 
-            // first, compute all possible transforms for this expression and queue them up for optimization
+        // first, compute transitive closure of all possible transformations of the current group
+        Queue<RelationalExpression> candidates = new ArrayQueue<>(blackboard.getExpressionsInGroup(group));
+        while (!candidates.isEmpty()) {
+            RelationalExpression candidate = candidates.poll();
             for (OptimizerRule rule : rules) {
-                Optional<RelationalExpression> transformed = rule.apply(current);
-                if (!transformed.isPresent()) {
-                    continue;
-                }
+                // match rule pattern against candidate expression and inputs
+                // apply rule
+                // incorporate transformed expression into blackboard
+            }
+        }
 
-                equivalences.add(transformed.get());
+        // derive required properties for each operator in the current group
+        for (RelationalExpression candidate : blackboard.getExpressionsInGroup(group)) {
+            List<ExpressionProperties> requiredChildProperties = Lists.transform(expression.getInputs(), new Function<RelationalExpression, ExpressionProperties>() {
+                @Nullable
+                @Override
+                public ExpressionProperties apply(RelationalExpression expression)
+                {
+                    return expression.computeRequiredInputProperties(requiredProperties);
+                }
+            });
+
+            if (Iterables.any(requiredChildProperties, isNull())) {
+                // only physical operators have requirements for their inputs TODO: maybe figure out a better way to determine this?
+                continue;
             }
 
-            // next, compute the require properties for the child given the semantics of the outer operation and the
-            // expected properties
-            ExpressionProperties requiredChildProperties = current.computeRequiredInputProperties(requiredProperties);
-            // TODO: optimize children
-
+            // TODO: optimize each child
         }
+
+        RelationalExpression result = null; // TODO: extract optimal expression from blackboard
+
+        return result;
     }
+
 }
