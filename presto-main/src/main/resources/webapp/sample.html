@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<head>
+    <meta charset="utf-8">
+
+    <script src="/vendor/d3/d3-3.3.4.js"></script>
+    <script src="/vendor/dagre-d3/dagre-d3-0.3.2.js"></script>
+
+    <style>
+        .node rect {
+            /*stroke-width: 1.5px;*/
+            /*stroke: #bbb;*/
+            fill: white;
+            stroke: black;
+        }
+
+        .edgePath path {
+            stroke: black;
+        }
+    </style>
+</head>
+
+<body>
+
+<svg id="graph">
+    <g></g>
+</svg>
+
+</body>
+
+<script>
+
+
+var svg = d3.select("#graph");
+var g = svg.select("g");
+var render = new dagreD3.render();
+var refresh = true;
+
+var graph = new dagreD3.graphlib.Graph();
+graph.setGraph({
+    nodesep: 70,
+    ranksep: 200,
+    marginx: 50,
+    marginy: 50
+});
+
+var layers = [4, 4, 4, 4]
+var layer;
+
+dot = "digraph G {\n";
+for (layer = 0; layer < layers.length; layer++) {
+    for (var node = 0; node < layers[layer]; node++) {
+        var id = "" + layer + "." + node;
+        graph.setNode(id, { label: id, labelType: "text"} );
+        dot += "\"" + id + "\";\n";
+    }
+}
+
+for (layer = 0; layer < layers.length - 1; layer++) {
+    for (var upper = 0; upper < layers[layer]; upper++) {
+        for (var lower = 0; lower < layers[layer + 1]; lower++) {
+            var upperId = "" + layer + "." + upper;
+            var lowerId = "" + (layer + 1) + "." + lower;
+
+            graph.setEdge(lowerId, upperId, {label: "", weight: 100, labelpos: "c"});
+            dot += "\"" + lowerId + "\"->\"" + upperId + "\";\n";
+        }
+    }
+}
+
+dot += "}";
+console.log(dot);
+
+g.call(render, graph);
+
+svg.attr("width", graph.graph().width + 40);
+svg.attr("height", graph.graph().height + 40);
+
+</script>
