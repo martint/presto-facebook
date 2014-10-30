@@ -11,23 +11,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.newplanner.optimizer;
+package com.facebook.presto.sql.newplanner.optimizer.rules;
 
-public class ExpressionProperties
+import com.facebook.presto.sql.newplanner.expression.RelationalExpression;
+import com.facebook.presto.sql.newplanner.optimizer.ExplorationRule;
+import com.google.common.base.Optional;
+
+public class PushFilterThroughProjection
+    implements ExplorationRule
 {
-    public static final ExpressionProperties UNPARTITIONED = new ExpressionProperties();
-    // global:
-    //   partitioning scheme
-
-    // local:
-    //   sorting columns
-    //   grouping columns
-
-    // domain
-    // uniqueness
-    // functional dependencies
-
-    // maybe?
-    //   estimated cardinality
-    //   histograms
+    @Override
+    public Optional<RelationalExpression> apply(RelationalExpression expression)
+    {
+        throw new UnsupportedOperationException("not yet implemented");
+    }
 }

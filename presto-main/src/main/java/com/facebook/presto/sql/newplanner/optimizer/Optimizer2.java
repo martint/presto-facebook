@@ -25,14 +25,13 @@ import java.util.List;
 import java.util.Queue;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.base.Predicates.isNull;
 
-public class TopDownOptimizer
+public class Optimizer2
 {
-    private final List<OptimizerRule> rules;
+    private final List<ExplorationRule> rules;
 
-    public TopDownOptimizer(List<OptimizerRule> rules)
+    public Optimizer2(List<ExplorationRule> rules)
     {
         checkNotNull(rules, "rules is null");
 
@@ -50,7 +49,7 @@ public class TopDownOptimizer
         Queue<RelationalExpression> candidates = new ArrayQueue<>(blackboard.getExpressionsInGroup(group));
         while (!candidates.isEmpty()) {
             RelationalExpression candidate = candidates.poll();
-            for (OptimizerRule rule : rules) {
+            for (ExplorationRule rule : rules) {
                 // match rule pattern against candidate expression and inputs
                 // apply rule
                 // incorporate transformed expression into blackboard

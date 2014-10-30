@@ -11,12 +11,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.newplanner.optimizer;
+package com.facebook.presto.sql.newplanner.optimizer.rules;
 
 import com.facebook.presto.sql.newplanner.expression.RelationalExpression;
+import com.facebook.presto.sql.newplanner.optimizer.ExplorationRule;
 import com.google.common.base.Optional;
 
-public interface OptimizerRule
+public class PushFilterThroughAggregation
+    implements ExplorationRule
 {
-    Optional<RelationalExpression> apply(RelationalExpression expression);
+    @Override
+    public Optional<RelationalExpression> apply(RelationalExpression expression)
+    {
+        throw new UnsupportedOperationException("not yet implemented");
+    }
 }

@@ -13,21 +13,10 @@
  */
 package com.facebook.presto.sql.newplanner.optimizer;
 
-public class ExpressionProperties
+import com.facebook.presto.sql.newplanner.expression.RelationalExpression;
+import com.google.common.base.Optional;
+
+public interface ExplorationRule
 {
-    public static final ExpressionProperties UNPARTITIONED = new ExpressionProperties();
-    // global:
-    //   partitioning scheme
-
-    // local:
-    //   sorting columns
-    //   grouping columns
-
-    // domain
-    // uniqueness
-    // functional dependencies
-
-    // maybe?
-    //   estimated cardinality
-    //   histograms
+    Optional<RelationalExpression> apply(RelationalExpression expression);
 }
