@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.sql.newplanner.optimizer;
 
-import com.facebook.presto.connector.system.SystemTableHandle;
 import com.facebook.presto.metadata.ColumnHandle;
+import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.metadata.TableHandle;
-import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.newplanner.RelationalExpressionType;
+import com.facebook.presto.sql.newplanner.expression.AggregationExpression;
 import com.facebook.presto.sql.newplanner.expression.FilterExpression;
 import com.facebook.presto.sql.newplanner.expression.ProjectExpression;
 import com.facebook.presto.sql.newplanner.expression.RelationalExpression;
@@ -27,9 +27,15 @@ import com.facebook.presto.sql.planner.TestingColumnHandle;
 import com.facebook.presto.sql.planner.TestingTableHandle;
 import com.facebook.presto.sql.relational.Expressions;
 import com.facebook.presto.sql.relational.Signatures;
+import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 
 public class Main
 {
@@ -39,14 +45,31 @@ public class Main
 
     public static void main(String[] args)
     {
+        /*
+        SELECT * FROM (
+            SELECT a, -b FROM t
+        )
+        WHERE a > 5
+         */
         RelationalExpression table = new TableExpression(1, TABLE, ImmutableList.of(COLUMN_A, COLUMN_B), new RelationalExpressionType(ImmutableList.<Type>of(BIGINT, BIGINT)));
         RelationalExpression projection = new ProjectExpression(2, table, ImmutableList.of(
                 Expressions.field(0, BIGINT), // a
-                Expressions.call(Signatures.arithmeticNegationSignature(BIGINT, BIGINT), BIGINT,
-
-
+                Expressions.call(Signatures.arithmeticNegationSignature(BIGINT, BIGINT), BIGINT, Expressions.field(1, BIGINT)) // -b
         ));
 
-        RelationalExpression expression = new FilterExpression(1, table, Expressions.)
+        RelationalExpression filter = new FilterExpression(3, projection,
+                Expressions.call(Signatures.comparisonExpressionSignature(ComparisonExpression.Type.GREATER_THAN, BIGINT, BIGINT), BOOLEAN,
+                        Expressions.field(0, BIGINT),
+                        Expressions.constant(5L, BIGINT)));
+
+        RelationalExpression aggregation = new AggregationExpression(4,
+                filter,
+                new RelationalExpressionType(new ArrayList<Type>()),
+                new ArrayList<Signature>(),
+                ImmutableList.<Optional<Integer>>of(),
+                ImmutableList.<List<Integer>>of());
+
+        Optimizer optimizer = new Optimizer();
+        optimizer.optimize(aggregation);
     }
 }

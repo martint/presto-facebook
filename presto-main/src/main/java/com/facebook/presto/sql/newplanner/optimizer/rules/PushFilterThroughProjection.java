@@ -13,16 +13,38 @@
  */
 package com.facebook.presto.sql.newplanner.optimizer.rules;
 
+import com.facebook.presto.sql.newplanner.expression.FilterExpression;
+import com.facebook.presto.sql.newplanner.expression.ProjectExpression;
 import com.facebook.presto.sql.newplanner.expression.RelationalExpression;
 import com.facebook.presto.sql.newplanner.optimizer.ExplorationRule;
+import com.facebook.presto.sql.newplanner.optimizer.OptimizerContext;
+import com.facebook.presto.sql.relational.RowExpression;
 import com.google.common.base.Optional;
 
+import java.util.List;
+
 public class PushFilterThroughProjection
-    implements ExplorationRule
+        implements ExplorationRule
 {
     @Override
-    public Optional<RelationalExpression> apply(RelationalExpression expression)
+    public Optional<RelationalExpression> apply(RelationalExpression expression, OptimizerContext context)
     {
-        throw new UnsupportedOperationException("not yet implemented");
+        if (!(expression instanceof FilterExpression) || !(expression.getInputs().get(0) instanceof ProjectExpression)) {
+            return Optional.absent();
+        }
+
+        FilterExpression parent = (FilterExpression) expression;
+        ProjectExpression child = (ProjectExpression) parent.getInputs().get(0);
+
+        // TODO: decompose conjuncts
+        // push down each conjunct dependent only on pure field-reference projections from child
+        RowExpression predicate = parent.getPredicate();
+        List<RowExpression> projections = child.getProjections();
+
+        return Optional.<RelationalExpression>of(new ProjectExpression(context.nextExpressionId(),
+                new FilterExpression(context.nextExpressionId(),
+                        child.getInputs().get(0),
+                        predicate),
+                projections));
     }
 }

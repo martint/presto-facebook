@@ -18,5 +18,5 @@ import com.google.common.base.Optional;
 
 public interface ExplorationRule
 {
-    Optional<RelationalExpression> apply(RelationalExpression expression);
+    Optional<RelationalExpression> apply(RelationalExpression expression, OptimizerContext context);
 }

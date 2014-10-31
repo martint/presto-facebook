@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.newplanner.expression;
 
 import com.facebook.presto.sql.newplanner.RelationalExpressionType;
+import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -21,9 +22,17 @@ import java.util.List;
 public class EquivalenceGroupReferenceExpression
         extends RelationalExpression
 {
+    private final int groupId;
+
     public EquivalenceGroupReferenceExpression(int id, int groupId, RelationalExpressionType type)
     {
         super(id, type, ImmutableList.<RelationalExpression>of());
+        this.groupId = groupId;
+    }
+
+    public int getGroupId()
+    {
+        return groupId;
     }
 
     @Override
@@ -35,6 +44,11 @@ public class EquivalenceGroupReferenceExpression
     @Override
     public String toStringTree(int indent)
     {
-        throw new UnsupportedOperationException("not yet implemented");
+        return Utils.indent(indent) + "- group(" + groupId + ")\n";
+    }
+
+    public String toString()
+    {
+        return Integer.toString(getId()) + "-" + getClass().getSimpleName();
     }
 }

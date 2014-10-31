@@ -78,4 +78,9 @@ public abstract class RelationalExpression
     }
 
     public abstract String toStringTree(int indent);
+
+    public String toString()
+    {
+        return Integer.toString(id) + "-" + getClass().getSimpleName();
+    }
 }

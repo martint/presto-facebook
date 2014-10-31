@@ -18,5 +18,5 @@ import com.google.common.base.Optional;
 
 public interface ImplementationRule
 {
-    Optional<RelationalExpression> implement(RelationalExpression expression, ExpressionProperties requirements, Optimizer optimizer);
+    Optional<RelationalExpression> implement(RelationalExpression expression, ExpressionProperties requirements, Optimizer optimizer, OptimizerContext context);
 }

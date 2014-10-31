@@ -13,8 +13,17 @@
  */
 package com.facebook.presto.sql.newplanner.optimizer;
 
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.newplanner.RelationalExpressionType;
+import com.facebook.presto.sql.newplanner.expression.EquivalenceGroupReferenceExpression;
 import com.facebook.presto.sql.newplanner.expression.RelationalExpression;
+import com.facebook.presto.sql.newplanner.optimizer.rules.ImplementAggregationRule;
+import com.facebook.presto.sql.newplanner.optimizer.rules.ImplementFilterRule;
+import com.facebook.presto.sql.newplanner.optimizer.rules.ImplementProjectionRule;
+import com.facebook.presto.sql.newplanner.optimizer.rules.ImplementTableScanRule;
+import com.facebook.presto.sql.newplanner.optimizer.rules.PushFilterThroughProjection;
 import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableList;
 import org.eclipse.jetty.util.ArrayQueue;
 
 import java.util.ArrayList;
@@ -23,46 +32,63 @@ import java.util.Queue;
 
 public class Optimizer
 {
-    private final List<ImplementationRule> implementationRules = new ArrayList<>();
-    private final List<ExplorationRule> explorationRules = new ArrayList<>();
+    private final List<ImplementationRule> implementationRules = ImmutableList.of(
+            new ImplementFilterRule(),
+            new ImplementProjectionRule(),
+            new ImplementTableScanRule(),
+            new ImplementAggregationRule()
+    );
+
+    private final List<ExplorationRule> explorationRules = ImmutableList.<ExplorationRule>of(
+            new PushFilterThroughProjection()
+    );
 
     public RelationalExpression optimize(RelationalExpression expression)
     {
-        return optimize(expression, ExpressionProperties.UNPARTITIONED);
+        OptimizerContext context = new OptimizerContext(expression);
+        RelationalExpression result = optimize(expression, ExpressionProperties.UNPARTITIONED, context);
+
+        System.out.println(context.expressionsToGraphviz());
+        return result;
     }
 
-    private RelationalExpression optimize(RelationalExpression expression, ExpressionProperties requirements)
+    public RelationalExpression optimize(RelationalExpression expression, ExpressionProperties requirements, OptimizerContext context)
     {
         // apply exploration rules, queue up optimization calls
-        Queue<RelationalExpression> explorationCandidates = new ArrayQueue<>();
-        explorationCandidates.add(expression);
+        Queue<RelationalExpression> toExplore = new ArrayQueue<>();
+        toExplore.add(expression);
+        context.recordExpression(expression);
 
-        Queue<RelationalExpression> implementationCandidates = new ArrayQueue<>();
-        while (!explorationCandidates.isEmpty()) {
-            RelationalExpression current = explorationCandidates.poll();
-            implementationCandidates.add(current);
+        Queue<RelationalExpression> toImplement = new ArrayQueue<>();
+        while (!toExplore.isEmpty()) {
+            RelationalExpression current = toExplore.poll();
+            toImplement.add(current);
 
             for (ExplorationRule rule : explorationRules) {
-                Optional<RelationalExpression> transformed = rule.apply(current);
+                Optional<RelationalExpression> transformed = rule.apply(current, context);
                 if (transformed.isPresent()) {
-                    explorationCandidates.add(transformed.get());
+                    toExplore.add(transformed.get());
+                    context.recordLogicalTransform(current, transformed.get());
                 }
             }
         }
 
         List<RelationalExpression> candidatePlans = new ArrayList<>();
-        while (!implementationCandidates.isEmpty()) {
-            RelationalExpression current = implementationCandidates.poll();
+        while (!toImplement.isEmpty()) {
+            RelationalExpression current = toImplement.poll();
 
             for (ImplementationRule rule : implementationRules) {
-                Optional<RelationalExpression> implementation = rule.implement(current, requirements, this);
+                Optional<RelationalExpression> implementation = rule.implement(current, requirements, this, context);
                 if (implementation.isPresent()) {
                     candidatePlans.add(implementation.get());
+
+                    context.recordImplementation(current, implementation.get());
                 }
             }
         }
 
-        System.out.println(candidatePlans);
-        return null;
+        context.recordExpressions(candidatePlans);
+
+        return new EquivalenceGroupReferenceExpression(context.nextExpressionId(), context.getGroup(expression), new RelationalExpressionType(ImmutableList.<Type>of()));
     }
 }
