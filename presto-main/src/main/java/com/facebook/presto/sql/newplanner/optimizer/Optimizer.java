@@ -21,7 +21,6 @@ import com.facebook.presto.sql.newplanner.optimizer.rules.ImplementAggregationRu
 import com.facebook.presto.sql.newplanner.optimizer.rules.ImplementFilterRule;
 import com.facebook.presto.sql.newplanner.optimizer.rules.ImplementProjectionRule;
 import com.facebook.presto.sql.newplanner.optimizer.rules.ImplementTableScanRule;
-import com.facebook.presto.sql.newplanner.optimizer.rules.PushFilterThroughProjection;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import org.eclipse.jetty.util.ArrayQueue;
@@ -40,7 +39,7 @@ public class Optimizer
     );
 
     private final List<ExplorationRule> explorationRules = ImmutableList.<ExplorationRule>of(
-            new PushFilterThroughProjection()
+//            new PushFilterThroughProjection()
     );
 
     public RelationalExpression optimize(RelationalExpression expression)
@@ -54,41 +53,53 @@ public class Optimizer
 
     public RelationalExpression optimize(RelationalExpression expression, ExpressionProperties requirements, OptimizerContext context)
     {
-        // apply exploration rules, queue up optimization calls
-        Queue<RelationalExpression> toExplore = new ArrayQueue<>();
-        toExplore.add(expression);
-        context.recordExpression(expression);
+        List<RelationalExpression> logical = explore(expression, context);
+        List<RelationalExpression> implementations = implement(logical, requirements, context);
 
-        Queue<RelationalExpression> toImplement = new ArrayQueue<>();
-        while (!toExplore.isEmpty()) {
-            RelationalExpression current = toExplore.poll();
-            toImplement.add(current);
+        // TODO: pick optimal expression from implementations
+        return new EquivalenceGroupReferenceExpression(context.nextExpressionId(), context.getGroup(expression), new RelationalExpressionType(ImmutableList.<Type>of()));
+    }
 
-            for (ExplorationRule rule : explorationRules) {
-                Optional<RelationalExpression> transformed = rule.apply(current, context);
-                if (transformed.isPresent()) {
-                    toExplore.add(transformed.get());
-                    context.recordLogicalTransform(current, transformed.get());
-                }
-            }
-        }
+    private List<RelationalExpression> implement(List<RelationalExpression> expressions, ExpressionProperties requirements, OptimizerContext context)
+    {
+        Queue<RelationalExpression> queue = new ArrayQueue<>();
+        queue.addAll(expressions);
 
-        List<RelationalExpression> candidatePlans = new ArrayList<>();
-        while (!toImplement.isEmpty()) {
-            RelationalExpression current = toImplement.poll();
+        List<RelationalExpression> result = new ArrayList<>();
+        while (!queue.isEmpty()) {
+            RelationalExpression current = queue.poll();
 
             for (ImplementationRule rule : implementationRules) {
                 Optional<RelationalExpression> implementation = rule.implement(current, requirements, this, context);
                 if (implementation.isPresent()) {
-                    candidatePlans.add(implementation.get());
+                    result.add(implementation.get());
 
-                    context.recordImplementation(current, implementation.get());
+                    context.recordImplementation(current, implementation.get(), requirements, rule);
                 }
             }
         }
+        return result;
+    }
 
-        context.recordExpressions(candidatePlans);
+    private List<RelationalExpression> explore(RelationalExpression expression, OptimizerContext context)
+    {
+        Queue<RelationalExpression> queue = new ArrayQueue<>();
+        queue.add(expression);
+        context.recordExpression(expression);
 
-        return new EquivalenceGroupReferenceExpression(context.nextExpressionId(), context.getGroup(expression), new RelationalExpressionType(ImmutableList.<Type>of()));
+        List<RelationalExpression> result = new ArrayQueue<>();
+        while (!queue.isEmpty()) {
+            RelationalExpression current = queue.poll();
+            result.add(current);
+
+            for (ExplorationRule rule : explorationRules) {
+                Optional<RelationalExpression> transformed = rule.apply(current, context);
+                if (transformed.isPresent()) {
+                    queue.add(transformed.get());
+                    context.recordLogicalTransform(current, transformed.get(), rule);
+                }
+            }
+        }
+        return result;
     }
 }
