@@ -41,6 +41,7 @@ public class OptimizerContext
     {
         Queue<RelationalExpression> queue = new ArrayQueue<>();
         queue.add(expression);
+        graph.addCluster(expression.getId(), new ClusterInfo(null));
         graph.addNode(expression.getId(), expression.getId(), new NodeInfo(expression, NodeInfo.Type.LOGICAL));
 
         while (!queue.isEmpty()) {
@@ -51,6 +52,7 @@ public class OptimizerContext
                     graph.addEdge(current.getId(), ((EquivalenceGroupReferenceExpression) child).getGroupId(), EdgeInfo.child(), true);
                 }
                 else {
+                    graph.addCluster(child.getId(), new ClusterInfo(null));
                     graph.addNode(child.getId(), child.getId(), new NodeInfo(child, NodeInfo.Type.LOGICAL));
                     graph.addEdge(current.getId(), child.getId(), EdgeInfo.child());
                     queue.add(child);
@@ -71,6 +73,7 @@ public class OptimizerContext
 
     public void recordImplementation(RelationalExpression from, RelationalExpression to, ExpressionProperties requirements, ImplementationRule rule)
     {
+        graph.addCluster(to.getId(), new ClusterInfo(requirements));
         graph.addNode(to.getId(), to.getId(), new NodeInfo(to, NodeInfo.Type.IMPLEMENTATION));
         graph.addEdge(from.getId(), to.getId(), EdgeInfo.implementation(rule));
     }
@@ -120,7 +123,7 @@ public class OptimizerContext
             public String apply(ClusterInfo input)
             {
                 if (input.properties != null) {
-                    return String.format("label=\"%s\"", input.toString());
+                    return String.format("label=\"%s\"", input.properties);
                 }
 
                 return "";

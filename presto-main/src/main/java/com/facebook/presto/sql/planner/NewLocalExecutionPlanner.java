@@ -318,7 +318,8 @@ public class NewLocalExecutionPlanner
                 expression.getGroupingInputs(),
                 AggregationNode.Step.SINGLE, // TODO: partial, final
                 accumulatorFactories,
-                10_000);
+                10_000,
+                null); // TODO
 
         return append(process(expression.getInputs().get(0)), operatorFactory);
     }

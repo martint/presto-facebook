@@ -22,6 +22,8 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 public class Graph<V, E, C>
 {
     private final Map<Integer, V> nodes = new HashMap<>();
@@ -31,6 +33,8 @@ public class Graph<V, E, C>
 
     public void addNode(int id, int cluster, V value)
     {
+        checkArgument(clusters.containsKey(cluster), "cluster does not exist: %s", cluster);
+
         if (nodes.containsKey(id)) {
             return;
         }
@@ -50,12 +54,14 @@ public class Graph<V, E, C>
 
     public void addEdge(int from, int to, E type)
     {
-        Edge edge = new Edge(from, to, false);
-        edges.put(edge, type);
+        addEdge(from, to, type, false);
     }
 
     public void addEdge(int from, int to, E type, boolean toCluster)
     {
+        checkArgument(nodes.containsKey(from), "node does not exist: %s", from);
+        checkArgument(nodes.containsKey(to), "node does not exist: %s", to);
+
         Edge edge = new Edge(from, to, toCluster);
         edges.put(edge, type);
     }
@@ -68,9 +74,9 @@ public class Graph<V, E, C>
     public String toGraphviz(Function<V, String> nodeFormatter, Function<E, String> edgeFormatter, Function<C, String> clusterFormatter)
     {
         StringBuilder builder = new StringBuilder("digraph G {\n");
-        builder.append("\tcompound=true;");
-        builder.append("\tranksep=1.5;");
-        builder.append("\tnode [shape=rectangle];");
+        builder.append("\tcompound=true;\n");
+        builder.append("\tranksep=1.5;\n");
+        builder.append("\tnode [shape=rectangle];\n");
 
         Multimap<Integer, Integer> membership = HashMultimap.create();
         for (Map.Entry<Integer, Integer> entry : this.membership.entrySet()) {
