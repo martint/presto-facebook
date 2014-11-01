@@ -13,9 +13,29 @@
  */
 package com.facebook.presto.sql.newplanner.optimizer;
 
+import com.google.common.base.Objects;
+import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
+
 public class ExpressionProperties
 {
-    public static final ExpressionProperties UNPARTITIONED = new ExpressionProperties();
+    public static final ExpressionProperties UNPARTITIONED = new ExpressionProperties(Optional.<List<Integer>>absent());
+    public static final ExpressionProperties RANDOM_PARTITION = new ExpressionProperties(Optional.<List<Integer>>of(ImmutableList.<Integer>of()));
+
+    private final Optional<List<Integer>> partitioningColumns;
+
+    private ExpressionProperties(Optional<List<Integer>> partitioningColumns)
+    {
+        this.partitioningColumns = partitioningColumns;
+    }
+
+    public static ExpressionProperties partitioned(List<Integer> columns)
+    {
+        return new ExpressionProperties(Optional.of(columns));
+    }
+
     // global:
     //   partitioning scheme
 
@@ -30,4 +50,19 @@ public class ExpressionProperties
     // maybe?
     //   estimated cardinality
     //   histograms
+
+    @Override
+    public String toString()
+    {
+        StringBuilder builder = new StringBuilder();
+
+        if (!partitioningColumns.isPresent()) {
+            builder.append("unpartitioned");
+        }
+        else {
+            builder.append("partitioned: " + partitioningColumns.get());
+        }
+
+        return builder.toString();
+    }
 }

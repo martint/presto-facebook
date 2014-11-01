@@ -25,7 +25,7 @@ import java.util.Queue;
 public class OptimizerContext
 {
     private int nextExpressionId;
-    private final Graph<NodeInfo, EdgeInfo> graph = new Graph<>();
+    private final Graph<NodeInfo, EdgeInfo, ClusterInfo> graph = new Graph<>();
 
     public OptimizerContext(RelationalExpression seed)
     {
@@ -71,9 +71,7 @@ public class OptimizerContext
 
     public void recordImplementation(RelationalExpression from, RelationalExpression to, ExpressionProperties requirements, ImplementationRule rule)
     {
-        int cluster = graph.getCluster(from.getId());
-
-        graph.addNode(to.getId(), cluster, new NodeInfo(to, NodeInfo.Type.IMPLEMENTATION));
+        graph.addNode(to.getId(), to.getId(), new NodeInfo(to, NodeInfo.Type.IMPLEMENTATION));
         graph.addEdge(from.getId(), to.getId(), EdgeInfo.implementation(rule));
     }
 
@@ -86,7 +84,7 @@ public class OptimizerContext
             {
                 RelationalExpression expression = input.expression;
 
-                String color="black";
+                String color = "black";
                 switch (input.type) {
                     case LOGICAL:
                         color = "lightblue";
@@ -116,6 +114,16 @@ public class OptimizerContext
                 }
 
                 return String.format("color=%s, label=\"%s\"", color, label);
+            }
+        }, new Function<ClusterInfo, String>() {
+            @Override
+            public String apply(ClusterInfo input)
+            {
+                if (input.properties != null) {
+                    return String.format("label=\"%s\"", input.toString());
+                }
+
+                return "";
             }
         });
     }
@@ -185,6 +193,16 @@ public class OptimizerContext
         public static EdgeInfo child()
         {
             return new EdgeInfo(Type.CHILD, Optional.<ImplementationRule>absent(), Optional.<ExplorationRule>absent());
+        }
+    }
+
+    private static class ClusterInfo
+    {
+        private final ExpressionProperties properties;
+
+        public ClusterInfo(ExpressionProperties properties)
+        {
+            this.properties = properties;
         }
     }
 }

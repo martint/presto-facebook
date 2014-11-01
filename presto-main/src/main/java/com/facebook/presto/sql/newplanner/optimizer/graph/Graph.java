@@ -22,11 +22,12 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
-public class Graph<V, E>
+public class Graph<V, E, C>
 {
     private final Map<Integer, V> nodes = new HashMap<>();
     private final Map<Edge, E> edges = new HashMap<>();
-    private final Map<Integer, Integer> clusters = new HashMap<>();
+    private final Map<Integer, C> clusters = new HashMap<>();
+    private final Map<Integer, Integer> membership = new HashMap<>();
 
     public void addNode(int id, int cluster, V value)
     {
@@ -35,7 +36,7 @@ public class Graph<V, E>
         }
 
         nodes.put(id, value);
-        clusters.put(id, cluster);
+        membership.put(id, cluster);
     }
 
     public void addNode(int id, V value)
@@ -59,7 +60,12 @@ public class Graph<V, E>
         edges.put(edge, type);
     }
 
-    public String toGraphviz(Function<V, String> nodeFormatter, Function<E, String> edgeFormatter)
+    public void addCluster(int cluster, C value)
+    {
+        clusters.put(cluster, value);
+    }
+
+    public String toGraphviz(Function<V, String> nodeFormatter, Function<E, String> edgeFormatter, Function<C, String> clusterFormatter)
     {
         StringBuilder builder = new StringBuilder("digraph G {\n");
         builder.append("\tcompound=true;");
@@ -67,16 +73,17 @@ public class Graph<V, E>
         builder.append("\tnode [shape=rectangle];");
 
         Multimap<Integer, Integer> membership = HashMultimap.create();
-        for (Map.Entry<Integer, Integer> entry : clusters.entrySet()) {
+        for (Map.Entry<Integer, Integer> entry : this.membership.entrySet()) {
             membership.put(entry.getValue(), entry.getKey());
         }
 
-        for (Map.Entry<Integer, Collection<Integer>> cluster : membership.asMap().entrySet()) {
-            builder.append("\tsubgraph cluster_" + cluster.getKey() + "{\n");
-            builder.append(String.format("\t\tlabel=\"%s\";\n", cluster.getKey()));
-            builder.append(String.format("\t\t{rank=same; %s}\n", Joiner.on(" ").join(cluster.getValue())));
+        for (Map.Entry<Integer, Collection<Integer>> entry : membership.asMap().entrySet()) {
+            builder.append("\tsubgraph cluster_" + entry.getKey() + "{\n");
+            builder.append(String.format("\t\t{rank=same; %s}\n", Joiner.on(" ").join(entry.getValue())));
 
-            for (int nodeId : cluster.getValue()) {
+            builder.append("\t\t" + clusterFormatter.apply(clusters.get(entry.getKey())) + ";\n");
+
+            for (int nodeId : entry.getValue()) {
                 V node = nodes.get(nodeId);
                 builder.append("\t\t" + nodeId + " [" + nodeFormatter.apply(node) + "];\n");
             }
@@ -88,7 +95,7 @@ public class Graph<V, E>
             int from = entry.getKey().from;
             int to = entry.getKey().to;
             if (entry.getKey().toCluster) {
-                builder.append(String.format("\t%s -> %s [%s, lhead=cluster_%s];\n", from, to, edgeFormatter.apply(entry.getValue()), clusters.get(to)));
+                builder.append(String.format("\t%s -> %s [%s, lhead=cluster_%s];\n", from, to, edgeFormatter.apply(entry.getValue()), this.membership.get(to)));
             }
             else {
                 builder.append(String.format("\t%s -> %s [%s];\n", from, to, edgeFormatter.apply(entry.getValue())));
@@ -101,7 +108,7 @@ public class Graph<V, E>
 
     public int getCluster(int nodeId)
     {
-        return clusters.get(nodeId);
+        return membership.get(nodeId);
     }
 
     private static final class Edge
