@@ -23,7 +23,7 @@ import com.facebook.presto.sql.newplanner.optimizer.OptimizerContext;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 
-public class ImplementFilterRule
+public class ParallelizeFilterRule
         implements ImplementationRule
 {
     @Override
@@ -34,8 +34,18 @@ public class ImplementFilterRule
         }
 
         FilterExpression filter = (FilterExpression) expression;
-        RelationalExpression child = optimizer.optimize(expression.getInputs().get(0), requirements, context);
 
-        return Optional.<RelationalExpression>of(new FilterExpression(context.nextExpressionId(), child, filter.getPredicate()));
+        if (requirements.getPartitioningColumns().isPresent()) {
+            // push requirements to child
+            RelationalExpression child = optimizer.optimize(expression.getInputs().get(0), requirements, context);
+
+            return Optional.<RelationalExpression>of(new FilterExpression(context.nextExpressionId(), child, filter.getPredicate()));
+        }
+
+        RelationalExpression child = optimizer.optimize(expression.getInputs().get(0), ExpressionProperties.RANDOM_PARTITION, context);
+
+        return Optional.<RelationalExpression>of(
+                new MergeExpression(context.nextExpressionId(), ImmutableList.<RelationalExpression>of(
+                        new FilterExpression(context.nextExpressionId(), child, filter.getPredicate()))));
     }
 }

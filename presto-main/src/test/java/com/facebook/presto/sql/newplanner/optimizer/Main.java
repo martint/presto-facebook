@@ -51,25 +51,32 @@ public class Main
         )
         WHERE a > 5
          */
-        RelationalExpression table = new TableExpression(1, TABLE, ImmutableList.of(COLUMN_A, COLUMN_B), new RelationalExpressionType(ImmutableList.<Type>of(BIGINT, BIGINT)));
-        RelationalExpression projection = new ProjectExpression(2, table, ImmutableList.of(
+        int nodeId = 0;
+
+        RelationalExpression table = new TableExpression(nodeId++, TABLE, ImmutableList.of(COLUMN_A, COLUMN_B), new RelationalExpressionType(ImmutableList.<Type>of(BIGINT, BIGINT)));
+        RelationalExpression projection = new ProjectExpression(nodeId++, table, ImmutableList.of(
                 Expressions.field(0, BIGINT), // a
                 Expressions.call(Signatures.arithmeticNegationSignature(BIGINT, BIGINT), BIGINT, Expressions.field(1, BIGINT)) // -b
         ));
 
-        RelationalExpression filter = new FilterExpression(3, projection,
+        RelationalExpression filter = new FilterExpression(nodeId++, projection,
                 Expressions.call(Signatures.comparisonExpressionSignature(ComparisonExpression.Type.GREATER_THAN, BIGINT, BIGINT), BOOLEAN,
                         Expressions.field(0, BIGINT),
                         Expressions.constant(5L, BIGINT)));
 
-        RelationalExpression aggregation = new AggregationExpression(4,
-                filter,
+        RelationalExpression filter2 = new FilterExpression(nodeId++, filter,
+                Expressions.call(Signatures.comparisonExpressionSignature(ComparisonExpression.Type.GREATER_THAN, BIGINT, BIGINT), BOOLEAN,
+                        Expressions.field(0, BIGINT),
+                        Expressions.constant(5L, BIGINT)));
+
+        RelationalExpression aggregation = new AggregationExpression(nodeId++,
+                filter2,
                 new RelationalExpressionType(new ArrayList<Type>()),
                 new ArrayList<Signature>(),
                 ImmutableList.<Optional<Integer>>of(),
                 ImmutableList.<List<Integer>>of());
 
         Optimizer optimizer = new Optimizer();
-        optimizer.optimize(aggregation);
+        optimizer.optimize(filter);
     }
 }

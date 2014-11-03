@@ -36,6 +36,11 @@ public class ExpressionProperties
         return new ExpressionProperties(Optional.of(columns));
     }
 
+    public Optional<List<Integer>> getPartitioningColumns()
+    {
+        return partitioningColumns;
+    }
+
     // global:
     //   partitioning scheme
 
@@ -64,5 +69,30 @@ public class ExpressionProperties
         }
 
         return builder.toString();
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        ExpressionProperties that = (ExpressionProperties) o;
+
+        if (!partitioningColumns.equals(that.partitioningColumns)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return partitioningColumns.hashCode();
     }
 }

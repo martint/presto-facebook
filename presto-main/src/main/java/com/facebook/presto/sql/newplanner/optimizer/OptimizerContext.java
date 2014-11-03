@@ -20,12 +20,20 @@ import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import org.eclipse.jetty.util.ArrayQueue;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Queue;
+
+import static com.google.common.base.Preconditions.checkArgument;
 
 public class OptimizerContext
 {
     private int nextExpressionId;
+    private int nextClusterId;
     private final Graph<NodeInfo, EdgeInfo, ClusterInfo> graph = new Graph<>();
+
+    private final Map<ExpressionWithRequirements, RelationalExpression> memoized = new HashMap<>();
+    private final Map<GroupWithProperties, Integer> implementationClusters = new HashMap<>();
 
     public OptimizerContext(RelationalExpression seed)
     {
@@ -37,28 +45,52 @@ public class OptimizerContext
         return nextExpressionId++;
     }
 
-    public void recordExpression(RelationalExpression expression)
+    public int nextClusterId()
+    {
+        return nextClusterId++;
+    }
+
+    public Optional<RelationalExpression> getOptimized(RelationalExpression expression, ExpressionProperties requirements)
+    {
+        RelationalExpression result = memoized.get(new ExpressionWithRequirements(expression, requirements));
+        return Optional.fromNullable(result);
+    }
+
+    public void recordOptimization(RelationalExpression expression, ExpressionProperties requirements, RelationalExpression optimized)
+    {
+        RelationalExpression previous = memoized.put(new ExpressionWithRequirements(expression, requirements), optimized);
+
+        checkArgument(previous == null, "Optimization request already recorded");
+    }
+
+    public int recordExpression(RelationalExpression expression)
     {
         Queue<RelationalExpression> queue = new ArrayQueue<>();
         queue.add(expression);
-        graph.addCluster(expression.getId(), new ClusterInfo(null));
-        graph.addNode(expression.getId(), expression.getId(), new NodeInfo(expression, NodeInfo.Type.LOGICAL));
+
+        int cluster = nextClusterId();
+        graph.addCluster(cluster, new ClusterInfo(cluster, null));
+        graph.addNode(expression.getId(), cluster, new NodeInfo(expression, NodeInfo.Type.LOGICAL));
 
         while (!queue.isEmpty()) {
             RelationalExpression current = queue.poll();
 
             for (RelationalExpression child : current.getInputs()) {
-                if (child instanceof EquivalenceGroupReferenceExpression) {
-                    graph.addEdge(current.getId(), ((EquivalenceGroupReferenceExpression) child).getGroupId(), EdgeInfo.child(), true);
-                }
-                else {
-                    graph.addCluster(child.getId(), new ClusterInfo(null));
-                    graph.addNode(child.getId(), child.getId(), new NodeInfo(child, NodeInfo.Type.LOGICAL));
+//                if (child instanceof EquivalenceGroupReferenceExpression) {
+//                    graph.addEdge(current.getId(), ((EquivalenceGroupReferenceExpression) child).getGroupId(), EdgeInfo.child(), true);
+//                }
+//                else {
+                    int childCluster = nextClusterId();
+                    graph.addCluster(childCluster, new ClusterInfo(childCluster, null));
+
+                    graph.addNode(child.getId(), childCluster, new NodeInfo(child, NodeInfo.Type.LOGICAL));
                     graph.addEdge(current.getId(), child.getId(), EdgeInfo.child());
                     queue.add(child);
-                }
+//                }
             }
         }
+
+        return cluster;
     }
 
     public void recordLogicalTransform(RelationalExpression from, RelationalExpression to, ExplorationRule rule)
@@ -73,9 +105,19 @@ public class OptimizerContext
 
     public void recordImplementation(RelationalExpression from, RelationalExpression to, ExpressionProperties requirements, ImplementationRule rule)
     {
-        graph.addCluster(to.getId(), new ClusterInfo(requirements));
-        graph.addNode(to.getId(), to.getId(), new NodeInfo(to, NodeInfo.Type.IMPLEMENTATION));
+        int logicalGroup = graph.getCluster(from.getId());
+
+        Integer implementationGroup = implementationClusters.get(new GroupWithProperties(logicalGroup, requirements));
+        if (implementationGroup == null) {
+            implementationGroup = nextClusterId();
+            implementationClusters.put(new GroupWithProperties(logicalGroup, requirements), implementationGroup);
+            graph.addCluster(implementationGroup, new ClusterInfo(implementationGroup, requirements));
+        }
+
+        graph.addNode(to.getId(), implementationGroup, new NodeInfo(to, NodeInfo.Type.IMPLEMENTATION));
         graph.addEdge(from.getId(), to.getId(), EdgeInfo.implementation(rule));
+
+        recordExpression(to);
     }
 
     public String expressionsToGraphviz()
@@ -118,15 +160,16 @@ public class OptimizerContext
 
                 return String.format("color=%s, label=\"%s\"", color, label);
             }
-        }, new Function<ClusterInfo, String>() {
+        }, new Function<ClusterInfo, String>()
+        {
             @Override
             public String apply(ClusterInfo input)
             {
                 if (input.properties != null) {
-                    return String.format("label=\"%s\"", input.properties);
+                    return String.format("label=\"%s (%s)\"", input.properties, input.getId());
                 }
 
-                return "";
+                return String.format("label=\"(%s)\"", input.getId());
             }
         });
     }
@@ -152,7 +195,8 @@ public class OptimizerContext
         private final RelationalExpression expression;
         private final Type type;
 
-        public enum Type {
+        public enum Type
+        {
             LOGICAL,
             IMPLEMENTATION
         }
@@ -170,7 +214,8 @@ public class OptimizerContext
         private final Optional<ImplementationRule> implementationRule;
         private final Optional<ExplorationRule> explorationRule;
 
-        public enum Type {
+        public enum Type
+        {
             IMPLEMENTATION,
             EXPLORATION,
             CHILD,
@@ -202,10 +247,102 @@ public class OptimizerContext
     private static class ClusterInfo
     {
         private final ExpressionProperties properties;
+        private final int id;
 
-        public ClusterInfo(ExpressionProperties properties)
+        public ClusterInfo(int id, ExpressionProperties properties)
         {
+            this.id = id;
             this.properties = properties;
+        }
+
+        public int getId()
+        {
+            return id;
+        }
+    }
+
+    private static final class ExpressionWithRequirements
+    {
+        private final RelationalExpression expression;
+        private final ExpressionProperties requirements;
+
+        public ExpressionWithRequirements(RelationalExpression expression, ExpressionProperties requirements)
+        {
+            // TODO: cache expression hashcode
+            this.expression = expression;
+            this.requirements = requirements;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+
+            ExpressionWithRequirements that = (ExpressionWithRequirements) o;
+
+            if (!expression.equals(that.expression)) {
+                return false;
+            }
+            if (!requirements.equals(that.requirements)) {
+                return false;
+            }
+
+            return true;
+        }
+
+        @Override
+        public int hashCode()
+        {
+            int result = expression.hashCode();
+            result = 31 * result + requirements.hashCode();
+            return result;
+        }
+    }
+
+    private static final class GroupWithProperties
+    {
+        private final int cluster;
+        private final ExpressionProperties requirements;
+
+        public GroupWithProperties(int cluster, ExpressionProperties requirements)
+        {
+            this.requirements = requirements;
+            this.cluster = cluster;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+
+            GroupWithProperties that = (GroupWithProperties) o;
+
+            if (cluster != that.cluster) {
+                return false;
+            }
+            if (!requirements.equals(that.requirements)) {
+                return false;
+            }
+
+            return true;
+        }
+
+        @Override
+        public int hashCode()
+        {
+            int result = cluster;
+            result = 31 * result + requirements.hashCode();
+            return result;
         }
     }
 }

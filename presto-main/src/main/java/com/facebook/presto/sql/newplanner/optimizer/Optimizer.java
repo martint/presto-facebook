@@ -16,11 +16,13 @@ package com.facebook.presto.sql.newplanner.optimizer;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.newplanner.RelationalExpressionType;
 import com.facebook.presto.sql.newplanner.expression.EquivalenceGroupReferenceExpression;
+import com.facebook.presto.sql.newplanner.expression.OptimizationRequestExpression;
 import com.facebook.presto.sql.newplanner.expression.RelationalExpression;
 import com.facebook.presto.sql.newplanner.optimizer.rules.ImplementAggregationRule;
 import com.facebook.presto.sql.newplanner.optimizer.rules.ImplementFilterRule;
 import com.facebook.presto.sql.newplanner.optimizer.rules.ImplementProjectionRule;
 import com.facebook.presto.sql.newplanner.optimizer.rules.ImplementTableScanRule;
+import com.facebook.presto.sql.newplanner.optimizer.rules.PushFilterThroughProjection;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import org.eclipse.jetty.util.ArrayQueue;
@@ -36,10 +38,11 @@ public class Optimizer
             new ImplementProjectionRule(),
             new ImplementTableScanRule(),
             new ImplementAggregationRule()
+//            new ParallelizeFilterRule()
     );
 
     private final List<ExplorationRule> explorationRules = ImmutableList.<ExplorationRule>of(
-//            new PushFilterThroughProjection()
+            new PushFilterThroughProjection()
     );
 
     public RelationalExpression optimize(RelationalExpression expression)
@@ -53,11 +56,20 @@ public class Optimizer
 
     public RelationalExpression optimize(RelationalExpression expression, ExpressionProperties requirements, OptimizerContext context)
     {
+        Optional<RelationalExpression> optimized = context.getOptimized(expression, requirements);
+        if (optimized.isPresent()) {
+            return optimized.get();
+
+        }
         List<RelationalExpression> logical = explore(expression, context);
         List<RelationalExpression> implementations = implement(logical, requirements, context);
 
         // TODO: pick optimal expression from implementations
-        return new EquivalenceGroupReferenceExpression(context.nextExpressionId(), context.getGroup(expression), new RelationalExpressionType(ImmutableList.<Type>of()));
+        RelationalExpression result = new EquivalenceGroupReferenceExpression(context.nextExpressionId(), context.getGroup(expression), new RelationalExpressionType(ImmutableList.<Type>of()));
+        result = new OptimizationRequestExpression(context.nextExpressionId(), result, requirements);
+
+        context.recordOptimization(expression, requirements, result);
+        return result;
     }
 
     private List<RelationalExpression> implement(List<RelationalExpression> expressions, ExpressionProperties requirements, OptimizerContext context)
