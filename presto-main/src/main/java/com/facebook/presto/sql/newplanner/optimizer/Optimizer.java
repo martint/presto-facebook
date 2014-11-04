@@ -22,6 +22,7 @@ import com.facebook.presto.sql.newplanner.optimizer.rules.ImplementAggregationRu
 import com.facebook.presto.sql.newplanner.optimizer.rules.ImplementFilterRule;
 import com.facebook.presto.sql.newplanner.optimizer.rules.ImplementProjectionRule;
 import com.facebook.presto.sql.newplanner.optimizer.rules.ImplementTableScanRule;
+import com.facebook.presto.sql.newplanner.optimizer.rules.ParallelizeFilterRule;
 import com.facebook.presto.sql.newplanner.optimizer.rules.PushFilterThroughProjection;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
@@ -37,12 +38,12 @@ public class Optimizer
             new ImplementFilterRule(),
             new ImplementProjectionRule(),
             new ImplementTableScanRule(),
-            new ImplementAggregationRule()
-//            new ParallelizeFilterRule()
+            new ImplementAggregationRule(),
+            new ParallelizeFilterRule()
     );
 
     private final List<ExplorationRule> explorationRules = ImmutableList.<ExplorationRule>of(
-            new PushFilterThroughProjection()
+//            new PushFilterThroughProjection()
     );
 
     public RelationalExpression optimize(RelationalExpression expression)
@@ -65,8 +66,7 @@ public class Optimizer
         List<RelationalExpression> implementations = implement(logical, requirements, context);
 
         // TODO: pick optimal expression from implementations
-        RelationalExpression result = new EquivalenceGroupReferenceExpression(context.nextExpressionId(), context.getGroup(expression), new RelationalExpressionType(ImmutableList.<Type>of()));
-        result = new OptimizationRequestExpression(context.nextExpressionId(), result, requirements);
+        RelationalExpression result = new OptimizationRequestExpression(context.nextExpressionId(), context.getGroup(expression), requirements);
 
         context.recordOptimization(expression, requirements, result);
         return result;

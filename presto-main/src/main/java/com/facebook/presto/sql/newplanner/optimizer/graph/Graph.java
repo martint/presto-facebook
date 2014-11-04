@@ -15,6 +15,7 @@ package com.facebook.presto.sql.newplanner.optimizer.graph;
 
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
+import com.google.common.base.Optional;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 
@@ -34,10 +35,7 @@ public class Graph<V, E, C>
     public void addNode(int id, int cluster, V value)
     {
         checkArgument(clusters.containsKey(cluster), "cluster does not exist: %s", cluster);
-
-        if (nodes.containsKey(id)) {
-            return;
-        }
+        checkArgument(!nodes.containsKey(id), "node already exists: %s", id);
 
         nodes.put(id, value);
         membership.put(id, cluster);
@@ -45,10 +43,7 @@ public class Graph<V, E, C>
 
     public void addNode(int id, V value)
     {
-        if (nodes.containsKey(id)) {
-            return;
-        }
-
+        checkArgument(!nodes.containsKey(id), "node already exists: %s", id);
         nodes.put(id, value);
     }
 
@@ -68,6 +63,7 @@ public class Graph<V, E, C>
 
     public void addCluster(int cluster, C value)
     {
+        checkArgument(!clusters.containsKey(cluster), "cluster already exists: %s", cluster);
         clusters.put(cluster, value);
     }
 
@@ -115,6 +111,11 @@ public class Graph<V, E, C>
     public int getCluster(int nodeId)
     {
         return membership.get(nodeId);
+    }
+
+    public Optional getNode(int id)
+    {
+        return Optional.fromNullable(nodes.get(id));
     }
 
     private static final class Edge

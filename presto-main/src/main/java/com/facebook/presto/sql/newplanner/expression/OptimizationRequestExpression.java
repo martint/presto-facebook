@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.newplanner.expression;
 
+import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.sql.newplanner.RelationalExpressionType;
 import com.facebook.presto.sql.newplanner.optimizer.ExpressionProperties;
 import com.google.common.collect.ImmutableList;
 
@@ -22,11 +24,13 @@ public class OptimizationRequestExpression
         extends RelationalExpression
 {
     private final ExpressionProperties requirements;
+    private final int group;
 
-    public OptimizationRequestExpression(int id, RelationalExpression expression, ExpressionProperties requirements)
+    public OptimizationRequestExpression(int id, int group, ExpressionProperties requirements)
     {
-        super(id, expression.getType(), ImmutableList.<RelationalExpression>of());
+        super(id, new RelationalExpressionType(ImmutableList.<Type>of()), ImmutableList.<RelationalExpression>of());
         this.requirements = requirements;
+        this.group = group;
     }
 
     @Override
@@ -40,5 +44,15 @@ public class OptimizationRequestExpression
     {
         return Utils.indent(indent) + "- optimize(" + requirements + ")\n" +
                 getInputs().get(0).toStringTree(indent + 1);
+    }
+
+    public int getGroup()
+    {
+        return group;
+    }
+
+    public ExpressionProperties getRequirements()
+    {
+        return requirements;
     }
 }

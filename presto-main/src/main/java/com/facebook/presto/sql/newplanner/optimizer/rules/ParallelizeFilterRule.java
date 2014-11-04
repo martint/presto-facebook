@@ -35,17 +35,22 @@ public class ParallelizeFilterRule
 
         FilterExpression filter = (FilterExpression) expression;
 
-        if (requirements.getPartitioningColumns().isPresent()) {
-            // push requirements to child
-            RelationalExpression child = optimizer.optimize(expression.getInputs().get(0), requirements, context);
+        if (!requirements.getPartitioningColumns().isPresent()) {
+//        if (requirements.getPartitioningColumns().isPresent()) {
+//            // push requirements to child
+//            RelationalExpression child = optimizer.optimize(expression.getInputs().get(0), requirements, context);
+//
+//            return Optional.<RelationalExpression>of(new FilterExpression(context.nextExpressionId(), child, filter.getPredicate()));
+//        }
+//
+            RelationalExpression child = optimizer.optimize(
+                    expression,
+                    ExpressionProperties.RANDOM_PARTITION,
+                    context);
 
-            return Optional.<RelationalExpression>of(new FilterExpression(context.nextExpressionId(), child, filter.getPredicate()));
+            return Optional.<RelationalExpression>of(new MergeExpression(context.nextExpressionId(), ImmutableList.<RelationalExpression>of(child)));
         }
 
-        RelationalExpression child = optimizer.optimize(expression.getInputs().get(0), ExpressionProperties.RANDOM_PARTITION, context);
-
-        return Optional.<RelationalExpression>of(
-                new MergeExpression(context.nextExpressionId(), ImmutableList.<RelationalExpression>of(
-                        new FilterExpression(context.nextExpressionId(), child, filter.getPredicate()))));
+        return Optional.absent();
     }
 }

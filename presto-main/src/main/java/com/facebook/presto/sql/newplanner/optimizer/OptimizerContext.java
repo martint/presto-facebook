@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.newplanner.optimizer;
 
 import com.facebook.presto.sql.newplanner.expression.EquivalenceGroupReferenceExpression;
+import com.facebook.presto.sql.newplanner.expression.OptimizationRequestExpression;
 import com.facebook.presto.sql.newplanner.expression.RelationalExpression;
 import com.facebook.presto.sql.newplanner.optimizer.graph.Graph;
 import com.google.common.base.Function;
@@ -63,34 +64,40 @@ public class OptimizerContext
         checkArgument(previous == null, "Optimization request already recorded");
     }
 
-    public int recordExpression(RelationalExpression expression)
+    public void recordExpression(RelationalExpression expression)
     {
         Queue<RelationalExpression> queue = new ArrayQueue<>();
         queue.add(expression);
 
-        int cluster = nextClusterId();
-        graph.addCluster(cluster, new ClusterInfo(cluster, null));
-        graph.addNode(expression.getId(), cluster, new NodeInfo(expression, NodeInfo.Type.LOGICAL));
+        if (!graph.getNode(expression.getId()).isPresent()) {
+            int cluster = nextClusterId();
+            graph.addCluster(cluster, new ClusterInfo(cluster, null));
+            graph.addNode(expression.getId(), cluster, new NodeInfo(expression, NodeInfo.Type.LOGICAL));
+        }
 
         while (!queue.isEmpty()) {
             RelationalExpression current = queue.poll();
 
             for (RelationalExpression child : current.getInputs()) {
-//                if (child instanceof EquivalenceGroupReferenceExpression) {
-//                    graph.addEdge(current.getId(), ((EquivalenceGroupReferenceExpression) child).getGroupId(), EdgeInfo.child(), true);
-//                }
-//                else {
-                    int childCluster = nextClusterId();
-                    graph.addCluster(childCluster, new ClusterInfo(childCluster, null));
+                if (child instanceof OptimizationRequestExpression) {
+                    OptimizationRequestExpression request = (OptimizationRequestExpression) child;
+                    int childCluster = implementationClusters.get(new GroupWithProperties(request.getGroup(), request.getRequirements()));
+                    int nodeId = nextExpressionId();
+                    graph.addNode(nodeId, childCluster, new NodeInfo(request, NodeInfo.Type.DUMMY));
+                    graph.addEdge(current.getId(), nodeId, EdgeInfo.child(), true);
+                }
+                else {
+                    if (!graph.getNode(child.getId()).isPresent()) {
+                        int childCluster = nextClusterId();
+                        graph.addCluster(childCluster, new ClusterInfo(childCluster, null));
+                        graph.addNode(child.getId(), childCluster, new NodeInfo(child, NodeInfo.Type.LOGICAL));
+                    }
 
-                    graph.addNode(child.getId(), childCluster, new NodeInfo(child, NodeInfo.Type.LOGICAL));
                     graph.addEdge(current.getId(), child.getId(), EdgeInfo.child());
                     queue.add(child);
-//                }
+                }
             }
         }
-
-        return cluster;
     }
 
     public void recordLogicalTransform(RelationalExpression from, RelationalExpression to, ExplorationRule rule)
@@ -127,6 +134,9 @@ public class OptimizerContext
             @Override
             public String apply(NodeInfo input)
             {
+                if (input.type == NodeInfo.Type.DUMMY) {
+                    return "label=\"\",margin=0,width=0,height=0,style=invisible";
+                }
                 RelationalExpression expression = input.expression;
 
                 String color = "black";
@@ -198,7 +208,8 @@ public class OptimizerContext
         public enum Type
         {
             LOGICAL,
-            IMPLEMENTATION
+            IMPLEMENTATION,
+            DUMMY
         }
 
         public NodeInfo(RelationalExpression expression, Type type)
