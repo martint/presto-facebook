@@ -15,7 +15,7 @@ package com.facebook.presto.sql.newplanner.optimizer.rules;
 
 import com.facebook.presto.sql.newplanner.expression.RelationalExpression;
 import com.facebook.presto.sql.newplanner.expression.TableExpression;
-import com.facebook.presto.sql.newplanner.optimizer.ExpressionProperties;
+import com.facebook.presto.sql.newplanner.optimizer.PhysicalConstraints;
 import com.facebook.presto.sql.newplanner.optimizer.ImplementationRule;
 import com.facebook.presto.sql.newplanner.optimizer.Optimizer;
 import com.facebook.presto.sql.newplanner.optimizer.OptimizerContext;
@@ -25,7 +25,7 @@ public class ImplementTableScanRule
     implements ImplementationRule
 {
     @Override
-    public Optional<RelationalExpression> implement(RelationalExpression expression, ExpressionProperties requirements, Optimizer optimizer, OptimizerContext context)
+    public Optional<RelationalExpression> implement(RelationalExpression expression, PhysicalConstraints requirements, Optimizer optimizer, OptimizerContext context)
     {
         if (!(expression instanceof TableExpression)) {
             return Optional.absent();

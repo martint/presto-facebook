@@ -42,7 +42,7 @@ public class Optimizer2
     {
         Blackboard blackboard = new Blackboard(expression);
 
-        final ExpressionProperties requiredProperties = null; // TODO: what are the required properties for input expression?
+        final PhysicalConstraints requiredProperties = null; // TODO: what are the required properties for input expression?
         int group = blackboard.getRootGroup();
 
         // first, compute transitive closure of all possible transformations of the current group
@@ -58,10 +58,10 @@ public class Optimizer2
 
         // derive required properties for each operator in the current group
         for (RelationalExpression candidate : blackboard.getExpressionsInGroup(group)) {
-            List<ExpressionProperties> requiredChildProperties = Lists.transform(expression.getInputs(), new Function<RelationalExpression, ExpressionProperties>() {
+            List<PhysicalConstraints> requiredChildProperties = Lists.transform(expression.getInputs(), new Function<RelationalExpression, PhysicalConstraints>() {
                 @Nullable
                 @Override
-                public ExpressionProperties apply(RelationalExpression expression)
+                public PhysicalConstraints apply(RelationalExpression expression)
                 {
                     return expression.computeRequiredInputProperties(requiredProperties);
                 }

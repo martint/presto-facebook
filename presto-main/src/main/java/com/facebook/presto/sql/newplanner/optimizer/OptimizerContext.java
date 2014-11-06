@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.newplanner.optimizer;
 
-import com.facebook.presto.sql.newplanner.expression.EquivalenceGroupReferenceExpression;
 import com.facebook.presto.sql.newplanner.expression.OptimizationRequestExpression;
 import com.facebook.presto.sql.newplanner.expression.RelationalExpression;
 import com.facebook.presto.sql.newplanner.optimizer.graph.Graph;
@@ -51,13 +50,13 @@ public class OptimizerContext
         return nextClusterId++;
     }
 
-    public Optional<RelationalExpression> getOptimized(RelationalExpression expression, ExpressionProperties requirements)
+    public Optional<RelationalExpression> getOptimized(RelationalExpression expression, PhysicalConstraints requirements)
     {
         RelationalExpression result = memoized.get(new ExpressionWithRequirements(expression, requirements));
         return Optional.fromNullable(result);
     }
 
-    public void recordOptimization(RelationalExpression expression, ExpressionProperties requirements, RelationalExpression optimized)
+    public void recordOptimization(RelationalExpression expression, PhysicalConstraints requirements, RelationalExpression optimized)
     {
         RelationalExpression previous = memoized.put(new ExpressionWithRequirements(expression, requirements), optimized);
 
@@ -110,7 +109,7 @@ public class OptimizerContext
         recordExpression(to);
     }
 
-    public void recordImplementation(RelationalExpression from, RelationalExpression to, ExpressionProperties requirements, ImplementationRule rule)
+    public void recordImplementation(RelationalExpression from, RelationalExpression to, PhysicalConstraints requirements, ImplementationRule rule)
     {
         int logicalGroup = graph.getCluster(from.getId());
 
@@ -148,7 +147,8 @@ public class OptimizerContext
                         color = "salmon";
                         break;
                 }
-                return String.format("label=\"%s (%s)\",fillcolor=%s,style=filled", expression.getClass().getSimpleName(), expression.getId(), color);
+                String name = expression.getClass().getSimpleName().replace("Expression", "");
+                return String.format("label=\"%s (%s)\",fillcolor=%s,style=filled", name, expression.getId(), color);
             }
         }, new Function<EdgeInfo, String>()
         {
@@ -160,11 +160,11 @@ public class OptimizerContext
                 switch (input.type) {
                     case IMPLEMENTATION:
                         color = "red";
-                        label = input.implementationRule.get().getClass().getSimpleName();
+                        label = input.implementationRule.get().getClass().getSimpleName().replace("Rule", "");
                         break;
                     case EXPLORATION:
                         color = "blue";
-                        label = input.explorationRule.get().getClass().getSimpleName();
+                        label = input.explorationRule.get().getClass().getSimpleName().replace("Rule", "");
                         break;
                 }
 
@@ -257,10 +257,10 @@ public class OptimizerContext
 
     private static class ClusterInfo
     {
-        private final ExpressionProperties properties;
+        private final PhysicalConstraints properties;
         private final int id;
 
-        public ClusterInfo(int id, ExpressionProperties properties)
+        public ClusterInfo(int id, PhysicalConstraints properties)
         {
             this.id = id;
             this.properties = properties;
@@ -275,9 +275,9 @@ public class OptimizerContext
     private static final class ExpressionWithRequirements
     {
         private final RelationalExpression expression;
-        private final ExpressionProperties requirements;
+        private final PhysicalConstraints requirements;
 
-        public ExpressionWithRequirements(RelationalExpression expression, ExpressionProperties requirements)
+        public ExpressionWithRequirements(RelationalExpression expression, PhysicalConstraints requirements)
         {
             // TODO: cache expression hashcode
             this.expression = expression;
@@ -296,7 +296,7 @@ public class OptimizerContext
 
             ExpressionWithRequirements that = (ExpressionWithRequirements) o;
 
-            if (!expression.equals(that.expression)) {
+            if (expression.getId() != that.expression.getId()) {
                 return false;
             }
             if (!requirements.equals(that.requirements)) {
@@ -309,7 +309,7 @@ public class OptimizerContext
         @Override
         public int hashCode()
         {
-            int result = expression.hashCode();
+            int result = expression.getId();
             result = 31 * result + requirements.hashCode();
             return result;
         }
@@ -318,9 +318,9 @@ public class OptimizerContext
     private static final class GroupWithProperties
     {
         private final int cluster;
-        private final ExpressionProperties requirements;
+        private final PhysicalConstraints requirements;
 
-        public GroupWithProperties(int cluster, ExpressionProperties requirements)
+        public GroupWithProperties(int cluster, PhysicalConstraints requirements)
         {
             this.requirements = requirements;
             this.cluster = cluster;

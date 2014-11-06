@@ -13,27 +13,43 @@
  */
 package com.facebook.presto.sql.newplanner.optimizer;
 
-import com.google.common.base.Objects;
 import com.google.common.base.Optional;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-public class ExpressionProperties
-{
-    public static final ExpressionProperties UNPARTITIONED = new ExpressionProperties(Optional.<List<Integer>>absent());
-    public static final ExpressionProperties RANDOM_PARTITION = new ExpressionProperties(Optional.<List<Integer>>of(ImmutableList.<Integer>of()));
+import static com.google.common.base.Preconditions.checkNotNull;
 
+public class PhysicalConstraints
+{
+    private final boolean hasPartitioningConstraint;
     private final Optional<List<Integer>> partitioningColumns;
 
-    private ExpressionProperties(Optional<List<Integer>> partitioningColumns)
+    public PhysicalConstraints(boolean hasPartitioningConstraint, Optional<List<Integer>> partitioningColumns)
     {
-        this.partitioningColumns = partitioningColumns;
+        this.hasPartitioningConstraint = hasPartitioningConstraint;
+        this.partitioningColumns = checkNotNull(partitioningColumns, "partitioningColumns is null");
     }
 
-    public static ExpressionProperties partitioned(List<Integer> columns)
+    public static PhysicalConstraints partitioned(List<Integer> columns)
     {
-        return new ExpressionProperties(Optional.of(columns));
+        return new PhysicalConstraints(true, Optional.of(columns));
+    }
+
+    public static PhysicalConstraints unpartitioned()
+    {
+        return new PhysicalConstraints(true, Optional.<List<Integer>>absent());
+    }
+
+    public static PhysicalConstraints any()
+    {
+        return new PhysicalConstraints(false, Optional.<List<Integer>>absent());
+    }
+
+    public boolean hasPartitioningConstraint()
+    {
+        return hasPartitioningConstraint;
     }
 
     public Optional<List<Integer>> getPartitioningColumns()
@@ -81,7 +97,7 @@ public class ExpressionProperties
             return false;
         }
 
-        ExpressionProperties that = (ExpressionProperties) o;
+        PhysicalConstraints that = (PhysicalConstraints) o;
 
         if (!partitioningColumns.equals(that.partitioningColumns)) {
             return false;

@@ -15,7 +15,7 @@ package com.facebook.presto.sql.newplanner.expression;
 
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.newplanner.RelationalExpressionType;
-import com.facebook.presto.sql.newplanner.optimizer.ExpressionProperties;
+import com.facebook.presto.sql.newplanner.optimizer.PhysicalConstraints;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -23,10 +23,10 @@ import java.util.List;
 public class OptimizationRequestExpression
         extends RelationalExpression
 {
-    private final ExpressionProperties requirements;
+    private final PhysicalConstraints requirements;
     private final int group;
 
-    public OptimizationRequestExpression(int id, int group, ExpressionProperties requirements)
+    public OptimizationRequestExpression(int id, int group, PhysicalConstraints requirements)
     {
         super(id, new RelationalExpressionType(ImmutableList.<Type>of()), ImmutableList.<RelationalExpression>of());
         this.requirements = requirements;
@@ -51,7 +51,7 @@ public class OptimizationRequestExpression
         return group;
     }
 
-    public ExpressionProperties getRequirements()
+    public PhysicalConstraints getRequirements()
     {
         return requirements;
     }

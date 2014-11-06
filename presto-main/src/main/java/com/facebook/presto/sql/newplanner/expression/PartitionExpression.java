@@ -15,10 +15,10 @@ package com.facebook.presto.sql.newplanner.expression;
 
 import java.util.List;
 
-public class MergeExpression
+public class PartitionExpression
     extends RelationalExpression
 {
-    public MergeExpression(int id, List<RelationalExpression> inputs)
+    public PartitionExpression(int id, List<RelationalExpression> inputs)
     {
         super(id, inputs.get(0).getType(), inputs);
     }
@@ -26,14 +26,14 @@ public class MergeExpression
     @Override
     public RelationalExpression copyWithInputs(int id, List<RelationalExpression> inputs)
     {
-        return new MergeExpression(id, inputs);
+        return new PartitionExpression(id, inputs);
     }
 
     @Override
     public String toStringTree(int indent)
     {
         StringBuilder builder = new StringBuilder();
-        builder.append(Utils.indent(indent) + "- merge(...):" + getType() + "\n")
+        builder.append(Utils.indent(indent) + "- partition(...):" + getType() + "\n")
                 .append(Utils.indent(indent + 1) + "row type: " + getType() + "\n");
 
         for (RelationalExpression input : getInputs()) {

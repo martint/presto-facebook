@@ -15,12 +15,8 @@ package com.facebook.presto.sql.newplanner.expression;
 
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.newplanner.RelationalExpressionType;
-import com.facebook.presto.sql.newplanner.optimizer.ExpressionProperties;
+import com.facebook.presto.sql.newplanner.optimizer.PhysicalConstraints;
 import com.google.common.collect.ImmutableList;
-import com.sun.tools.attach.VirtualMachine;
-import com.sun.tools.attach.VirtualMachineDescriptor;
-import sun.jvmstat.monitor.VmIdentifier;
-import sun.jvmstat.perfdata.monitor.protocol.local.LocalVmManager;
 
 import java.util.List;
 
@@ -72,7 +68,7 @@ public abstract class RelationalExpression
     }
 
     // determine the required input properties given the provided expected properties and the semantics of this expression
-    public ExpressionProperties computeRequiredInputProperties(ExpressionProperties expectedOutputProperties)
+    public PhysicalConstraints computeRequiredInputProperties(PhysicalConstraints expectedOutputProperties)
     {
         return null;
     }

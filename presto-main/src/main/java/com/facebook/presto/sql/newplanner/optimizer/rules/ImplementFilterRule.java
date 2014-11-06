@@ -14,24 +14,27 @@
 package com.facebook.presto.sql.newplanner.optimizer.rules;
 
 import com.facebook.presto.sql.newplanner.expression.FilterExpression;
-import com.facebook.presto.sql.newplanner.expression.MergeExpression;
 import com.facebook.presto.sql.newplanner.expression.RelationalExpression;
-import com.facebook.presto.sql.newplanner.optimizer.ExpressionProperties;
+import com.facebook.presto.sql.newplanner.optimizer.PhysicalConstraints;
 import com.facebook.presto.sql.newplanner.optimizer.ImplementationRule;
 import com.facebook.presto.sql.newplanner.optimizer.Optimizer;
 import com.facebook.presto.sql.newplanner.optimizer.OptimizerContext;
 import com.google.common.base.Optional;
-import com.google.common.collect.ImmutableList;
 
 public class ImplementFilterRule
         implements ImplementationRule
 {
     @Override
-    public Optional<RelationalExpression> implement(RelationalExpression expression, ExpressionProperties requirements, Optimizer optimizer, OptimizerContext context)
+    public Optional<RelationalExpression> implement(RelationalExpression expression, PhysicalConstraints requirements, Optimizer optimizer, OptimizerContext context)
     {
         if (!(expression instanceof FilterExpression)) {
             return Optional.absent();
         }
+
+        // derive child requirements given output requirements => should infer partitioning:<any>
+        // optimize child with partitioning:<any>
+        // derive output properties based on actual delivered properties
+        // add enforcer if necessary
 
         FilterExpression filter = (FilterExpression) expression;
         RelationalExpression child = optimizer.optimize(expression.getInputs().get(0), requirements, context);

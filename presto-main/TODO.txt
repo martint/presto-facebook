@@ -4,3 +4,7 @@
 
 - Show relational expression signatures in plan (this will force us to think about how they map to functional model)
 
+
+- Plan distribution
+- Hash build/join separation
+    - In-mem exchange
