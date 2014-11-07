@@ -16,13 +16,14 @@ package com.facebook.presto.sql.newplanner.optimizer.rules;
 import com.facebook.presto.sql.newplanner.expression.RelationalExpression;
 import com.facebook.presto.sql.newplanner.optimizer.ExplorationRule;
 import com.facebook.presto.sql.newplanner.optimizer.OptimizerContext;
+import com.facebook.presto.sql.newplanner.optimizer.RelExpr;
 import com.google.common.base.Optional;
 
 public class PushFilterThroughAggregation
     implements ExplorationRule
 {
     @Override
-    public Optional<RelationalExpression> apply(RelationalExpression expression, OptimizerContext context)
+    public Optional<RelExpr> apply(RelExpr expression, OptimizerContext context)
     {
         throw new UnsupportedOperationException("not yet implemented");
     }

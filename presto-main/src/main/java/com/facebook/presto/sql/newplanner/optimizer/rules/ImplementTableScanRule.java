@@ -13,27 +13,24 @@
  */
 package com.facebook.presto.sql.newplanner.optimizer.rules;
 
-import com.facebook.presto.sql.newplanner.expression.RelationalExpression;
-import com.facebook.presto.sql.newplanner.expression.TableExpression;
-import com.facebook.presto.sql.newplanner.optimizer.PhysicalConstraints;
 import com.facebook.presto.sql.newplanner.optimizer.ImplementationRule;
 import com.facebook.presto.sql.newplanner.optimizer.Optimizer;
 import com.facebook.presto.sql.newplanner.optimizer.OptimizerContext;
+import com.facebook.presto.sql.newplanner.optimizer.PhysicalConstraints;
+import com.facebook.presto.sql.newplanner.optimizer.RelExpr;
 import com.google.common.base.Optional;
 
 public class ImplementTableScanRule
     implements ImplementationRule
 {
     @Override
-    public Optional<RelationalExpression> implement(RelationalExpression expression, PhysicalConstraints requirements, Optimizer optimizer, OptimizerContext context)
+    public Optional<RelExpr> implement(RelExpr expression, PhysicalConstraints requirements, Optimizer optimizer, OptimizerContext context)
     {
-        if (!(expression instanceof TableExpression)) {
+        if (expression.getType() != RelExpr.Type.TABLE) {
             return Optional.absent();
         }
 
-        TableExpression table = (TableExpression) expression;
-
         // TODO requirements
-        return Optional.<RelationalExpression>of(new TableExpression(context.nextExpressionId(), table.getTable(), table.getColumns(), table.getType()));
+        return Optional.of(new RelExpr(context.nextExpressionId(), RelExpr.Type.TABLE));
     }
 }

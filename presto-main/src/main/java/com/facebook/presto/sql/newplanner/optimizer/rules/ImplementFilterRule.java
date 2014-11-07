@@ -19,15 +19,16 @@ import com.facebook.presto.sql.newplanner.optimizer.PhysicalConstraints;
 import com.facebook.presto.sql.newplanner.optimizer.ImplementationRule;
 import com.facebook.presto.sql.newplanner.optimizer.Optimizer;
 import com.facebook.presto.sql.newplanner.optimizer.OptimizerContext;
+import com.facebook.presto.sql.newplanner.optimizer.RelExpr;
 import com.google.common.base.Optional;
 
 public class ImplementFilterRule
         implements ImplementationRule
 {
     @Override
-    public Optional<RelationalExpression> implement(RelationalExpression expression, PhysicalConstraints requirements, Optimizer optimizer, OptimizerContext context)
+    public Optional<RelExpr> implement(RelExpr expression, PhysicalConstraints requirements, Optimizer optimizer, OptimizerContext context)
     {
-        if (!(expression instanceof FilterExpression)) {
+        if (expression.getType() != RelExpr.Type.FILTER) {
             return Optional.absent();
         }
 
@@ -36,9 +37,8 @@ public class ImplementFilterRule
         // derive output properties based on actual delivered properties
         // add enforcer if necessary
 
-        FilterExpression filter = (FilterExpression) expression;
-        RelationalExpression child = optimizer.optimize(expression.getInputs().get(0), requirements, context);
+        RelExpr child = optimizer.optimize(expression.getInputs().get(0), requirements, context);
 
-        return Optional.<RelationalExpression>of(new FilterExpression(context.nextExpressionId(), child, filter.getPredicate()));
+        return Optional.<RelExpr>of(new RelExpr(context.nextExpressionId(), RelExpr.Type.FILTER, child));
     }
 }

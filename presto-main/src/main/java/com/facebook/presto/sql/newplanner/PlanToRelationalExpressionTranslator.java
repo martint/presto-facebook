@@ -206,7 +206,7 @@ public class PlanToRelationalExpressionTranslator
             TranslationResult child = node.getSource().accept(this, null);
             ImmutableList.Builder<RowExpression> projections = ImmutableList.builder();
             for (Symbol output : node.getOutputSymbols()) {
-                Expression expression = node.getOutputMap().get(output);
+                Expression expression = node.getAssignments().get(output);
                 projections.add(SqlToRowExpressionTranslator.translate(expression, expressionTypes, child.getSymbolToFieldMapping(), metadata, session, false));
             }
 

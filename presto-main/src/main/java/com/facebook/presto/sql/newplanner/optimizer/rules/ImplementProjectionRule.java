@@ -13,27 +13,25 @@
  */
 package com.facebook.presto.sql.newplanner.optimizer.rules;
 
-import com.facebook.presto.sql.newplanner.expression.ProjectExpression;
-import com.facebook.presto.sql.newplanner.expression.RelationalExpression;
-import com.facebook.presto.sql.newplanner.optimizer.PhysicalConstraints;
 import com.facebook.presto.sql.newplanner.optimizer.ImplementationRule;
 import com.facebook.presto.sql.newplanner.optimizer.Optimizer;
 import com.facebook.presto.sql.newplanner.optimizer.OptimizerContext;
+import com.facebook.presto.sql.newplanner.optimizer.PhysicalConstraints;
+import com.facebook.presto.sql.newplanner.optimizer.RelExpr;
 import com.google.common.base.Optional;
 
 public class ImplementProjectionRule
         implements ImplementationRule
 {
     @Override
-    public Optional<RelationalExpression> implement(RelationalExpression expression, PhysicalConstraints requirements, Optimizer optimizer, OptimizerContext context)
+    public Optional<RelExpr> implement(RelExpr expression, PhysicalConstraints requirements, Optimizer optimizer, OptimizerContext context)
     {
-        if (!(expression instanceof ProjectExpression)) {
+        if (expression.getType() != RelExpr.Type.PROJECT) {
             return Optional.absent();
         }
 
-        ProjectExpression projection = (ProjectExpression) expression;
-        RelationalExpression child = optimizer.optimize(expression.getInputs().get(0), requirements, context);
+        RelExpr child = optimizer.optimize(expression.getInputs().get(0), requirements, context);
 
-        return Optional.<RelationalExpression>of(new ProjectExpression(context.nextExpressionId(), child, projection.getProjections()));
+        return Optional.of(new RelExpr(context.nextExpressionId(), RelExpr.Type.PROJECT, child));
     }
 }

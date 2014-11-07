@@ -40,46 +40,46 @@ public class Optimizer
 //            new PushFilterThroughProjection()
     );
 
-    public RelationalExpression optimize(RelationalExpression expression)
+    public RelExpr optimize(RelExpr expression)
     {
         OptimizerContext context = new OptimizerContext(expression);
-        RelationalExpression result = optimize(expression, PhysicalConstraints.unpartitioned(), context);
+        RelExpr result = optimize(expression, PhysicalConstraints.unpartitioned(), context);
 
         System.out.println(context.expressionsToGraphviz());
         return result;
     }
 
-    public RelationalExpression optimize(RelationalExpression expression, PhysicalConstraints requirements, OptimizerContext context)
+    public RelExpr optimize(RelExpr expression, PhysicalConstraints requirements, OptimizerContext context)
     {
-        Optional<RelationalExpression> optimized = context.getOptimized(expression, requirements);
+        Optional<RelExpr> optimized = context.getOptimized(expression, requirements);
         if (optimized.isPresent()) {
             return optimized.get();
-
         }
 
-        List<RelationalExpression> logical = explore(expression, context);
+        List<RelExpr> logical = explore(expression, context);
 
-        RelationalExpression result = new OptimizationRequestExpression(context.nextExpressionId(), context.getGroup(expression), requirements);
+        // context.getGroup(expression), requirements
+        RelExpr result = new RelExpr(context.nextExpressionId(), RelExpr.Type.OPTIMIZE);
         context.recordOptimization(expression, requirements, result);
 
-        List<RelationalExpression> implementations = implement(logical, requirements, context);
+        List<RelExpr> implementations = implement(logical, requirements, context);
 
         // TODO: pick optimal expression from implementations
 
         return result;
     }
 
-    private List<RelationalExpression> implement(List<RelationalExpression> expressions, PhysicalConstraints requirements, OptimizerContext context)
+    private List<RelExpr> implement(List<RelExpr> expressions, PhysicalConstraints requirements, OptimizerContext context)
     {
-        Queue<RelationalExpression> queue = new ArrayQueue<>();
+        Queue<RelExpr> queue = new ArrayQueue<>();
         queue.addAll(expressions);
 
-        List<RelationalExpression> result = new ArrayList<>();
+        List<RelExpr> result = new ArrayList<>();
         while (!queue.isEmpty()) {
-            RelationalExpression current = queue.poll();
+            RelExpr current = queue.poll();
 
             for (ImplementationRule rule : implementationRules) {
-                Optional<RelationalExpression> implementation = rule.implement(current, requirements, this, context);
+                Optional<RelExpr> implementation = rule.implement(current, requirements, this, context);
                 if (implementation.isPresent()) {
                     result.add(implementation.get());
 
@@ -90,19 +90,19 @@ public class Optimizer
         return result;
     }
 
-    private List<RelationalExpression> explore(RelationalExpression expression, OptimizerContext context)
+    private List<RelExpr> explore(RelExpr expression, OptimizerContext context)
     {
-        Queue<RelationalExpression> queue = new ArrayQueue<>();
+        Queue<RelExpr> queue = new ArrayQueue<>();
         queue.add(expression);
         context.recordExpression(expression);
 
-        List<RelationalExpression> result = new ArrayQueue<>();
+        List<RelExpr> result = new ArrayQueue<>();
         while (!queue.isEmpty()) {
-            RelationalExpression current = queue.poll();
+            RelExpr current = queue.poll();
             result.add(current);
 
             for (ExplorationRule rule : explorationRules) {
-                Optional<RelationalExpression> transformed = rule.apply(current, context);
+                Optional<RelExpr> transformed = rule.apply(current, context);
                 if (transformed.isPresent()) {
                     queue.add(transformed.get());
                     context.recordLogicalTransform(current, transformed.get(), rule);

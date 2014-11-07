@@ -32,10 +32,10 @@ public class OptimizerContext
     private int nextClusterId;
     private final Graph<NodeInfo, EdgeInfo, ClusterInfo> graph = new Graph<>();
 
-    private final Map<ExpressionWithRequirements, RelationalExpression> memoized = new HashMap<>();
+    private final Map<ExpressionWithRequirements, RelExpr> memoized = new HashMap<>();
     private final Map<GroupWithProperties, Integer> implementationClusters = new HashMap<>();
 
-    public OptimizerContext(RelationalExpression seed)
+    public OptimizerContext(RelExpr seed)
     {
         nextExpressionId = findMaxId(seed) + 1;
     }
@@ -50,22 +50,22 @@ public class OptimizerContext
         return nextClusterId++;
     }
 
-    public Optional<RelationalExpression> getOptimized(RelationalExpression expression, PhysicalConstraints requirements)
+    public Optional<RelExpr> getOptimized(RelExpr expression, PhysicalConstraints requirements)
     {
-        RelationalExpression result = memoized.get(new ExpressionWithRequirements(expression, requirements));
+        RelExpr result = memoized.get(new ExpressionWithRequirements(expression, requirements));
         return Optional.fromNullable(result);
     }
 
-    public void recordOptimization(RelationalExpression expression, PhysicalConstraints requirements, RelationalExpression optimized)
+    public void recordOptimization(RelExpr expression, PhysicalConstraints requirements, RelExpr optimized)
     {
-        RelationalExpression previous = memoized.put(new ExpressionWithRequirements(expression, requirements), optimized);
+        RelExpr previous = memoized.put(new ExpressionWithRequirements(expression, requirements), optimized);
 
         checkArgument(previous == null, "Optimization request already recorded");
     }
 
-    public void recordExpression(RelationalExpression expression)
+    public void recordExpression(RelExpr expression)
     {
-        Queue<RelationalExpression> queue = new ArrayQueue<>();
+        Queue<RelExpr> queue = new ArrayQueue<>();
         queue.add(expression);
 
         if (!graph.getNode(expression.getId()).isPresent()) {
@@ -75,11 +75,10 @@ public class OptimizerContext
         }
 
         while (!queue.isEmpty()) {
-            RelationalExpression current = queue.poll();
+            RelExpr current = queue.poll();
 
-            for (RelationalExpression child : current.getInputs()) {
-                if (child instanceof OptimizationRequestExpression) {
-                    OptimizationRequestExpression request = (OptimizationRequestExpression) child;
+            for (RelExpr child : current.getInputs()) {
+                if (child.getType() == RelExpr.Type.OPTIMIZE) {
                     int childCluster = implementationClusters.get(new GroupWithProperties(request.getGroup(), request.getRequirements()));
                     int nodeId = nextExpressionId();
                     graph.addNode(nodeId, childCluster, new NodeInfo(request, NodeInfo.Type.DUMMY));
@@ -99,7 +98,7 @@ public class OptimizerContext
         }
     }
 
-    public void recordLogicalTransform(RelationalExpression from, RelationalExpression to, ExplorationRule rule)
+    public void recordLogicalTransform(RelExpr from, RelExpr to, ExplorationRule rule)
     {
         int cluster = graph.getCluster(from.getId());
 
@@ -109,7 +108,7 @@ public class OptimizerContext
         recordExpression(to);
     }
 
-    public void recordImplementation(RelationalExpression from, RelationalExpression to, PhysicalConstraints requirements, ImplementationRule rule)
+    public void recordImplementation(RelExpr from, RelExpr to, PhysicalConstraints requirements, ImplementationRule rule)
     {
         int logicalGroup = graph.getCluster(from.getId());
 
@@ -136,7 +135,7 @@ public class OptimizerContext
                 if (input.type == NodeInfo.Type.DUMMY) {
                     return "label=\"\",margin=0,width=0,height=0,style=invisible";
                 }
-                RelationalExpression expression = input.expression;
+                RelExpr expression = input.expression;
 
                 String color = "black";
                 switch (input.type) {
@@ -184,25 +183,25 @@ public class OptimizerContext
         });
     }
 
-    private static int findMaxId(RelationalExpression seed)
+    private static int findMaxId(RelExpr seed)
     {
         int max = seed.getId();
 
-        for (RelationalExpression child : seed.getInputs()) {
+        for (RelExpr child : seed.getInputs()) {
             max = Math.max(max, findMaxId(child));
         }
 
         return max;
     }
 
-    public int getGroup(RelationalExpression expression)
+    public int getGroup(RelExpr expression)
     {
         return graph.getCluster(expression.getId());
     }
 
     private static class NodeInfo
     {
-        private final RelationalExpression expression;
+        private final RelExpr expression;
         private final Type type;
 
         public enum Type
@@ -212,7 +211,7 @@ public class OptimizerContext
             DUMMY
         }
 
-        public NodeInfo(RelationalExpression expression, Type type)
+        public NodeInfo(RelExpr expression, Type type)
         {
             this.expression = expression;
             this.type = type;
@@ -274,10 +273,10 @@ public class OptimizerContext
 
     private static final class ExpressionWithRequirements
     {
-        private final RelationalExpression expression;
+        private final RelExpr expression;
         private final PhysicalConstraints requirements;
 
-        public ExpressionWithRequirements(RelationalExpression expression, PhysicalConstraints requirements)
+        public ExpressionWithRequirements(RelExpr expression, PhysicalConstraints requirements)
         {
             // TODO: cache expression hashcode
             this.expression = expression;

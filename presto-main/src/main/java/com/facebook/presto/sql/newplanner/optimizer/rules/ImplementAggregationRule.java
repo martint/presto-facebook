@@ -13,27 +13,25 @@
  */
 package com.facebook.presto.sql.newplanner.optimizer.rules;
 
-import com.facebook.presto.sql.newplanner.expression.AggregationExpression;
-import com.facebook.presto.sql.newplanner.expression.RelationalExpression;
-import com.facebook.presto.sql.newplanner.optimizer.PhysicalConstraints;
 import com.facebook.presto.sql.newplanner.optimizer.ImplementationRule;
 import com.facebook.presto.sql.newplanner.optimizer.Optimizer;
 import com.facebook.presto.sql.newplanner.optimizer.OptimizerContext;
+import com.facebook.presto.sql.newplanner.optimizer.PhysicalConstraints;
+import com.facebook.presto.sql.newplanner.optimizer.RelExpr;
 import com.google.common.base.Optional;
 
 public class ImplementAggregationRule
         implements ImplementationRule
 {
     @Override
-    public Optional<RelationalExpression> implement(RelationalExpression expression, PhysicalConstraints requirements, Optimizer optimizer, OptimizerContext context)
+    public Optional<RelExpr> implement(RelExpr expression, PhysicalConstraints requirements, Optimizer optimizer, OptimizerContext context)
     {
-        if (!(expression instanceof AggregationExpression)) {
+        if (expression.getType() != RelExpr.Type.AGG) {
             return Optional.absent();
         }
 
-        AggregationExpression aggregation = (AggregationExpression) expression;
-        RelationalExpression child = optimizer.optimize(expression.getInputs().get(0), requirements, context);
+        RelExpr child = optimizer.optimize(expression.getInputs().get(0), requirements, context);
 
-        return Optional.<RelationalExpression>of(new AggregationExpression(context.nextExpressionId(), child, aggregation.getType(), aggregation.getAggregates(), aggregation.getFilterFields(), aggregation.getArguments()));
+        return Optional.of(new RelExpr(context.nextExpressionId(), RelExpr.Type.AGG, child));
     }
 }
