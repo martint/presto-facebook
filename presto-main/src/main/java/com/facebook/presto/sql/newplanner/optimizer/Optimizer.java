@@ -13,12 +13,11 @@
  */
 package com.facebook.presto.sql.newplanner.optimizer;
 
-import com.facebook.presto.sql.newplanner.expression.OptimizationRequestExpression;
-import com.facebook.presto.sql.newplanner.expression.RelationalExpression;
 import com.facebook.presto.sql.newplanner.optimizer.rules.ImplementAggregationRule;
 import com.facebook.presto.sql.newplanner.optimizer.rules.ImplementFilterRule;
 import com.facebook.presto.sql.newplanner.optimizer.rules.ImplementProjectionRule;
 import com.facebook.presto.sql.newplanner.optimizer.rules.ImplementTableScanRule;
+import com.facebook.presto.sql.newplanner.optimizer.rules.PushFilterThroughProjection;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import org.eclipse.jetty.util.ArrayQueue;
@@ -58,8 +57,7 @@ public class Optimizer
 
         List<RelExpr> logical = explore(expression, context);
 
-        // context.getGroup(expression), requirements
-        RelExpr result = new RelExpr(context.nextExpressionId(), RelExpr.Type.OPTIMIZE);
+        RelExpr result = new RelExpr(context.nextExpressionId(), RelExpr.Type.OPTIMIZE, new GroupWithProperties(context.getGroup(expression), requirements));
         context.recordOptimization(expression, requirements, result);
 
         List<RelExpr> implementations = implement(logical, requirements, context);

@@ -37,7 +37,7 @@ public class ImplementFilterRule
         // derive output properties based on actual delivered properties
         // add enforcer if necessary
 
-        RelExpr child = optimizer.optimize(expression.getInputs().get(0), requirements, context);
+        RelExpr child = optimizer.optimize(expression.getInputs().get(0), PhysicalConstraints.any(), context);
 
         return Optional.<RelExpr>of(new RelExpr(context.nextExpressionId(), RelExpr.Type.FILTER, child));
     }

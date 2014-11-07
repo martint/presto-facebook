@@ -22,30 +22,52 @@ public class RelExpr
     private int id;
     private final List<RelExpr> inputs;
     private final Type type;
+    private final Object payload;
+
+    public Object getPayload()
+    {
+        return payload;
+    }
 
     public enum Type {
         FILTER,
         PROJECT,
         TABLE,
         AGG,
+
+        MERGE,
+        REPLICATE,
+        PARTITION,
+
         OPTIMIZE
     }
 
     public RelExpr(int id, Type type)
     {
-        this(id, type, ImmutableList.<RelExpr>of());
+        this(id, type, null, ImmutableList.<RelExpr>of());
+    }
+
+    public RelExpr(int id, Type type, Object payload)
+    {
+        this(id, type, payload, ImmutableList.<RelExpr>of());
     }
 
     public RelExpr(int id, Type type, RelExpr input)
     {
-        this(id, type, ImmutableList.of(input));
+        this(id, type, null, input);
     }
 
-    public RelExpr(int id, Type type, List<RelExpr> inputs)
+    public RelExpr(int id, Type type, Object payload, RelExpr input)
+    {
+        this(id, type, payload, ImmutableList.of(input));
+    }
+
+    public RelExpr(int id, Type type, Object payload, List<RelExpr> inputs)
     {
         this.id = id;
         this.type = type;
         this.inputs = inputs;
+        this.payload = payload;
     }
 
     public int getId()

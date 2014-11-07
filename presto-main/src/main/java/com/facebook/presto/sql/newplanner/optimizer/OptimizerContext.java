@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.sql.newplanner.optimizer;
 
-import com.facebook.presto.sql.newplanner.expression.OptimizationRequestExpression;
-import com.facebook.presto.sql.newplanner.expression.RelationalExpression;
 import com.facebook.presto.sql.newplanner.optimizer.graph.Graph;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
@@ -79,9 +77,9 @@ public class OptimizerContext
 
             for (RelExpr child : current.getInputs()) {
                 if (child.getType() == RelExpr.Type.OPTIMIZE) {
-                    int childCluster = implementationClusters.get(new GroupWithProperties(request.getGroup(), request.getRequirements()));
+                    int childCluster = implementationClusters.get((GroupWithProperties) child.getPayload());
                     int nodeId = nextExpressionId();
-                    graph.addNode(nodeId, childCluster, new NodeInfo(request, NodeInfo.Type.DUMMY));
+                    graph.addNode(nodeId, childCluster, new NodeInfo(child, NodeInfo.Type.DUMMY));
                     graph.addEdge(current.getId(), nodeId, EdgeInfo.child(), true);
                 }
                 else {
@@ -146,7 +144,7 @@ public class OptimizerContext
                         color = "salmon";
                         break;
                 }
-                String name = expression.getClass().getSimpleName().replace("Expression", "");
+                String name = expression.getType().toString();
                 return String.format("label=\"%s (%s)\",fillcolor=%s,style=filled", name, expression.getId(), color);
             }
         }, new Function<EdgeInfo, String>()
@@ -309,48 +307,6 @@ public class OptimizerContext
         public int hashCode()
         {
             int result = expression.getId();
-            result = 31 * result + requirements.hashCode();
-            return result;
-        }
-    }
-
-    private static final class GroupWithProperties
-    {
-        private final int cluster;
-        private final PhysicalConstraints requirements;
-
-        public GroupWithProperties(int cluster, PhysicalConstraints requirements)
-        {
-            this.requirements = requirements;
-            this.cluster = cluster;
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-
-            GroupWithProperties that = (GroupWithProperties) o;
-
-            if (cluster != that.cluster) {
-                return false;
-            }
-            if (!requirements.equals(that.requirements)) {
-                return false;
-            }
-
-            return true;
-        }
-
-        @Override
-        public int hashCode()
-        {
-            int result = cluster;
             result = 31 * result + requirements.hashCode();
             return result;
         }

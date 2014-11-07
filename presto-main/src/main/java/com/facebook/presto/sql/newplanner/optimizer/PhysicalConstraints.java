@@ -77,11 +77,16 @@ public class PhysicalConstraints
     {
         StringBuilder builder = new StringBuilder();
 
-        if (!partitioningColumns.isPresent()) {
-            builder.append("unpartitioned");
+        if (hasPartitioningConstraint) {
+            if (!partitioningColumns.isPresent()) {
+                builder.append("unpartitioned");
+            }
+            else {
+                builder.append("partitioned: " + partitioningColumns.get());
+            }
         }
         else {
-            builder.append("partitioned: " + partitioningColumns.get());
+            builder.append("<any>");
         }
 
         return builder.toString();

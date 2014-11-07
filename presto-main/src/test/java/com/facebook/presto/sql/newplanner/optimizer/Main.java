@@ -39,42 +39,13 @@ import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 
 public class Main
 {
-    private final static TableHandle TABLE = new TableHandle("test", new TestingTableHandle());
-    private final static ColumnHandle COLUMN_A = new ColumnHandle("test", new TestingColumnHandle("a"));
-    private final static ColumnHandle COLUMN_B = new ColumnHandle("test", new TestingColumnHandle("b"));
-
     public static void main(String[] args)
     {
-        /*
-        SELECT * FROM (
-            SELECT a, -b FROM t
-        )
-        WHERE a > 5
-         */
         int nodeId = 0;
 
-        RelationalExpression table = new TableExpression(nodeId++, TABLE, ImmutableList.of(COLUMN_A, COLUMN_B), new RelationalExpressionType(ImmutableList.<Type>of(BIGINT, BIGINT)));
-        RelationalExpression projection = new ProjectExpression(nodeId++, table, ImmutableList.of(
-                Expressions.field(0, BIGINT), // a
-                Expressions.call(Signatures.arithmeticNegationSignature(BIGINT, BIGINT), BIGINT, Expressions.field(1, BIGINT)) // -b
-        ));
-
-        RelationalExpression filter = new FilterExpression(nodeId++, projection,
-                Expressions.call(Signatures.comparisonExpressionSignature(ComparisonExpression.Type.GREATER_THAN, BIGINT, BIGINT), BOOLEAN,
-                        Expressions.field(0, BIGINT),
-                        Expressions.constant(5L, BIGINT)));
-
-        RelationalExpression filter2 = new FilterExpression(nodeId++, filter,
-                Expressions.call(Signatures.comparisonExpressionSignature(ComparisonExpression.Type.GREATER_THAN, BIGINT, BIGINT), BOOLEAN,
-                        Expressions.field(0, BIGINT),
-                        Expressions.constant(5L, BIGINT)));
-
-        RelationalExpression aggregation = new AggregationExpression(nodeId++,
-                filter2,
-                new RelationalExpressionType(new ArrayList<Type>()),
-                new ArrayList<Signature>(),
-                ImmutableList.<Optional<Integer>>of(),
-                ImmutableList.<List<Integer>>of());
+        RelExpr filter = new RelExpr(nodeId++, RelExpr.Type.FILTER,
+                new RelExpr(nodeId++, RelExpr.Type.PROJECT,
+                        new RelExpr(nodeId++, RelExpr.Type.TABLE)));
 
         Optimizer optimizer = new Optimizer();
         optimizer.optimize(filter);
