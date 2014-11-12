@@ -58,7 +58,12 @@ public class Optimizer2
             // Maybe we need to try both and pick the "best" alternative
             // Maybe GROUP_AGGREGATION is not implementable and we need a SINGLE_NODE_AGG vs PARTITIONED_AGG vs ...
 
-            if (requirements.hasPartitioningConstraint())
+            if (requirements.hasPartitioningConstraint()) {
+                // try
+            }
+            else {
+                // try
+            }
             // option 1: require unpartitioned input
             {
                 PhysicalConstraints childConstraints = PhysicalConstraints.unpartitioned();
