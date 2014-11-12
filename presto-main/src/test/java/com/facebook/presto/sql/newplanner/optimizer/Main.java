@@ -13,29 +13,8 @@
  */
 package com.facebook.presto.sql.newplanner.optimizer;
 
-import com.facebook.presto.metadata.ColumnHandle;
-import com.facebook.presto.metadata.Signature;
-import com.facebook.presto.metadata.TableHandle;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.sql.newplanner.RelationalExpressionType;
-import com.facebook.presto.sql.newplanner.expression.AggregationExpression;
-import com.facebook.presto.sql.newplanner.expression.FilterExpression;
-import com.facebook.presto.sql.newplanner.expression.ProjectExpression;
-import com.facebook.presto.sql.newplanner.expression.RelationalExpression;
-import com.facebook.presto.sql.newplanner.expression.TableExpression;
-import com.facebook.presto.sql.planner.TestingColumnHandle;
-import com.facebook.presto.sql.planner.TestingTableHandle;
-import com.facebook.presto.sql.relational.Expressions;
-import com.facebook.presto.sql.relational.Signatures;
-import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.google.common.base.Optional;
-import com.google.common.collect.ImmutableList;
-
-import java.util.ArrayList;
-import java.util.List;
-
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import com.facebook.presto.sql.newplanner.expression.Utils;
+import com.facebook.presto.sql.newplanner.optimizer2.Optimizer2;
 
 public class Main
 {
@@ -47,7 +26,17 @@ public class Main
                 new RelExpr(nodeId++, RelExpr.Type.PROJECT,
                         new RelExpr(nodeId++, RelExpr.Type.TABLE)));
 
-        Optimizer optimizer = new Optimizer();
-        optimizer.optimize(filter);
+        Optimizer2 optimizer = new Optimizer2();
+        RelExpr optimized = optimizer.optimize(filter);
+
+        dump(optimized, 0);
+    }
+
+    private static void dump(RelExpr expression, int indent)
+    {
+        System.out.println(Utils.indent(indent) + expression.getType());
+        for (RelExpr input : expression.getInputs()) {
+            dump(input, indent + 1);
+        }
     }
 }

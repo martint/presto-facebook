@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.newplanner.optimizer;
 
+import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -33,7 +34,7 @@ public class RelExpr
         FILTER,
         PROJECT,
         TABLE,
-        AGG,
+        GROUPED_AGGREGATION,
 
         MERGE,
         REPLICATE,
@@ -83,5 +84,11 @@ public class RelExpr
     public Type getType()
     {
         return type;
+    }
+
+    @Override
+    public String toString()
+    {
+        return type + "@" + id;
     }
 }

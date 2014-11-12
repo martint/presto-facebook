@@ -26,12 +26,12 @@ public class ImplementAggregationRule
     @Override
     public Optional<RelExpr> implement(RelExpr expression, PhysicalConstraints requirements, Optimizer optimizer, OptimizerContext context)
     {
-        if (expression.getType() != RelExpr.Type.AGG) {
+        if (expression.getType() != RelExpr.Type.GROUPED_AGGREGATION) {
             return Optional.absent();
         }
 
         RelExpr child = optimizer.optimize(expression.getInputs().get(0), requirements, context);
 
-        return Optional.of(new RelExpr(context.nextExpressionId(), RelExpr.Type.AGG, child));
+        return Optional.of(new RelExpr(context.nextExpressionId(), RelExpr.Type.GROUPED_AGGREGATION, child));
     }
 }

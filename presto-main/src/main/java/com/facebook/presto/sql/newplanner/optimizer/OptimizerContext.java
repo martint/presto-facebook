@@ -28,7 +28,7 @@ public class OptimizerContext
 {
     private int nextExpressionId;
     private int nextClusterId;
-    private final Graph<NodeInfo, EdgeInfo, ClusterInfo> graph = new Graph<>();
+    private final Graph<Integer, NodeInfo, EdgeInfo, ClusterInfo> graph = new Graph<>();
 
     private final Map<ExpressionWithRequirements, RelExpr> memoized = new HashMap<>();
     private final Map<GroupWithProperties, Integer> implementationClusters = new HashMap<>();

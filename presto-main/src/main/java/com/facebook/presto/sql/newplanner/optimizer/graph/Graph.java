@@ -25,14 +25,19 @@ import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-public class Graph<V, E, C>
+public class Graph<VID, V, E, C>
 {
-    private final Map<Integer, V> nodes = new HashMap<>();
-    private final Map<Edge, E> edges = new HashMap<>();
+    private final Map<VID, V> nodes = new HashMap<>();
+    private final Map<Edge<VID>, E> edges = new HashMap<>();
     private final Map<Integer, C> clusters = new HashMap<>();
-    private final Map<Integer, Integer> membership = new HashMap<>();
+    private final Map<VID, Integer> membership = new HashMap<>();
 
-    public void addNode(int id, int cluster, V value)
+    public int getNodeCount()
+    {
+        return nodes.size();
+    }
+
+    public void addNode(VID id, int cluster, V value)
     {
         checkArgument(clusters.containsKey(cluster), "cluster does not exist: %s", cluster);
         checkArgument(!nodes.containsKey(id), "node already exists: %s", id);
@@ -41,23 +46,23 @@ public class Graph<V, E, C>
         membership.put(id, cluster);
     }
 
-    public void addNode(int id, V value)
+    public void addNode(VID id, V value)
     {
         checkArgument(!nodes.containsKey(id), "node already exists: %s", id);
         nodes.put(id, value);
     }
 
-    public void addEdge(int from, int to, E type)
+    public void addEdge(VID from, VID to, E type)
     {
         addEdge(from, to, type, false);
     }
 
-    public void addEdge(int from, int to, E type, boolean toCluster)
+    public void addEdge(VID from, VID to, E type, boolean toCluster)
     {
         checkArgument(nodes.containsKey(from), "node does not exist: %s", from);
         checkArgument(nodes.containsKey(to), "node does not exist: %s", to);
 
-        Edge edge = new Edge(from, to, toCluster);
+        Edge<VID> edge = new Edge<>(from, to, toCluster);
         edges.put(edge, type);
     }
 
@@ -74,18 +79,18 @@ public class Graph<V, E, C>
         builder.append("\tranksep=1.5;\n");
         builder.append("\tnode [shape=rectangle];\n");
 
-        Multimap<Integer, Integer> membership = HashMultimap.create();
-        for (Map.Entry<Integer, Integer> entry : this.membership.entrySet()) {
+        Multimap<Integer, VID> membership = HashMultimap.create();
+        for (Map.Entry<VID, Integer> entry : this.membership.entrySet()) {
             membership.put(entry.getValue(), entry.getKey());
         }
 
-        for (Map.Entry<Integer, Collection<Integer>> entry : membership.asMap().entrySet()) {
+        for (Map.Entry<Integer, Collection<VID>> entry : membership.asMap().entrySet()) {
             builder.append("\tsubgraph cluster_" + entry.getKey() + "{\n");
             builder.append(String.format("\t\t{rank=same; %s}\n", Joiner.on(" ").join(entry.getValue())));
 
             builder.append("\t\t" + clusterFormatter.apply(clusters.get(entry.getKey())) + ";\n");
 
-            for (int nodeId : entry.getValue()) {
+            for (VID nodeId : entry.getValue()) {
                 V node = nodes.get(nodeId);
                 builder.append("\t\t" + nodeId + " [" + nodeFormatter.apply(node) + "];\n");
             }
@@ -93,9 +98,9 @@ public class Graph<V, E, C>
             builder.append("\t}\n");
         }
 
-        for (Map.Entry<Edge, E> entry : edges.entrySet()) {
-            int from = entry.getKey().from;
-            int to = entry.getKey().to;
+        for (Map.Entry<Edge<VID>, E> entry : edges.entrySet()) {
+            VID from = entry.getKey().from;
+            VID to = entry.getKey().to;
             if (entry.getKey().toCluster) {
                 builder.append(String.format("\t%s -> %s [%s, lhead=cluster_%s];\n", from, to, edgeFormatter.apply(entry.getValue()), this.membership.get(to)));
             }
@@ -108,23 +113,23 @@ public class Graph<V, E, C>
         return builder.toString();
     }
 
-    public int getCluster(int nodeId)
+    public int getCluster(VID nodeId)
     {
         return membership.get(nodeId);
     }
 
-    public Optional getNode(int id)
+    public Optional getNode(VID id)
     {
         return Optional.fromNullable(nodes.get(id));
     }
 
-    private static final class Edge
+    private static final class Edge<VID>
     {
-        private final int from;
-        private final int to;
+        private final VID from;
+        private final VID to;
         private final boolean toCluster;
 
-        public Edge(int from, int to, boolean toCluster)
+        public Edge(VID from, VID to, boolean toCluster)
         {
             this.from = from;
             this.to = to;
@@ -143,10 +148,13 @@ public class Graph<V, E, C>
 
             Edge edge = (Edge) o;
 
-            if (from != edge.from) {
+            if (toCluster != edge.toCluster) {
                 return false;
             }
-            if (to != edge.to) {
+            if (!from.equals(edge.from)) {
+                return false;
+            }
+            if (!to.equals(edge.to)) {
                 return false;
             }
 
@@ -156,8 +164,9 @@ public class Graph<V, E, C>
         @Override
         public int hashCode()
         {
-            int result = from;
-            result = 31 * result + to;
+            int result = from.hashCode();
+            result = 31 * result + to.hashCode();
+            result = 31 * result + (toCluster ? 1 : 0);
             return result;
         }
     }
