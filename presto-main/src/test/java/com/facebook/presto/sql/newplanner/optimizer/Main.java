@@ -15,6 +15,7 @@ package com.facebook.presto.sql.newplanner.optimizer;
 
 import com.facebook.presto.sql.newplanner.expression.Utils;
 import com.facebook.presto.sql.newplanner.optimizer2.Optimizer2;
+import com.google.common.collect.ImmutableList;
 
 public class Main
 {
@@ -22,12 +23,14 @@ public class Main
     {
         int nodeId = 0;
 
-        RelExpr filter = new RelExpr(nodeId++, RelExpr.Type.FILTER,
-                new RelExpr(nodeId++, RelExpr.Type.PROJECT,
-                        new RelExpr(nodeId++, RelExpr.Type.TABLE)));
+        RelExpr expr =
+                new RelExpr(nodeId++, RelExpr.Type.GROUPED_AGGREGATION, ImmutableList.of(1),
+                        new RelExpr(nodeId++, RelExpr.Type.FILTER,
+                                new RelExpr(nodeId++, RelExpr.Type.PROJECT,
+                                        new RelExpr(nodeId++, RelExpr.Type.TABLE))));
 
         Optimizer2 optimizer = new Optimizer2();
-        RelExpr optimized = optimizer.optimize(filter);
+        RelExpr optimized = optimizer.optimize(expr);
 
         dump(optimized, 0);
     }

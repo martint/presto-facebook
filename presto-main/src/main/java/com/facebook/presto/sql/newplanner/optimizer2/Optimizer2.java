@@ -33,7 +33,6 @@ public class Optimizer2
         if (expression.getType() == RelExpr.Type.FILTER) {
             PhysicalConstraints childConstraints = PhysicalConstraints.any();
 
-            context.recordOptimizationRequest(expression, requirements, expression.getInputs().get(0), childConstraints);
             OptimizationResult optimizedChild = optimize(expression.getInputs().get(0), childConstraints, context);
 
             result = new OptimizationResult(new RelExpr(context.nextId(), RelExpr.Type.FILTER, optimizedChild.getExpression()), optimizedChild.getProperties());
@@ -56,14 +55,10 @@ public class Optimizer2
             // If we force child to be unpartitioned we may miss out on being able to do partitioned agg
             // If we force child to be partitioned(key), we may be forcing the child to do a repartition of an unpartitioned expression just to satisfy the reqs
             // Maybe we need to try both and pick the "best" alternative
-            // Maybe GROUP_AGGREGATION is not implementable and we need a SINGLE_NODE_AGG vs PARTITIONED_AGG vs ...
 
-            if (requirements.hasPartitioningConstraint()) {
-                // try
-            }
-            else {
-                // try
-            }
+            // try partitioned(k), add enforcement if necessary
+            // try unpartitioned, add enforcement if necessary
+
             // option 1: require unpartitioned input
             {
                 PhysicalConstraints childConstraints = PhysicalConstraints.unpartitioned();
@@ -71,6 +66,7 @@ public class Optimizer2
 
                 // TODO derive output properties based on child properties
                 result = new OptimizationResult(expression, PhysicalProperties.randomPartitioned());
+                result = enforceConstraints(requirements, result, context);
             }
             // option 2: require partition(k) input
             {
@@ -79,8 +75,10 @@ public class Optimizer2
 
                 // TODO derive output properties based on child properties
                 result = new OptimizationResult(expression, PhysicalProperties.randomPartitioned());
+                result = enforceConstraints(requirements, result, context);
             }
 
+            // TODO: pick best between option 1 & 2
             result = enforceConstraints(requirements, result, context);
         }
         else {
@@ -114,6 +112,10 @@ public class Optimizer2
         // any partitioned -> unpartitioned
         else if (!requirements.getPartitioningColumns().isPresent() && properties.isPartitioned()) {
             return new OptimizationResult(new RelExpr(context.nextId(), RelExpr.Type.MERGE, expression), PhysicalProperties.unpartitioned());
+        }
+        // unpartitioned/partitioned(k) -> partitioned
+        else if (requirements.getPartitioningColumns().isPresent()) {
+            return new OptimizationResult(new RelExpr(context.nextId(), RelExpr.Type.PARTITION, expression), PhysicalProperties.partitioned(requirements.getPartitioningColumns().get()));
         }
 
         throw new UnsupportedOperationException(String.format("not yet implemented: required = %s, actual = %s", requirements, properties));

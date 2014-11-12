@@ -47,12 +47,17 @@ public class PhysicalProperties
         return new PhysicalProperties(Optional.<List<Integer>>of(ImmutableList.<Integer>of()));
     }
 
+    public static PhysicalProperties partitioned(List<Integer> columns)
+    {
+        return new PhysicalProperties(Optional.of(columns));
+    }
+
     @Override
     public String toString()
     {
         StringBuilder builder = new StringBuilder();
 
-        if (!partitioningColumns.isPresent()) {
+        if (partitioningColumns.isPresent()) {
             builder.append("partitioned: " + partitioningColumns.get());
         }
         else {
