@@ -104,6 +104,9 @@ public class PhysicalConstraints
 
         PhysicalConstraints that = (PhysicalConstraints) o;
 
+        if (hasPartitioningConstraint != that.hasPartitioningConstraint) {
+            return false;
+        }
         if (!partitioningColumns.equals(that.partitioningColumns)) {
             return false;
         }
@@ -114,6 +117,8 @@ public class PhysicalConstraints
     @Override
     public int hashCode()
     {
-        return partitioningColumns.hashCode();
+        int result = (hasPartitioningConstraint ? 1 : 0);
+        result = 31 * result + partitioningColumns.hashCode();
+        return result;
     }
 }

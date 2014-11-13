@@ -13,12 +13,38 @@
  */
 package com.facebook.presto.sql.newplanner.optimizer2;
 
+import com.facebook.presto.sql.newplanner.optimizer.ExpressionWithRequirements;
+import com.facebook.presto.sql.newplanner.optimizer.PhysicalConstraints;
+import com.facebook.presto.sql.newplanner.optimizer.RelExpr;
+import com.google.common.base.Optional;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 public class OptimizerContext2
 {
     private int nextId;
+    private Map<ExpressionWithRequirements, List<OptimizationResult>> memoized = new HashMap<>();
+
+    public OptimizerContext2(int nextId)
+    {
+        this.nextId = nextId;
+    }
 
     public int nextId()
     {
         return nextId++;
+    }
+
+    public Optional<List<OptimizationResult>> getOptimized(RelExpr expression, PhysicalConstraints requirements)
+    {
+        List<OptimizationResult> result = memoized.get(new ExpressionWithRequirements(expression, requirements));
+        return Optional.fromNullable(result);
+    }
+
+    public void recordOptimization(RelExpr expression, PhysicalConstraints constraints, List<OptimizationResult> results)
+    {
+        memoized.put(new ExpressionWithRequirements(expression, constraints), results);
     }
 }

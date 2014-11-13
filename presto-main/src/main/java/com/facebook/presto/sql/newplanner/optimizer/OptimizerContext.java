@@ -268,47 +268,4 @@ public class OptimizerContext
             return id;
         }
     }
-
-    private static final class ExpressionWithRequirements
-    {
-        private final RelExpr expression;
-        private final PhysicalConstraints requirements;
-
-        public ExpressionWithRequirements(RelExpr expression, PhysicalConstraints requirements)
-        {
-            // TODO: cache expression hashcode
-            this.expression = expression;
-            this.requirements = requirements;
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-
-            ExpressionWithRequirements that = (ExpressionWithRequirements) o;
-
-            if (expression.getId() != that.expression.getId()) {
-                return false;
-            }
-            if (!requirements.equals(that.requirements)) {
-                return false;
-            }
-
-            return true;
-        }
-
-        @Override
-        public int hashCode()
-        {
-            int result = expression.getId();
-            result = 31 * result + requirements.hashCode();
-            return result;
-        }
-    }
 }

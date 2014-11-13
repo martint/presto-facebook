@@ -21,7 +21,9 @@ import com.google.common.collect.Multimap;
 
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -79,12 +81,19 @@ public class Graph<VID, V, E, C>
         builder.append("\tranksep=1.5;\n");
         builder.append("\tnode [shape=rectangle];\n");
 
-        Multimap<Integer, VID> membership = HashMultimap.create();
-        for (Map.Entry<VID, Integer> entry : this.membership.entrySet()) {
-            membership.put(entry.getValue(), entry.getKey());
+        Set<VID> nodesWithoutCluster = new HashSet<>();
+        Multimap<Integer, VID> nodesByCluster = HashMultimap.create();
+        for (VID nodeId : nodes.keySet()) {
+            Integer cluster = this.membership.get(nodeId);
+            if (cluster != null) {
+                nodesByCluster.put(cluster, nodeId);
+            }
+            else {
+                nodesWithoutCluster.add(nodeId);
+            }
         }
 
-        for (Map.Entry<Integer, Collection<VID>> entry : membership.asMap().entrySet()) {
+        for (Map.Entry<Integer, Collection<VID>> entry : nodesByCluster.asMap().entrySet()) {
             builder.append("\tsubgraph cluster_" + entry.getKey() + "{\n");
             builder.append(String.format("\t\t{rank=same; %s}\n", Joiner.on(" ").join(entry.getValue())));
 
@@ -96,6 +105,11 @@ public class Graph<VID, V, E, C>
             }
 
             builder.append("\t}\n");
+        }
+
+        for (VID nodeId : nodesWithoutCluster) {
+            V node = nodes.get(nodeId);
+            builder.append("\t\t" + nodeId + " [" + nodeFormatter.apply(node) + "];\n");
         }
 
         for (Map.Entry<Edge<VID>, E> entry : edges.entrySet()) {
@@ -118,7 +132,7 @@ public class Graph<VID, V, E, C>
         return membership.get(nodeId);
     }
 
-    public Optional getNode(VID id)
+    public Optional<V> getNode(VID id)
     {
         return Optional.fromNullable(nodes.get(id));
     }
