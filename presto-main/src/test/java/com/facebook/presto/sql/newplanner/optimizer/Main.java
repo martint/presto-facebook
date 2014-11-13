@@ -18,9 +18,13 @@ import com.facebook.presto.sql.newplanner.optimizer.graph.Graph;
 import com.facebook.presto.sql.newplanner.optimizer2.OptimizationResult;
 import com.facebook.presto.sql.newplanner.optimizer2.Optimizer2;
 import com.google.common.base.Functions;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class Main
 {
@@ -39,11 +43,11 @@ public class Main
         Graph<String, String, String, String> graph = new Graph<>();
 
         Optimizer2 optimizer = new Optimizer2();
-        graph.addNode("root", "");
+        graph.addNode("root", "shape=point");
         for (OptimizationResult result : optimizer.optimize(expr)) {
             add(graph, result);
-            graph.addEdge("root", nodeId(result), "");
-            dump(result, 0);
+            graph.addEdge("root", nodeId(result), "style=dotted,arrowhead=none");
+//            dump(result, 0);
         }
 
         System.out.println(graph.toGraphviz(Functions.<String>identity(), Functions.<String>identity(), Functions.<String>identity()));
@@ -59,7 +63,34 @@ public class Main
         for (OptimizationResult child : expression.getInputs()) {
             add(graph, child);
             String childNodeId = nodeId(child);
-            graph.addEdge(parentNodeId, childNodeId, "");
+            List<String> attributes = new ArrayList<>();
+
+//            attributes.add("arrowtail=none");
+//            attributes.add("arrowhead=none");
+//            attributes.add("penwidth=10");
+
+            if (expression.getType() == RelExpr.Type.MERGE || child.getType() == RelExpr.Type.PARTITION) {
+                attributes.add("style=dashed");
+            }
+
+//            if (expression.getProperties().isPartitioned() && child.getProperties().isPartitioned()) {
+//                attributes.add("penwidth=7");
+//            }
+            if (expression.getProperties().isPartitioned() && !child.getProperties().isPartitioned()) {
+                attributes.add("arrowhead=none");
+                attributes.add("arrowtail=crow");
+            }
+            else if (!expression.getProperties().isPartitioned() && child.getProperties().isPartitioned()) {
+                attributes.add("arrowhead=crow");
+                attributes.add("arrowtail=none");
+//                attributes.add("dir=back");
+            }
+            else {
+                attributes.add("arrowhead=none");
+                attributes.add("arrowtail=none");
+            }
+
+            graph.addEdge(parentNodeId, childNodeId, Joiner.on(",").join(attributes));
         }
     }
 
