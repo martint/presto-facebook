@@ -34,8 +34,11 @@ public class RelExpr
         FILTER,
         PROJECT,
         TABLE,
+
         LOCAL_GROUPED_AGGREGATION,
         GROUPED_AGGREGATION,
+
+        HASH_JOIN,
 
         MERGE,
         REPLICATE,

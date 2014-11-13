@@ -13,23 +13,35 @@
  */
 package com.facebook.presto.sql.newplanner.optimizer2;
 
+import com.facebook.presto.sql.newplanner.optimizer.PhysicalConstraints;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.facebook.presto.sql.newplanner.optimizer.PhysicalConstraints.GlobalPartitioning.PARTITIONED;
+import static com.facebook.presto.sql.newplanner.optimizer.PhysicalConstraints.GlobalPartitioning.REPLICATED;
+import static com.facebook.presto.sql.newplanner.optimizer.PhysicalConstraints.GlobalPartitioning.UNPARTITIONED;
+
 public class PhysicalProperties
 {
+    private final PhysicalConstraints.GlobalPartitioning globalPartitioning;
     private final Optional<List<Integer>> partitioningColumns;
 
-    private PhysicalProperties(Optional<List<Integer>> partitioningColumns)
+    private PhysicalProperties(PhysicalConstraints.GlobalPartitioning globalPartitioning, Optional<List<Integer>> partitioningColumns)
     {
+        this.globalPartitioning = globalPartitioning;
         this.partitioningColumns = partitioningColumns;
+    }
+
+    public PhysicalConstraints.GlobalPartitioning getGlobalPartitioning()
+    {
+        return globalPartitioning;
     }
 
     public boolean isPartitioned()
     {
-        return partitioningColumns.isPresent();
+        return globalPartitioning == PARTITIONED;
     }
 
     public List<Integer> getPartitioningColumns()
@@ -39,17 +51,22 @@ public class PhysicalProperties
 
     public static PhysicalProperties unpartitioned()
     {
-        return new PhysicalProperties(Optional.<List<Integer>>absent());
+        return new PhysicalProperties(UNPARTITIONED, Optional.<List<Integer>>absent());
     }
 
     public static PhysicalProperties randomPartitioned()
     {
-        return new PhysicalProperties(Optional.<List<Integer>>of(ImmutableList.<Integer>of()));
+        return new PhysicalProperties(PARTITIONED, Optional.<List<Integer>>of(ImmutableList.<Integer>of()));
     }
 
     public static PhysicalProperties partitioned(List<Integer> columns)
     {
-        return new PhysicalProperties(Optional.of(columns));
+        return new PhysicalProperties(PARTITIONED, Optional.of(columns));
+    }
+
+    public static PhysicalProperties replicated()
+    {
+        return new PhysicalProperties(REPLICATED, Optional.<List<Integer>>absent());
     }
 
     @Override
@@ -57,11 +74,16 @@ public class PhysicalProperties
     {
         StringBuilder builder = new StringBuilder();
 
-        if (partitioningColumns.isPresent()) {
-            builder.append("partitioned: " + partitioningColumns.get());
-        }
-        else {
-            builder.append("unpartitioned");
+        switch (globalPartitioning) {
+            case UNPARTITIONED:
+                builder.append("unpartitioned");
+                break;
+            case PARTITIONED:
+                builder.append("partitioned: " + partitioningColumns.get());
+                break;
+            case REPLICATED:
+                builder.append("replicated");
+                break;
         }
 
         return builder.toString();

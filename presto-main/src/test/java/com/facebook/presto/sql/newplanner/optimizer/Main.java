@@ -20,11 +20,13 @@ import com.facebook.presto.sql.newplanner.optimizer2.Optimizer2;
 import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slices;
-import io.airlift.slice.XxHash64;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import static com.facebook.presto.sql.newplanner.optimizer.RelExpr.Type.MERGE;
+import static com.facebook.presto.sql.newplanner.optimizer.RelExpr.Type.PARTITION;
+import static com.facebook.presto.sql.newplanner.optimizer.RelExpr.Type.REPLICATE;
 
 public class Main
 {
@@ -32,21 +34,42 @@ public class Main
 
     public static void main(String[] args)
     {
+//        RelExpr expr =
+//                expression(RelExpr.Type.GROUPED_AGGREGATION, ImmutableList.of(2),
+//                        expression(RelExpr.Type.GROUPED_AGGREGATION, ImmutableList.of(1),
+//                                expression(RelExpr.Type.LOCAL_GROUPED_AGGREGATION, ImmutableList.of(1),
+//                                        expression(RelExpr.Type.FILTER,
+//                                                expression(RelExpr.Type.PROJECT,
+//                                                        expression(RelExpr.Type.TABLE))))));
+
+
         RelExpr expr =
-                expression(RelExpr.Type.GROUPED_AGGREGATION, ImmutableList.of(2),
-                        expression(RelExpr.Type.GROUPED_AGGREGATION, ImmutableList.of(1),
-                                expression(RelExpr.Type.LOCAL_GROUPED_AGGREGATION, ImmutableList.of(1),
-                                        expression(RelExpr.Type.FILTER,
-                                                expression(RelExpr.Type.PROJECT,
-                                                        expression(RelExpr.Type.TABLE))))));
+                expression(RelExpr.Type.HASH_JOIN, ImmutableList.of(1),
+                        ImmutableList.of(
+                                expression(RelExpr.Type.TABLE, ImmutableList.of(1)),
+                                expression(RelExpr.Type.TABLE, ImmutableList.of(1))));
 
         Graph<String, String, String, String> graph = new Graph<>();
 
         Optimizer2 optimizer = new Optimizer2();
         graph.addNode("root", "shape=point");
-        for (OptimizationResult result : optimizer.optimize(expr)) {
+
+        List<OptimizationResult> optimized = optimizer.optimize(expr);
+
+//        OptimizationResult lowestCost = Ordering.from(new CostComparator()).min(optimized);
+        for (OptimizationResult result : optimized) {
             add(graph, result);
-            graph.addEdge("root", nodeId(result), "style=dotted,arrowhead=none");
+
+            List<String> attributes = new ArrayList<>();
+            attributes.add("style=dotted");
+            attributes.add("arrowhead=none");
+
+//            if (result == lowestCost) {
+//                attributes.add("color=salmon");
+//                attributes.add("penwidth=10");
+//            }
+
+            graph.addEdge("root", nodeId(result), Joiner.on(",").join(attributes));
 //            dump(result, 0);
         }
 
@@ -69,7 +92,7 @@ public class Main
 //            attributes.add("arrowhead=none");
 //            attributes.add("penwidth=10");
 
-            if (expression.getType() == RelExpr.Type.MERGE || child.getType() == RelExpr.Type.PARTITION) {
+            if (expression.getType() == MERGE || child.getType() == PARTITION || child.getType() == REPLICATE) {
                 attributes.add("style=dashed");
             }
 
@@ -110,9 +133,19 @@ public class Main
         return new RelExpr(nextNodeId++, type, payload, ImmutableList.of(input));
     }
 
+    private static RelExpr expression(RelExpr.Type type, Object payload, List<RelExpr> inputs)
+    {
+        return new RelExpr(nextNodeId++, type, payload, inputs);
+    }
+
     private static RelExpr expression(RelExpr.Type type, RelExpr input)
     {
         return new RelExpr(nextNodeId++, type, null, ImmutableList.of(input));
+    }
+
+    private static RelExpr expression(RelExpr.Type type, Object payload)
+    {
+        return new RelExpr(nextNodeId++, type, payload, ImmutableList.<RelExpr>of());
     }
 
     private static RelExpr expression(RelExpr.Type type)

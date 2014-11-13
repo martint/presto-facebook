@@ -23,33 +23,54 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 public class PhysicalConstraints
 {
-    private final boolean hasPartitioningConstraint;
+    public enum GlobalPartitioning {
+        UNPARTITIONED,
+        PARTITIONED,
+        REPLICATED
+    }
+
+    private final Optional<GlobalPartitioning> partitioningConstraint;
     private final Optional<List<Integer>> partitioningColumns;
 
-    public PhysicalConstraints(boolean hasPartitioningConstraint, Optional<List<Integer>> partitioningColumns)
+    public PhysicalConstraints(Optional<GlobalPartitioning> partitioningConstraint, Optional<List<Integer>> partitioningColumns)
     {
-        this.hasPartitioningConstraint = hasPartitioningConstraint;
+        this.partitioningConstraint = checkNotNull(partitioningConstraint, "partitioningConstraint is null");
         this.partitioningColumns = checkNotNull(partitioningColumns, "partitioningColumns is null");
+    }
+
+    public Optional<GlobalPartitioning> getPartitioningConstraint()
+    {
+        return partitioningConstraint;
     }
 
     public static PhysicalConstraints partitioned(List<Integer> columns)
     {
-        return new PhysicalConstraints(true, Optional.of(columns));
+        return new PhysicalConstraints(Optional.of(GlobalPartitioning.PARTITIONED), Optional.of(columns));
+    }
+
+    public static PhysicalConstraints partitionedAny()
+    {
+        return new PhysicalConstraints(Optional.of(GlobalPartitioning.PARTITIONED), Optional.<List<Integer>>absent());
     }
 
     public static PhysicalConstraints unpartitioned()
     {
-        return new PhysicalConstraints(true, Optional.<List<Integer>>absent());
+        return new PhysicalConstraints(Optional.of(GlobalPartitioning.UNPARTITIONED), Optional.<List<Integer>>absent());
+    }
+
+    public static PhysicalConstraints replicated()
+    {
+        return new PhysicalConstraints(Optional.of(GlobalPartitioning.REPLICATED), Optional.<List<Integer>>absent());
     }
 
     public static PhysicalConstraints any()
     {
-        return new PhysicalConstraints(false, Optional.<List<Integer>>absent());
+        return new PhysicalConstraints(Optional.<GlobalPartitioning>absent(), Optional.<List<Integer>>absent());
     }
 
     public boolean hasPartitioningConstraint()
     {
-        return hasPartitioningConstraint;
+        return partitioningConstraint.isPresent();
     }
 
     public Optional<List<Integer>> getPartitioningColumns()
@@ -77,12 +98,23 @@ public class PhysicalConstraints
     {
         StringBuilder builder = new StringBuilder();
 
-        if (hasPartitioningConstraint) {
-            if (!partitioningColumns.isPresent()) {
-                builder.append("unpartitioned");
-            }
-            else {
-                builder.append("partitioned: " + partitioningColumns.get());
+        if (partitioningConstraint.isPresent()) {
+            switch (partitioningConstraint.get()) {
+                case UNPARTITIONED:
+                    builder.append("unpartitioned");
+                    break;
+                case PARTITIONED:
+                    builder.append("partitioned: ");
+                    if (partitioningColumns.isPresent()) {
+                        builder.append(partitioningColumns.get());
+                    }
+                    else {
+                        builder.append("<any>");
+                    }
+                    break;
+                case REPLICATED:
+                    builder.append("replicated");
+                    break;
             }
         }
         else {
@@ -104,10 +136,10 @@ public class PhysicalConstraints
 
         PhysicalConstraints that = (PhysicalConstraints) o;
 
-        if (hasPartitioningConstraint != that.hasPartitioningConstraint) {
+        if (!partitioningColumns.equals(that.partitioningColumns)) {
             return false;
         }
-        if (!partitioningColumns.equals(that.partitioningColumns)) {
+        if (!partitioningConstraint.equals(that.partitioningConstraint)) {
             return false;
         }
 
@@ -117,7 +149,7 @@ public class PhysicalConstraints
     @Override
     public int hashCode()
     {
-        int result = (hasPartitioningConstraint ? 1 : 0);
+        int result = partitioningConstraint.hashCode();
         result = 31 * result + partitioningColumns.hashCode();
         return result;
     }

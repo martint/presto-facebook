@@ -318,6 +318,7 @@ public class NewLocalExecutionPlanner
                 expression.getGroupingInputs(),
                 AggregationNode.Step.SINGLE, // TODO: partial, final
                 accumulatorFactories,
+                Optional.<Integer>absent(),
                 10_000,
                 null); // TODO
 
@@ -327,7 +328,7 @@ public class NewLocalExecutionPlanner
     private List<OperatorFactory> process(MarkDistinctExpression expression)
     {
         RelationalExpression input = expression.getInputs().get(0); // TODO: maybe pass expression's output type to MarkDistinctOperatorFactory instead of letting it build the list by appending BOOLEAN
-        MarkDistinctOperator.MarkDistinctOperatorFactory operatorFactory = new MarkDistinctOperator.MarkDistinctOperatorFactory(expression.getId(), input.getType().getRowType(), expression.getDistinctFields());
+        MarkDistinctOperator.MarkDistinctOperatorFactory operatorFactory = new MarkDistinctOperator.MarkDistinctOperatorFactory(expression.getId(), input.getType().getRowType(), expression.getDistinctFields(), Optional.<Integer>absent());
 
         return append(process(input), operatorFactory);
     }
