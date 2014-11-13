@@ -74,8 +74,8 @@ public class Optimizer2
                 OptimizationResult optimizedChild = optimize(expression.getInputs().get(0), childConstraints, context);
 
                 // TODO derive output properties based on child properties
-                result = new OptimizationResult(expression, PhysicalProperties.randomPartitioned());
-                result = enforceConstraints(requirements, result, context);
+//                result = new OptimizationResult(expression, PhysicalProperties.randomPartitioned());
+//                result = enforceConstraints(requirements, result, context);
             }
 
             // TODO: pick best between option 1 & 2
@@ -85,6 +85,7 @@ public class Optimizer2
             throw new UnsupportedOperationException("Can't optimize: " + expression.getType());
         }
 
+        System.out.println(result.getExpression() + "@" + result.getProperties());
         return result;
     }
 
