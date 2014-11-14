@@ -70,6 +70,36 @@ public class PhysicalProperties
     }
 
     @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        PhysicalProperties that = (PhysicalProperties) o;
+
+        if (globalPartitioning != that.globalPartitioning) {
+            return false;
+        }
+        if (!partitioningColumns.equals(that.partitioningColumns)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        int result = globalPartitioning.hashCode();
+        result = 31 * result + partitioningColumns.hashCode();
+        return result;
+    }
+
+    @Override
     public String toString()
     {
         StringBuilder builder = new StringBuilder();
@@ -88,5 +118,4 @@ public class PhysicalProperties
 
         return builder.toString();
     }
-
 }

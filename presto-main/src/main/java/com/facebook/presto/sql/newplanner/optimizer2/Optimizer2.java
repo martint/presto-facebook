@@ -28,7 +28,7 @@ public class Optimizer2
 {
     public List<OptimizationResult> optimize(RelExpr expression)
     {
-        return optimize(expression, PhysicalConstraints.unpartitioned(), new OptimizerContext2(expression.getId() + 1));
+        return optimize(expression, PhysicalConstraints.any(), new OptimizerContext2(expression.getId() + 1));
     }
 
     public List<OptimizationResult> optimize(RelExpr expression, PhysicalConstraints requirements, OptimizerContext2 context)
@@ -132,32 +132,35 @@ public class Optimizer2
 
         PhysicalConstraints.GlobalPartitioning constraint = requirements.getPartitioningConstraint().get();
         PhysicalConstraints.GlobalPartitioning actual = properties.getGlobalPartitioning();
-        if (constraint == UNPARTITIONED && actual == UNPARTITIONED) {
-            return result;
-        }
-        // any partition -> any partition
-        else if (constraint == PARTITIONED && !requirements.getPartitioningColumns().isPresent() &&
-                actual == PARTITIONED) {
-            return result;
-        }
-        // any partitioned -> unpartitioned
-        else if (constraint == UNPARTITIONED && actual == PARTITIONED) {
-            return new OptimizationResult(context.nextId(), RelExpr.Type.MERGE, PhysicalProperties.unpartitioned(), ImmutableList.of(result));
-        }
-        // partitioned(k) -> partitioned(y)
-        else if (constraint == PARTITIONED && actual == PARTITIONED &&
-                requirements.getPartitioningColumns().isPresent() &&
-                !requirements.getPartitioningColumns().get().equals(properties.getPartitioningColumns())) {
-            return new OptimizationResult(context.nextId(), RelExpr.Type.PARTITION, PhysicalProperties.partitioned(requirements.getPartitioningColumns().get()), ImmutableList.of(result));
-        }
-        // partitioned(k) -> partitioned(k)
-        else if (constraint == PARTITIONED && actual == PARTITIONED &&
-                requirements.getPartitioningColumns().isPresent() &&
-                requirements.getPartitioningColumns().get().equals(properties.getPartitioningColumns())) {
-            return result;
+
+        if (constraint == UNPARTITIONED) {
+            if (actual == UNPARTITIONED) {
+                return result;
+            }
+            else if (actual == PARTITIONED) {
+                return new OptimizationResult(context.nextId(), RelExpr.Type.MERGE, PhysicalProperties.unpartitioned(), ImmutableList.of(result));
+            }
         }
         else if (constraint == REPLICATED) {
             return new OptimizationResult(context.nextId(), RelExpr.Type.REPLICATE, PhysicalProperties.replicated(), ImmutableList.of(result));
+        }
+        else if (constraint == PARTITIONED && actual == PARTITIONED) {
+            // req: partitioned:<any>
+            if (!requirements.getPartitioningColumns().isPresent()) {
+                return result;
+            }
+            else if (!requirements.getPartitioningColumns().get().equals(properties.getPartitioningColumns())) {
+                return new OptimizationResult(context.nextId(), RelExpr.Type.PARTITION, PhysicalProperties.partitioned(requirements.getPartitioningColumns().get()), ImmutableList.of(result));
+            }
+            else {
+                return result;
+            }
+        }
+        else if (constraint == PARTITIONED && requirements.getPartitioningColumns().isPresent() && actual == UNPARTITIONED) {
+            return new OptimizationResult(context.nextId(), RelExpr.Type.PARTITION, PhysicalProperties.partitioned(requirements.getPartitioningColumns().get()), ImmutableList.of(result));
+        }
+        else if (constraint == PARTITIONED && !requirements.getPartitioningColumns().isPresent() && actual == UNPARTITIONED) {
+            return new OptimizationResult(context.nextId(), RelExpr.Type.PARTITION, PhysicalProperties.partitioned(ImmutableList.<Integer>of()), ImmutableList.of(result));
         }
 
         throw new UnsupportedOperationException(String.format("not yet implemented: required = %s, actual = %s", requirements, properties));

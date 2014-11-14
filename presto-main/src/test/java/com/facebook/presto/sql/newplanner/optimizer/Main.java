@@ -40,14 +40,22 @@ public class Main
 //                                expression(RelExpr.Type.LOCAL_GROUPED_AGGREGATION, ImmutableList.of(1),
 //                                        expression(RelExpr.Type.FILTER,
 //                                                expression(RelExpr.Type.PROJECT,
-//                                                        expression(RelExpr.Type.TABLE))))));
+//                                                        expression(RelExpr.Type.TABLE, ImmutableList.of()))))));
 
+//        RelExpr expr =
+//                expression(RelExpr.Type.HASH_JOIN, ImmutableList.of(1),
+//                        ImmutableList.of(
+//                                expression(RelExpr.Type.TABLE, ImmutableList.of(1)),
+//                                expression(RelExpr.Type.TABLE, ImmutableList.of(1))));
 
         RelExpr expr =
                 expression(RelExpr.Type.HASH_JOIN, ImmutableList.of(1),
                         ImmutableList.of(
-                                expression(RelExpr.Type.TABLE, ImmutableList.of(1)),
-                                expression(RelExpr.Type.TABLE, ImmutableList.of(1))));
+                                expression(RelExpr.Type.HASH_JOIN, ImmutableList.of(1),
+                                        ImmutableList.of(
+                                                expression(RelExpr.Type.TABLE, ImmutableList.of(1)),
+                                                expression(RelExpr.Type.TABLE, ImmutableList.of(1)))),
+                                        expression(RelExpr.Type.TABLE, ImmutableList.of(1))));
 
         Graph<String, String, String, String> graph = new Graph<>();
 
