@@ -34,13 +34,13 @@ public class Main
 
     public static void main(String[] args)
     {
-//        RelExpr expr =
-//                expression(RelExpr.Type.GROUPED_AGGREGATION, ImmutableList.of(2),
-//                        expression(RelExpr.Type.GROUPED_AGGREGATION, ImmutableList.of(1),
-//                                expression(RelExpr.Type.LOCAL_GROUPED_AGGREGATION, ImmutableList.of(1),
-//                                        expression(RelExpr.Type.FILTER,
-//                                                expression(RelExpr.Type.PROJECT,
-//                                                        expression(RelExpr.Type.TABLE, ImmutableList.of()))))));
+        RelExpr expr =
+                expression(RelExpr.Type.GROUPED_AGGREGATION, ImmutableList.of(2),
+                        expression(RelExpr.Type.GROUPED_AGGREGATION, ImmutableList.of(1),
+                                expression(RelExpr.Type.LOCAL_GROUPED_AGGREGATION, ImmutableList.of(1),
+                                        expression(RelExpr.Type.FILTER,
+                                                expression(RelExpr.Type.PROJECT,
+                                                        expression(RelExpr.Type.TABLE, ImmutableList.of()))))));
 
 //        RelExpr expr =
 //                expression(RelExpr.Type.HASH_JOIN, ImmutableList.of(1),
@@ -48,14 +48,14 @@ public class Main
 //                                expression(RelExpr.Type.TABLE, ImmutableList.of(1)),
 //                                expression(RelExpr.Type.TABLE, ImmutableList.of(1))));
 
-        RelExpr expr =
-                expression(RelExpr.Type.HASH_JOIN, ImmutableList.of(1),
-                        ImmutableList.of(
-                                expression(RelExpr.Type.HASH_JOIN, ImmutableList.of(1),
-                                        ImmutableList.of(
-                                                expression(RelExpr.Type.TABLE, ImmutableList.of(1)),
-                                                expression(RelExpr.Type.TABLE, ImmutableList.of(1)))),
-                                        expression(RelExpr.Type.TABLE, ImmutableList.of(1))));
+//        RelExpr expr =
+//                expression(RelExpr.Type.HASH_JOIN, ImmutableList.of(1),
+//                        ImmutableList.of(
+//                                expression(RelExpr.Type.HASH_JOIN, ImmutableList.of(1),
+//                                        ImmutableList.of(
+//                                                expression(RelExpr.Type.TABLE, ImmutableList.of(1)),
+//                                                expression(RelExpr.Type.TABLE, ImmutableList.of(1)))),
+//                                        expression(RelExpr.Type.TABLE, ImmutableList.of(1))));
 
         Graph<String, String, String, String> graph = new Graph<>();
 
@@ -127,7 +127,7 @@ public class Main
 
     private static String nodeLabel(OptimizationResult expression)
     {
-        return expression.getType() + " (" + expression.getId() + ")\\n" + expression.getProperties();
+        return expression.getType() + " (" + expression.getId() + ")\\n" + expression.getProperties() + "\\ncost = " + expression.getCost();
     }
 
     private static String nodeId(OptimizationResult expression)

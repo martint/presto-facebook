@@ -21,16 +21,23 @@ public class OptimizationResult
 {
     private final RelExpr.Type type;
     private final List<OptimizationResult> inputs;
+    private final Cost cost;
 
     private final PhysicalProperties properties;
     private final int expressionId;
 
-    public OptimizationResult(int expressionId, RelExpr.Type type, PhysicalProperties properties, List<OptimizationResult> inputs)
+    public OptimizationResult(int expressionId, RelExpr.Type type, PhysicalProperties properties, List<OptimizationResult> inputs, Cost cost)
     {
         this.expressionId = expressionId;
         this.type = type;
         this.properties = properties;
         this.inputs = inputs;
+        this.cost = cost;
+    }
+
+    public Cost getCost()
+    {
+        return cost;
     }
 
     public RelExpr.Type getType()
