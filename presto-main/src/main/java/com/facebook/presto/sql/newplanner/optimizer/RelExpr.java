@@ -42,7 +42,7 @@ public class RelExpr
 
         MERGE,
         REPLICATE,
-        PARTITION,
+        REPARTITION,
 
         OPTIMIZE
     }

@@ -13,94 +13,26 @@
  */
 package com.facebook.presto.sql.newplanner.optimizer2;
 
-import com.facebook.presto.sql.newplanner.optimizer.RelExpr;
-
 import java.util.List;
 
 public class OptimizationResult
 {
-    private final RelExpr.Type type;
-    private final List<OptimizationResult> inputs;
-    private final Cost cost;
+    private final OptimizedExpr best;
+    private final List<OptimizedExpr> alternatives;
 
-    private final PhysicalProperties properties;
-    private final int expressionId;
-
-    public OptimizationResult(int expressionId, RelExpr.Type type, PhysicalProperties properties, List<OptimizationResult> inputs, Cost cost)
+    public OptimizationResult(OptimizedExpr best, List<OptimizedExpr> alternatives)
     {
-        this.expressionId = expressionId;
-        this.type = type;
-        this.properties = properties;
-        this.inputs = inputs;
-        this.cost = cost;
+        this.best = best;
+        this.alternatives = alternatives;
     }
 
-    public Cost getCost()
+    public OptimizedExpr getBest()
     {
-        return cost;
+        return best;
     }
 
-    public RelExpr.Type getType()
+    public List<OptimizedExpr> getAlternatives()
     {
-        return type;
-    }
-
-    public PhysicalProperties getProperties()
-    {
-        return properties;
-    }
-
-    @Override
-    public String toString()
-    {
-        return type + "[" + properties + "]";
-    }
-
-    public List<OptimizationResult> getInputs()
-    {
-        return inputs;
-    }
-
-    public int getId()
-    {
-        return expressionId;
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-
-        OptimizationResult that = (OptimizationResult) o;
-
-        if (expressionId != that.expressionId) {
-            return false;
-        }
-        if (!inputs.equals(that.inputs)) {
-            return false;
-        }
-        if (!properties.equals(that.properties)) {
-            return false;
-        }
-        if (type != that.type) {
-            return false;
-        }
-
-        return true;
-    }
-
-    @Override
-    public int hashCode()
-    {
-        int result = type.hashCode();
-        result = 31 * result + inputs.hashCode();
-        result = 31 * result + properties.hashCode();
-        result = 31 * result + expressionId;
-        return result;
+        return alternatives;
     }
 }

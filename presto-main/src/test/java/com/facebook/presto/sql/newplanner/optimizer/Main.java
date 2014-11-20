@@ -16,7 +16,9 @@ package com.facebook.presto.sql.newplanner.optimizer;
 import com.facebook.presto.sql.newplanner.expression.Utils;
 import com.facebook.presto.sql.newplanner.optimizer.graph.Graph;
 import com.facebook.presto.sql.newplanner.optimizer2.OptimizationResult;
+import com.facebook.presto.sql.newplanner.optimizer2.OptimizedExpr;
 import com.facebook.presto.sql.newplanner.optimizer2.Optimizer2;
+import com.facebook.presto.sql.newplanner.optimizer2.OptimizerContext2;
 import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -25,7 +27,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.facebook.presto.sql.newplanner.optimizer.RelExpr.Type.MERGE;
-import static com.facebook.presto.sql.newplanner.optimizer.RelExpr.Type.PARTITION;
+import static com.facebook.presto.sql.newplanner.optimizer.RelExpr.Type.REPARTITION;
 import static com.facebook.presto.sql.newplanner.optimizer.RelExpr.Type.REPLICATE;
 
 public class Main
@@ -62,20 +64,21 @@ public class Main
         Optimizer2 optimizer = new Optimizer2();
         graph.addNode("root", "shape=point");
 
-        List<OptimizationResult> optimized = optimizer.optimize(expr);
+        OptimizerContext2 context = new OptimizerContext2(nextNodeId);
+        OptimizationResult optimized = optimizer.optimize(expr, context);
 
 //        OptimizationResult lowestCost = Ordering.from(new CostComparator()).min(optimized);
-        for (OptimizationResult result : optimized) {
-            add(graph, result);
+        for (OptimizedExpr result : optimized.getAlternatives()) {
+            add(graph, result, context);
 
             List<String> attributes = new ArrayList<>();
             attributes.add("style=dotted");
             attributes.add("arrowhead=none");
 
-//            if (result == lowestCost) {
-//                attributes.add("color=salmon");
-//                attributes.add("penwidth=10");
-//            }
+            if (result == optimized.getBest()) {
+                attributes.add("color=salmon");
+                attributes.add("penwidth=10");
+            }
 
             graph.addEdge("root", nodeId(result), Joiner.on(",").join(attributes));
 //            dump(result, 0);
@@ -84,23 +87,35 @@ public class Main
         System.out.println(graph.toGraphviz(Functions.<String>identity(), Functions.<String>identity(), Functions.<String>identity()));
     }
 
-    private static void add(Graph<String, String, String, String> graph, OptimizationResult expression)
+    private static void add(Graph<String, String, String, String> graph, OptimizedExpr expression, OptimizerContext2 context)
     {
         String parentNodeId = nodeId(expression);
         if (!graph.getNode(parentNodeId).isPresent()) {
-            graph.addNode(parentNodeId, "label=\"" + nodeLabel(expression) + "\"");
+            List<String> attributes = new ArrayList<>();
+            attributes.add("label=\"" + nodeLabel(expression) + "\"");
+
+            if (context.getBest().contains(expression)) {
+                attributes.add("fillcolor=salmon");
+                attributes.add("style=filled");
+            }
+
+            graph.addNode(parentNodeId, Joiner.on(",").join(attributes));
         }
 
-        for (OptimizationResult child : expression.getInputs()) {
-            add(graph, child);
+        List<OptimizedExpr> inputs = expression.getInputs();
+        List<PhysicalConstraints> constraints = expression.getRequestedConstraints();
+        for (int i = 0; i < inputs.size(); i++) {
+            OptimizedExpr child = inputs.get(i);
+            add(graph, child, context);
             String childNodeId = nodeId(child);
             List<String> attributes = new ArrayList<>();
 
+            attributes.add("label=\"" + constraints.get(i) + "\"");
 //            attributes.add("arrowtail=none");
 //            attributes.add("arrowhead=none");
 //            attributes.add("penwidth=10");
 
-            if (expression.getType() == MERGE || child.getType() == PARTITION || child.getType() == REPLICATE) {
+            if (expression.getType() == MERGE || child.getType() == REPARTITION || child.getType() == REPLICATE) {
                 attributes.add("style=dashed");
             }
 
@@ -125,12 +140,12 @@ public class Main
         }
     }
 
-    private static String nodeLabel(OptimizationResult expression)
+    private static String nodeLabel(OptimizedExpr expression)
     {
-        return expression.getType() + " (" + expression.getId() + ")\\n" + expression.getProperties() + "\\ncost = " + expression.getCost();
+        return expression.getType() + " (" + expression.getId() + ")\\n" + expression.getProperties();
     }
 
-    private static String nodeId(OptimizationResult expression)
+    private static String nodeId(OptimizedExpr expression)
     {
 //        long hash = Math.abs(XxHash64.hash(Slices.utf8Slice(expression.getProperties().toString())));
         return "\"" + expression.hashCode() + "\"";
@@ -161,10 +176,10 @@ public class Main
         return new RelExpr(nextNodeId++, type);
     }
 
-    private static void dump(OptimizationResult expression, int indent)
+    private static void dump(OptimizedExpr expression, int indent)
     {
         System.out.println(Utils.indent(indent) + expression.getId() + ":" + expression.getType() + " => " + expression.getProperties());
-        for (OptimizationResult input : expression.getInputs()) {
+        for (OptimizedExpr input : expression.getInputs()) {
             dump(input, indent + 1);
         }
     }

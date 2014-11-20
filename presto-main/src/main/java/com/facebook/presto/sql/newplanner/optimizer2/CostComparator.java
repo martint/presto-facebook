@@ -18,9 +18,9 @@ import com.facebook.presto.sql.newplanner.optimizer.RelExpr;
 import java.util.Comparator;
 
 public class CostComparator
-    implements Comparator<OptimizationResult>
+    implements Comparator<OptimizedExpr>
 {
-    public int compare(OptimizationResult first, OptimizationResult second)
+    public int compare(OptimizedExpr first, OptimizedExpr second)
     {
         // partitioned always wins over unpartitioned
         if (first.getProperties().isPartitioned() && !second.getProperties().isPartitioned()) {
@@ -34,14 +34,14 @@ public class CostComparator
         }
     }
 
-    private int countExchanges(OptimizationResult expression)
+    private int countExchanges(OptimizedExpr expression)
     {
         int count = 0;
-        for (OptimizationResult child : expression.getInputs()) {
+        for (OptimizedExpr child : expression.getInputs()) {
             count += countExchanges(child);
         }
 
-        if (expression.getType() == RelExpr.Type.MERGE || expression.getType() == RelExpr.Type.PARTITION) {
+        if (expression.getType() == RelExpr.Type.MERGE || expression.getType() == RelExpr.Type.REPARTITION) {
             count++;
         }
 
