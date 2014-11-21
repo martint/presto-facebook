@@ -13,17 +13,21 @@
  */
 package com.facebook.presto.sql.newplanner.optimizer2;
 
+import com.facebook.presto.sql.newplanner.optimizer.PhysicalConstraints;
+
 import java.util.List;
 
 public class OptimizationResult
 {
     private final OptimizedExpr best;
     private final List<OptimizedExpr> alternatives;
+    private final PhysicalConstraints requestedProperties;
 
-    public OptimizationResult(OptimizedExpr best, List<OptimizedExpr> alternatives)
+    public OptimizationResult(OptimizedExpr best, List<OptimizedExpr> alternatives, PhysicalConstraints requestedProperties)
     {
         this.best = best;
         this.alternatives = alternatives;
+        this.requestedProperties = requestedProperties;
     }
 
     public OptimizedExpr getBest()
@@ -34,5 +38,10 @@ public class OptimizationResult
     public List<OptimizedExpr> getAlternatives()
     {
         return alternatives;
+    }
+
+    public PhysicalConstraints getRequestedProperties()
+    {
+        return requestedProperties;
     }
 }

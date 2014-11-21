@@ -13,27 +13,21 @@
  */
 package com.facebook.presto.sql.newplanner.optimizer2;
 
-import com.facebook.presto.sql.newplanner.optimizer.PhysicalConstraints;
 import com.facebook.presto.sql.newplanner.optimizer.RelExpr;
 
 import java.util.List;
 
 public class OptimizedExpr
 {
-    private final RelExpr.Type type;
-    private final List<OptimizedExpr> inputs;
-    private final List<PhysicalConstraints> requestedConstraints;
-
-    private final PhysicalProperties properties;
     private final int expressionId;
+    private final RelExpr.Type type;
+    private final List<OptimizationResult> inputs;
 
-    public OptimizedExpr(int expressionId, RelExpr.Type type, PhysicalProperties properties, List<OptimizedExpr> inputs, List<PhysicalConstraints> requestedConstraints)
+    public OptimizedExpr(int expressionId, RelExpr.Type type, List<OptimizationResult> inputs, )
     {
         this.expressionId = expressionId;
         this.type = type;
-        this.properties = properties;
         this.inputs = inputs;
-        this.requestedConstraints = requestedConstraints;
     }
 
     public RelExpr.Type getType()
@@ -41,25 +35,9 @@ public class OptimizedExpr
         return type;
     }
 
-    public PhysicalProperties getProperties()
-    {
-        return properties;
-    }
-
-    @Override
-    public String toString()
-    {
-        return type + "[" + properties + "]";
-    }
-
-    public List<OptimizedExpr> getInputs()
+    public List<OptimizationResult> getInputs()
     {
         return inputs;
-    }
-
-    public List<PhysicalConstraints> getRequestedConstraints()
-    {
-        return requestedConstraints;
     }
 
     public int getId()
@@ -85,9 +63,6 @@ public class OptimizedExpr
         if (!inputs.equals(that.inputs)) {
             return false;
         }
-        if (!properties.equals(that.properties)) {
-            return false;
-        }
         if (type != that.type) {
             return false;
         }
@@ -100,7 +75,6 @@ public class OptimizedExpr
     {
         int result = type.hashCode();
         result = 31 * result + inputs.hashCode();
-        result = 31 * result + properties.hashCode();
         result = 31 * result + expressionId;
         return result;
     }
