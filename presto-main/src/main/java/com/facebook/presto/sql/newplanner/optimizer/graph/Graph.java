@@ -77,6 +77,7 @@ public class Graph<VID, V, E, C>
     public String toGraphviz(Function<V, String> nodeFormatter, Function<E, String> edgeFormatter, Function<C, String> clusterFormatter)
     {
         StringBuilder builder = new StringBuilder("digraph G {\n");
+//        builder.append("\trankdir=BT;\n");
         builder.append("\tcompound=true;\n");
         builder.append("\tranksep=1.5;\n");
         builder.append("\tnode [shape=rectangle];\n");

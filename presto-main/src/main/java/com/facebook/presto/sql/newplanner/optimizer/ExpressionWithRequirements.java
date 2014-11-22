@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.newplanner.optimizer;
 
+import com.google.common.base.Objects;
+
 public final class ExpressionWithRequirements
 {
     private final RelExpr expression;
@@ -53,5 +55,11 @@ public final class ExpressionWithRequirements
         int result = expression.getId();
         result = 31 * result + requirements.hashCode();
         return result;
+    }
+
+    @Override
+    public String toString()
+    {
+        return expression + ":" + requirements;
     }
 }

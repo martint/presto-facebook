@@ -21,13 +21,16 @@ public class OptimizedExpr
 {
     private final int expressionId;
     private final RelExpr.Type type;
+    private final PhysicalProperties properties;
+
     private final List<OptimizationResult> inputs;
 
-    public OptimizedExpr(int expressionId, RelExpr.Type type, List<OptimizationResult> inputs, )
+    public OptimizedExpr(int expressionId, RelExpr.Type type, List<OptimizationResult> inputs, PhysicalProperties properties)
     {
         this.expressionId = expressionId;
         this.type = type;
         this.inputs = inputs;
+        this.properties = properties;
     }
 
     public RelExpr.Type getType()
@@ -38,6 +41,11 @@ public class OptimizedExpr
     public List<OptimizationResult> getInputs()
     {
         return inputs;
+    }
+
+    public PhysicalProperties getProperties()
+    {
+        return properties;
     }
 
     public int getId()
@@ -63,6 +71,9 @@ public class OptimizedExpr
         if (!inputs.equals(that.inputs)) {
             return false;
         }
+        if (!properties.equals(that.properties)) {
+            return false;
+        }
         if (type != that.type) {
             return false;
         }
@@ -73,9 +84,10 @@ public class OptimizedExpr
     @Override
     public int hashCode()
     {
-        int result = type.hashCode();
+        int result = expressionId;
+        result = 31 * result + type.hashCode();
+        result = 31 * result + properties.hashCode();
         result = 31 * result + inputs.hashCode();
-        result = 31 * result + expressionId;
         return result;
     }
 }

@@ -18,7 +18,7 @@ import com.facebook.presto.sql.newplanner.optimizer.RelExpr;
 import java.util.Comparator;
 
 public class CostComparator
-    implements Comparator<OptimizedExpr>
+        implements Comparator<OptimizedExpr>
 {
     public int compare(OptimizedExpr first, OptimizedExpr second)
     {
@@ -37,8 +37,9 @@ public class CostComparator
     private int countExchanges(OptimizedExpr expression)
     {
         int count = 0;
-        for (OptimizedExpr child : expression.getInputs()) {
-            count += countExchanges(child);
+
+        for (OptimizationResult child : expression.getInputs()) {
+            count += countExchanges(child.getBest());
         }
 
         if (expression.getType() == RelExpr.Type.MERGE || expression.getType() == RelExpr.Type.REPARTITION) {

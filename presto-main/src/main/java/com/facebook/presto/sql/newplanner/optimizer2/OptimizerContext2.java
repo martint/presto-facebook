@@ -19,16 +19,12 @@ import com.facebook.presto.sql.newplanner.optimizer.RelExpr;
 import com.google.common.base.Optional;
 
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 public class OptimizerContext2
 {
     private int nextId;
     private final Map<ExpressionWithRequirements, OptimizationResult> memoized = new HashMap<>();
-    private final Set<OptimizedExpr> best = new HashSet<>();
 
     public OptimizerContext2(int nextId)
     {
@@ -46,14 +42,8 @@ public class OptimizerContext2
         return Optional.fromNullable(result);
     }
 
-    public Set<OptimizedExpr> getBest()
-    {
-        return best;
-    }
-
     public void recordOptimization(RelExpr expression, PhysicalConstraints constraints, OptimizationResult result)
     {
         memoized.put(new ExpressionWithRequirements(expression, constraints), result);
-        best.add(result.getBest());
     }
 }

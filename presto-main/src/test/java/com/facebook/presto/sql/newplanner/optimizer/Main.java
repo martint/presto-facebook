@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.newplanner.optimizer;
 
-import com.facebook.presto.sql.newplanner.expression.Utils;
 import com.facebook.presto.sql.newplanner.optimizer.graph.Graph;
 import com.facebook.presto.sql.newplanner.optimizer2.OptimizationResult;
 import com.facebook.presto.sql.newplanner.optimizer2.OptimizedExpr;
@@ -39,10 +38,10 @@ public class Main
         RelExpr expr =
                 expression(RelExpr.Type.GROUPED_AGGREGATION, ImmutableList.of(2),
                         expression(RelExpr.Type.GROUPED_AGGREGATION, ImmutableList.of(1),
-                                expression(RelExpr.Type.LOCAL_GROUPED_AGGREGATION, ImmutableList.of(1),
+//                                expression(RelExpr.Type.LOCAL_GROUPED_AGGREGATION, ImmutableList.of(1),
                                         expression(RelExpr.Type.FILTER,
                                                 expression(RelExpr.Type.PROJECT,
-                                                        expression(RelExpr.Type.TABLE, ImmutableList.of()))))));
+                                                        expression(RelExpr.Type.TABLE, ImmutableList.of()))))); //);
 
 //        RelExpr expr =
 //                expression(RelExpr.Type.HASH_JOIN, ImmutableList.of(1),
@@ -62,81 +61,93 @@ public class Main
         Graph<String, String, String, String> graph = new Graph<>();
 
         Optimizer2 optimizer = new Optimizer2();
+        OptimizationResult optimized = optimizer.optimize(expr, new OptimizerContext2(nextNodeId));
+
         graph.addNode("root", "shape=point");
+        String optimizedId = nodeId(optimized.getRequestedExpressionId(), optimized.getRequestedProperties());
 
-        OptimizerContext2 context = new OptimizerContext2(nextNodeId);
-        OptimizationResult optimized = optimizer.optimize(expr, context);
+        add(graph, optimized);
 
-//        OptimizationResult lowestCost = Ordering.from(new CostComparator()).min(optimized);
-        for (OptimizedExpr result : optimized.getAlternatives()) {
-            add(graph, result, context);
+        graph.addEdge("root", optimizedId, "label=\"" + optimized.getBest().getProperties() + "\"");
 
-            List<String> attributes = new ArrayList<>();
-            attributes.add("style=dotted");
-            attributes.add("arrowhead=none");
-
-            if (result == optimized.getBest()) {
-                attributes.add("color=salmon");
-                attributes.add("penwidth=10");
-            }
-
-            graph.addEdge("root", nodeId(result), Joiner.on(",").join(attributes));
-//            dump(result, 0);
-        }
 
         System.out.println(graph.toGraphviz(Functions.<String>identity(), Functions.<String>identity(), Functions.<String>identity()));
     }
 
-    private static void add(Graph<String, String, String, String> graph, OptimizedExpr expression, OptimizerContext2 context)
+    private static void add(Graph<String, String, String, String> graph, OptimizationResult parent)
+    {
+        String parentId = nodeId(parent.getRequestedExpressionId(), parent.getRequestedProperties());
+        if (!graph.getNode(parentId).isPresent()) {
+//            graph.addNode(parentId, "label=\"OPT(" + parent.getRequestedExpressionId() + ", " + parent.getRequestedProperties() + ")\"");
+            graph.addNode(parentId, "shape=point");
+
+            for (OptimizedExpr alternative : parent.getAlternatives()) {
+                String alternativeId = nodeId(alternative);
+
+                if (alternative == parent.getBest()) {
+                    graph.addNode(alternativeId, "label=\"" + alternative.getType() + " (" + alternative.getId() + ")\",style=filled,fillcolor=salmon");
+                }
+                else {
+                    graph.addNode(alternativeId, "label=\"" + alternative.getType() + " (" + alternative.getId() + ")\"");
+                }
+
+                graph.addEdge(parentId, alternativeId, "label=\"" + alternative.getProperties() + "\",style=dotted,arrowhead=none");
+
+                for (OptimizationResult input : alternative.getInputs()) {
+                    add(graph, input);
+
+                    graph.addEdge(alternativeId, nodeId(input.getRequestedExpressionId(), input.getRequestedProperties()), "label=\"OPT(" + input.getRequestedExpressionId() + ", " + input.getRequestedProperties() + ")\"");
+                }
+            }
+        }
+    }
+
+    private static String nodeId(int id, PhysicalConstraints requestedProperties)
+    {
+        return "\"" + id + ":" + requestedProperties + "\"";
+    }
+
+    private static void add(Graph<String, String, String, String> graph, OptimizedExpr expression)
     {
         String parentNodeId = nodeId(expression);
         if (!graph.getNode(parentNodeId).isPresent()) {
             List<String> attributes = new ArrayList<>();
             attributes.add("label=\"" + nodeLabel(expression) + "\"");
 
-            if (context.getBest().contains(expression)) {
-                attributes.add("fillcolor=salmon");
-                attributes.add("style=filled");
-            }
-
             graph.addNode(parentNodeId, Joiner.on(",").join(attributes));
         }
 
-        List<OptimizedExpr> inputs = expression.getInputs();
-        List<PhysicalConstraints> constraints = expression.getRequestedConstraints();
+        List<OptimizationResult> inputs = expression.getInputs();
         for (int i = 0; i < inputs.size(); i++) {
-            OptimizedExpr child = inputs.get(i);
-            add(graph, child, context);
-            String childNodeId = nodeId(child);
-            List<String> attributes = new ArrayList<>();
+            OptimizationResult child = inputs.get(i);
 
-            attributes.add("label=\"" + constraints.get(i) + "\"");
-//            attributes.add("arrowtail=none");
-//            attributes.add("arrowhead=none");
-//            attributes.add("penwidth=10");
+            for (OptimizedExpr alternative : child.getAlternatives()) {
+                add(graph, alternative);
 
-            if (expression.getType() == MERGE || child.getType() == REPARTITION || child.getType() == REPLICATE) {
-                attributes.add("style=dashed");
-            }
+                String childNodeId = nodeId(alternative);
+                List<String> attributes = new ArrayList<>();
 
-//            if (expression.getProperties().isPartitioned() && child.getProperties().isPartitioned()) {
-//                attributes.add("penwidth=7");
-//            }
-            if (expression.getProperties().isPartitioned() && !child.getProperties().isPartitioned()) {
-                attributes.add("arrowhead=none");
-                attributes.add("arrowtail=crow");
-            }
-            else if (!expression.getProperties().isPartitioned() && child.getProperties().isPartitioned()) {
-                attributes.add("arrowhead=crow");
-                attributes.add("arrowtail=none");
+                if (expression.getType() == MERGE || alternative.getType() == REPARTITION || alternative.getType() == REPLICATE) {
+                    attributes.add("style=dashed");
+                }
+
+                if (expression.getProperties().isPartitioned() && !alternative.getProperties().isPartitioned()) {
+                    attributes.add("arrowhead=none");
+                    attributes.add("arrowtail=crow");
+                }
+                else if (!expression.getProperties().isPartitioned() && alternative.getProperties().isPartitioned()) {
+                    attributes.add("arrowhead=crow");
+                    attributes.add("arrowtail=none");
 //                attributes.add("dir=back");
-            }
-            else {
-                attributes.add("arrowhead=none");
-                attributes.add("arrowtail=none");
-            }
+                }
+                else {
+                    attributes.add("arrowhead=none");
+                    attributes.add("arrowtail=none");
+                }
 
-            graph.addEdge(parentNodeId, childNodeId, Joiner.on(",").join(attributes));
+                graph.addEdge(parentNodeId, childNodeId, Joiner.on(",").join(attributes));
+
+            }
         }
     }
 
@@ -178,9 +189,9 @@ public class Main
 
     private static void dump(OptimizedExpr expression, int indent)
     {
-        System.out.println(Utils.indent(indent) + expression.getId() + ":" + expression.getType() + " => " + expression.getProperties());
-        for (OptimizedExpr input : expression.getInputs()) {
-            dump(input, indent + 1);
-        }
+//        System.out.println(Utils.indent(indent) + expression.getId() + ":" + expression.getType() + " => " + expression.getProperties());
+//        for (OptimizedExpr input : expression.getInputs()) {
+//            dump(input, indent + 1);
+//        }
     }
 }

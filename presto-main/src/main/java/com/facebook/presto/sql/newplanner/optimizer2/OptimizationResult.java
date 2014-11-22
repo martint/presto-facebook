@@ -19,15 +19,22 @@ import java.util.List;
 
 public class OptimizationResult
 {
+    private final int requestedExpressionId;
     private final OptimizedExpr best;
     private final List<OptimizedExpr> alternatives;
     private final PhysicalConstraints requestedProperties;
 
-    public OptimizationResult(OptimizedExpr best, List<OptimizedExpr> alternatives, PhysicalConstraints requestedProperties)
+    public OptimizationResult(int requestedExpressionId, OptimizedExpr best, List<OptimizedExpr> alternatives, PhysicalConstraints requestedProperties)
     {
+        this.requestedExpressionId = requestedExpressionId;
         this.best = best;
         this.alternatives = alternatives;
         this.requestedProperties = requestedProperties;
+    }
+
+    public int getRequestedExpressionId()
+    {
+        return requestedExpressionId;
     }
 
     public OptimizedExpr getBest()
