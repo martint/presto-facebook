@@ -13,10 +13,12 @@
  */
 package com.facebook.presto.sql.newplanner.optimizer2;
 
+import com.facebook.presto.sql.newplanner.expression.Utils;
 import com.facebook.presto.sql.newplanner.optimizer.PhysicalConstraints;
 import com.facebook.presto.sql.newplanner.optimizer.RelExpr;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
 
 import java.util.List;
@@ -27,6 +29,8 @@ import static com.facebook.presto.sql.newplanner.optimizer.PhysicalConstraints.G
 
 public class Optimizer2
 {
+    private int salt;
+
     public OptimizationResult optimize(RelExpr expression, OptimizerContext2 context)
     {
         return optimize(expression, PhysicalConstraints.any(), context);
@@ -34,69 +38,79 @@ public class Optimizer2
 
     public OptimizationResult optimize(RelExpr expression, PhysicalConstraints requirements, OptimizerContext2 context)
     {
-        Optional<OptimizationResult> previous = context.getOptimized(expression, requirements);
-        if (previous.isPresent()) {
-            return previous.get();
-        }
+        context.increaseDepth();
+        try {
 
-        // handle implementable expressions...
-        if (expression.getType() == RelExpr.Type.FILTER || expression.getType() == RelExpr.Type.PROJECT) {
-            PhysicalConstraints childConstraints = PhysicalConstraints.any();
-            OptimizationResult optimizedChild = optimize(expression.getInputs().get(0), childConstraints, context);
-
-            OptimizedExpr result = new OptimizedExpr(expression.getId(), expression.getType(), ImmutableList.of(optimizedChild), optimizedChild.getBest().getProperties());
-
-            result = enforceConstraints(requirements, result, context);
-            return new OptimizationResult(expression.getId(), result, ImmutableList.of(result), requirements);
-        }
-        else if (expression.getType() == RelExpr.Type.TABLE) {
-            // TODO: pick best partitioning that satisfies requirements
-            OptimizedExpr result = new OptimizedExpr(expression.getId(), expression.getType(), ImmutableList.<OptimizationResult>of(), PhysicalProperties.partitioned((List<Integer>) expression.getPayload()));
-
-            result = enforceConstraints(requirements, result, context);
-            OptimizationResult optimizationResult = new OptimizationResult(expression.getId(), result, ImmutableList.of(result), requirements);
-            context.recordOptimization(expression, requirements, optimizationResult);
-            return optimizationResult;
-        }
-        else if (expression.getType() == RelExpr.Type.GROUPED_AGGREGATION) {
-            ImmutableList.Builder<OptimizedExpr> alternatives = ImmutableList.builder();
-
-//            {
-//                // unpartitioned
-//                PhysicalConstraints childConstraint = PhysicalConstraints.unpartitioned();
-//                OptimizationResult optimizedChild = optimize(expression.getInputs().get(0), childConstraint, context);
-//                OptimizedExpr alternative = new OptimizedExpr(expression.getId(), expression.getType(), ImmutableList.of(optimizedChild), optimizedChild.getBest().getProperties());
-//                alternatives.add(enforceConstraints(requirements, alternative, context));
-//            }
-//
-            {
-                // partitioned(k)
-                PhysicalConstraints childConstraint = PhysicalConstraints.partitioned((List<Integer>) expression.getPayload());
-                OptimizationResult optimizedChild = optimize(expression.getInputs().get(0), childConstraint, context);
-
-                // TODO derive output properties based on child properties
-                PhysicalProperties deliveredProperties = optimizedChild.getBest().getProperties();
-                OptimizedExpr result = new OptimizedExpr(expression.getId(), expression.getType(), ImmutableList.of(optimizedChild), deliveredProperties);
-                alternatives.add(enforceConstraints(requirements, result, context));
+            System.out.println(String.format(Utils.indent(context.getDepth()) + "OPT(%s:%s, %s)", expression.getId(), expression.getType(), requirements));
+            Optional<OptimizationResult> previous = context.getOptimized(expression, requirements);
+            if (previous.isPresent()) {
+                System.out.println(String.format(Utils.indent(context.getDepth()) + "  - memoized"));
+                return previous.get();
             }
 
-            OptimizationResult optimizationResult = new OptimizationResult(expression.getId(), Ordering.from(new CostComparator()).min(alternatives.build()), alternatives.build(), requirements);
-            context.recordOptimization(expression, requirements, optimizationResult);
-            return optimizationResult;
-        }
-        else if (expression.getType() == RelExpr.Type.LOCAL_GROUPED_AGGREGATION) {
-            PhysicalConstraints childConstraint = PhysicalConstraints.any();
-            OptimizationResult optimizedChild = optimize(expression.getInputs().get(0), childConstraint, context);
-            PhysicalProperties deliveredProperties = optimizedChild.getBest().getProperties();
-            OptimizedExpr result = new OptimizedExpr(expression.getId(), expression.getType(), ImmutableList.of(optimizedChild), deliveredProperties);
+            // handle implementable expressions...
+            if (expression.getType() == RelExpr.Type.FILTER || expression.getType() == RelExpr.Type.PROJECT) {
+                PhysicalConstraints childConstraints = PhysicalConstraints.any();
+                OptimizationResult optimizedChild = optimize(expression.getInputs().get(0), childConstraints, context);
 
-            result = enforceConstraints(requirements, result, context);
+                OptimizedExpr result = new OptimizedExpr(expression.getId(), expression.getType(), ImmutableList.of(optimizedChild), optimizedChild.getBest().getProperties());
 
-            OptimizationResult optimizationResult = new OptimizationResult(expression.getId(), result, ImmutableList.of(result), requirements);
-            context.recordOptimization(expression, requirements, optimizationResult);
-            return optimizationResult;
-        }
-        else if (expression.getType() == RelExpr.Type.HASH_JOIN) {
+                result = enforceConstraints(requirements, result, context);
+                return new OptimizationResult(expression.getId(), result, ImmutableList.of(result), requirements);
+            }
+            else if (expression.getType() == RelExpr.Type.TABLE) {
+                // TODO: pick best partitioning that satisfies requirements
+                OptimizedExpr result = new OptimizedExpr(expression.getId(), expression.getType(), ImmutableList.<OptimizationResult>of(), PhysicalProperties.partitioned((List<Integer>) expression.getPayload()));
+
+                result = enforceConstraints(requirements, result, context);
+                OptimizationResult optimizationResult = new OptimizationResult(expression.getId(), result, ImmutableList.of(result), requirements);
+                context.recordOptimization(expression, requirements, optimizationResult);
+                return optimizationResult;
+            }
+            else if (expression.getType() == RelExpr.Type.GROUPED_AGGREGATION) {
+                ImmutableSet.Builder<OptimizedExpr> alternatives = ImmutableSet.builder();
+
+                {
+                    // unpartitioned
+                    PhysicalConstraints childConstraint = PhysicalConstraints.unpartitioned();
+                    OptimizationResult optimizedChild = optimize(expression.getInputs().get(0), childConstraint, context);
+                    OptimizedExpr alternative = new OptimizedExpr(expression.getId(), expression.getType(), ImmutableList.of(optimizedChild), optimizedChild.getBest().getProperties());
+                    alternatives.add(alternative);
+                }
+
+                {
+                    // partitioned(k)
+                    PhysicalConstraints childConstraint = PhysicalConstraints.partitioned((List<Integer>) expression.getPayload());
+                    OptimizationResult optimizedChild = optimize(expression.getInputs().get(0), childConstraint, context);
+
+                    // TODO derive output properties based on child properties
+                    PhysicalProperties deliveredProperties = optimizedChild.getBest().getProperties();
+                    OptimizedExpr result = new OptimizedExpr(expression.getId(), expression.getType(), ImmutableList.of(optimizedChild), deliveredProperties);
+                    alternatives.add(result);
+                }
+
+                ImmutableList.Builder<OptimizedExpr> builder = ImmutableList.builder();
+                for (OptimizedExpr alternative : alternatives.build()) {
+                    builder.add(enforceConstraints(requirements, alternative, context));
+                }
+
+                OptimizationResult optimizationResult = new OptimizationResult(expression.getId(), Ordering.from(new CostComparator()).min(builder.build()), builder.build(), requirements);
+                context.recordOptimization(expression, requirements, optimizationResult);
+                return optimizationResult;
+            }
+            else if (expression.getType() == RelExpr.Type.LOCAL_GROUPED_AGGREGATION) {
+                PhysicalConstraints childConstraint = PhysicalConstraints.any();
+                OptimizationResult optimizedChild = optimize(expression.getInputs().get(0), childConstraint, context);
+                PhysicalProperties deliveredProperties = optimizedChild.getBest().getProperties();
+                OptimizedExpr result = new OptimizedExpr(expression.getId(), expression.getType(), ImmutableList.of(optimizedChild), deliveredProperties);
+
+                result = enforceConstraints(requirements, result, context);
+
+                OptimizationResult optimizationResult = new OptimizationResult(expression.getId(), result, ImmutableList.of(result), requirements);
+                context.recordOptimization(expression, requirements, optimizationResult);
+                return optimizationResult;
+            }
+            else if (expression.getType() == RelExpr.Type.HASH_JOIN) {
 //            RelExpr left = expression.getInputs().get(0);
 //            RelExpr right = expression.getInputs().get(1);
 //
@@ -135,11 +149,11 @@ public class Optimizer2
 //                    alternatives.add(enforceConstraints(requirements, result, context));
 //                }
 //            }
-            throw new UnsupportedOperationException("not yet implemented");
-        }
-        else {
-            throw new UnsupportedOperationException("Can't optimize: " + expression.getType());
-        }
+                throw new UnsupportedOperationException("not yet implemented");
+            }
+            else {
+                throw new UnsupportedOperationException("Can't optimize: " + expression.getType());
+            }
 //
 //        List<OptimizedExpr> alternatives = alternatives.build();
 //        OptimizedExpr best = Ordering.from(new CostComparator()).min(alternatives);
@@ -147,6 +161,10 @@ public class Optimizer2
 //        OptimizationResult result = new OptimizationResult(best, alternatives, requestedProperties);
 //        context.recordOptimization(expression, requirements, result);
 //        return result;
+        }
+        finally {
+            context.decreaseDepth();
+        }
     }
 
     private OptimizedExpr enforceConstraints(PhysicalConstraints requirements, OptimizedExpr result, OptimizerContext2 context)
@@ -196,6 +214,6 @@ public class Optimizer2
 
     private List<OptimizationResult> enforcedResult(OptimizedExpr result)
     {
-        return ImmutableList.of(new OptimizationResult(result.getId(), result, ImmutableList.of(result), PhysicalConstraints.any()));
+        return ImmutableList.of(new OptimizationResult(--salt, result, ImmutableList.of(result), PhysicalConstraints.any()));
     }
 }

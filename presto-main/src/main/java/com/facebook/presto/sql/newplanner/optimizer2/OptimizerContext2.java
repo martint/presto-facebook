@@ -23,6 +23,7 @@ import java.util.Map;
 
 public class OptimizerContext2
 {
+    private int depth = -1;
     private int nextId;
     private final Map<ExpressionWithRequirements, OptimizationResult> memoized = new HashMap<>();
 
@@ -36,6 +37,16 @@ public class OptimizerContext2
         return nextId++;
     }
 
+    public void increaseDepth()
+    {
+        depth++;
+    }
+
+    public void decreaseDepth()
+    {
+        depth--;
+    }
+
     public Optional<OptimizationResult> getOptimized(RelExpr expression, PhysicalConstraints requirements)
     {
         OptimizationResult result = memoized.get(new ExpressionWithRequirements(expression, requirements));
@@ -45,5 +56,10 @@ public class OptimizerContext2
     public void recordOptimization(RelExpr expression, PhysicalConstraints constraints, OptimizationResult result)
     {
         memoized.put(new ExpressionWithRequirements(expression, constraints), result);
+    }
+
+    public int getDepth()
+    {
+        return depth;
     }
 }

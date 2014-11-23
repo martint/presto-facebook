@@ -38,10 +38,10 @@ public class Main
         RelExpr expr =
                 expression(RelExpr.Type.GROUPED_AGGREGATION, ImmutableList.of(2),
                         expression(RelExpr.Type.GROUPED_AGGREGATION, ImmutableList.of(1),
-//                                expression(RelExpr.Type.LOCAL_GROUPED_AGGREGATION, ImmutableList.of(1),
+                                expression(RelExpr.Type.LOCAL_GROUPED_AGGREGATION, ImmutableList.of(1),
                                         expression(RelExpr.Type.FILTER,
                                                 expression(RelExpr.Type.PROJECT,
-                                                        expression(RelExpr.Type.TABLE, ImmutableList.of()))))); //);
+                                                        expression(RelExpr.Type.TABLE, ImmutableList.of()))))));
 
 //        RelExpr expr =
 //                expression(RelExpr.Type.HASH_JOIN, ImmutableList.of(1),
@@ -68,8 +68,7 @@ public class Main
 
         add(graph, optimized);
 
-        graph.addEdge("root", optimizedId, "label=\"" + optimized.getBest().getProperties() + "\"");
-
+        graph.addEdge("root", optimizedId, "label=\"OPT(" + expr.getId() + ", " + PhysicalConstraints.any() + ")\"");
 
         System.out.println(graph.toGraphviz(Functions.<String>identity(), Functions.<String>identity(), Functions.<String>identity()));
     }
@@ -82,13 +81,16 @@ public class Main
             graph.addNode(parentId, "shape=point");
 
             for (OptimizedExpr alternative : parent.getAlternatives()) {
+
                 String alternativeId = nodeId(alternative);
 
-                if (alternative == parent.getBest()) {
-                    graph.addNode(alternativeId, "label=\"" + alternative.getType() + " (" + alternative.getId() + ")\",style=filled,fillcolor=salmon");
-                }
-                else {
-                    graph.addNode(alternativeId, "label=\"" + alternative.getType() + " (" + alternative.getId() + ")\"");
+                if (!graph.getNode(alternativeId).isPresent()) {
+                    if (alternative == parent.getBest()) {
+                        graph.addNode(alternativeId, "label=\"" + alternative.getType() + " (" + alternative.getId() + ")\",style=filled,fillcolor=salmon");
+                    }
+                    else {
+                        graph.addNode(alternativeId, "label=\"" + alternative.getType() + " (" + alternative.getId() + ")\"");
+                    }
                 }
 
                 graph.addEdge(parentId, alternativeId, "label=\"" + alternative.getProperties() + "\",style=dotted,arrowhead=none");
@@ -96,7 +98,11 @@ public class Main
                 for (OptimizationResult input : alternative.getInputs()) {
                     add(graph, input);
 
-                    graph.addEdge(alternativeId, nodeId(input.getRequestedExpressionId(), input.getRequestedProperties()), "label=\"OPT(" + input.getRequestedExpressionId() + ", " + input.getRequestedProperties() + ")\"");
+                    String label = "";
+                    if (input.getRequestedExpressionId() >= 0) {
+                        label = "label=\"OPT(" + input.getRequestedExpressionId() + ", " + input.getRequestedProperties() + ")\"";
+                    }
+                    graph.addEdge(alternativeId, nodeId(input.getRequestedExpressionId(), input.getRequestedProperties()), label);
                 }
             }
         }
@@ -146,7 +152,6 @@ public class Main
                 }
 
                 graph.addEdge(parentNodeId, childNodeId, Joiner.on(",").join(attributes));
-
             }
         }
     }
