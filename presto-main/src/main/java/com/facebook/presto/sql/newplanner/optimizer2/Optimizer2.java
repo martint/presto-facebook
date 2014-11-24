@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
 
+import java.util.Arrays;
 import java.util.List;
 
 import static com.facebook.presto.sql.newplanner.optimizer.PhysicalConstraints.GlobalPartitioning.PARTITIONED;
@@ -68,33 +69,16 @@ public class Optimizer2
                 return optimizationResult;
             }
             else if (expression.getType() == RelExpr.Type.GROUPED_AGGREGATION) {
-                ImmutableSet.Builder<OptimizedExpr> alternatives = ImmutableSet.builder();
+                ImmutableList.Builder<OptimizedExpr> alternatives = ImmutableList.builder();
 
-                {
-                    // unpartitioned
-                    PhysicalConstraints childConstraint = PhysicalConstraints.unpartitioned();
+                for (PhysicalConstraints childConstraint : Arrays.asList(PhysicalConstraints.unpartitioned(), PhysicalConstraints.partitioned((List<Integer>) expression.getPayload()))) {
                     OptimizationResult optimizedChild = optimize(expression.getInputs().get(0), childConstraint, context);
-                    OptimizedExpr alternative = new OptimizedExpr(expression.getId(), expression.getType(), ImmutableList.of(optimizedChild), optimizedChild.getBest().getProperties());
-                    alternatives.add(alternative);
-                }
-
-                {
-                    // partitioned(k)
-                    PhysicalConstraints childConstraint = PhysicalConstraints.partitioned((List<Integer>) expression.getPayload());
-                    OptimizationResult optimizedChild = optimize(expression.getInputs().get(0), childConstraint, context);
-
-                    // TODO derive output properties based on child properties
                     PhysicalProperties deliveredProperties = optimizedChild.getBest().getProperties();
-                    OptimizedExpr result = new OptimizedExpr(expression.getId(), expression.getType(), ImmutableList.of(optimizedChild), deliveredProperties);
-                    alternatives.add(result);
+                    OptimizedExpr alternative = new OptimizedExpr(expression.getId(), expression.getType(), ImmutableList.of(optimizedChild), deliveredProperties);
+                    alternatives.add(enforceConstraints(requirements, alternative, context));
                 }
 
-                ImmutableList.Builder<OptimizedExpr> builder = ImmutableList.builder();
-                for (OptimizedExpr alternative : alternatives.build()) {
-                    builder.add(enforceConstraints(requirements, alternative, context));
-                }
-
-                OptimizationResult optimizationResult = new OptimizationResult(expression.getId(), Ordering.from(new CostComparator()).min(builder.build()), builder.build(), requirements);
+                OptimizationResult optimizationResult = new OptimizationResult(expression.getId(), Ordering.from(new CostComparator()).min(alternatives.build()), alternatives.build(), requirements);
                 context.recordOptimization(expression, requirements, optimizationResult);
                 return optimizationResult;
             }
@@ -111,56 +95,59 @@ public class Optimizer2
                 return optimizationResult;
             }
             else if (expression.getType() == RelExpr.Type.HASH_JOIN) {
-//            RelExpr left = expression.getInputs().get(0);
-//            RelExpr right = expression.getInputs().get(1);
-//
-//            // unpartitioned vs unpartitioned
-//            PhysicalConstraints leftConstraint = PhysicalConstraints.unpartitioned();
-//            PhysicalConstraints rightConstraint = PhysicalConstraints.unpartitioned();
-//            for (OptimizedExpr optimizedLeft : optimize(left, leftConstraint, context).getAlternatives()) {
-//                for (OptimizedExpr optimizedRight : optimize(right, rightConstraint, context).getAlternatives()) {
-//                    PhysicalProperties deliveredProperties = PhysicalProperties.unpartitioned();
-//                    OptimizedExpr result = new OptimizedExpr(expression.getId(), expression.getType(), deliveredProperties, ImmutableList.of(optimizedLeft, optimizedRight), ImmutableList.of(leftConstraint, rightConstraint));
-//                    alternatives.add(enforceConstraints(requirements, result, context));
-//                }
-//            }
-//
-//            // part(k) vs part(k)
-//            leftConstraint = PhysicalConstraints.partitioned((List<Integer>) expression.getPayload());
-//            rightConstraint = PhysicalConstraints.partitioned((List<Integer>) expression.getPayload());
-//            for (OptimizedExpr optimizedLeft : optimize(left, leftConstraint, context).getAlternatives()) {
-//                for (OptimizedExpr optimizedRight : optimize(right, rightConstraint, context).getAlternatives()) {
-//                    // TODO: infer partitioning properties from left/right
-//                    PhysicalProperties deliveredProperties = PhysicalProperties.partitioned((List<Integer>) expression.getPayload());
-//                    OptimizedExpr result = new OptimizedExpr(expression.getId(), expression.getType(), deliveredProperties, ImmutableList.of(optimizedLeft, optimizedRight), ImmutableList.of(leftConstraint, rightConstraint));
-//                    alternatives.add(enforceConstraints(requirements, result, context));
-//                }
-//            }
-//
-//            // part(*) vs replicated
-//            leftConstraint = PhysicalConstraints.partitionedAny();
-//            rightConstraint = PhysicalConstraints.replicated();
-//            for (OptimizedExpr optimizedLeft : optimize(left, leftConstraint, context).getAlternatives()) {
-////            for (OptimizationResult optimizedLeft : optimize(left, PhysicalConstraints.partitioned((List<Integer>) expression.getPayload()), context)) {
-//                for (OptimizedExpr optimizedRight : optimize(right, rightConstraint, context).getAlternatives()) {
-//                    // TODO: infer partitioning properties from left/right
-//                    PhysicalProperties deliveredProperties = optimizedLeft.getProperties();
-//                    OptimizedExpr result = new OptimizedExpr(expression.getId(), expression.getType(), deliveredProperties, ImmutableList.of(optimizedLeft, optimizedRight), ImmutableList.of(leftConstraint, rightConstraint));
-//                    alternatives.add(enforceConstraints(requirements, result, context));
-//                }
-//            }
-                throw new UnsupportedOperationException("not yet implemented");
+                ImmutableList.Builder<OptimizedExpr> alternatives = ImmutableList.builder();
+
+                RelExpr left = expression.getInputs().get(0);
+                RelExpr right = expression.getInputs().get(1);
+
+                // unpartitioned vs unpartitioned
+                {
+                    PhysicalConstraints leftConstraint = PhysicalConstraints.unpartitioned();
+                    PhysicalConstraints rightConstraint = PhysicalConstraints.unpartitioned();
+
+                    OptimizationResult optimizedLeft = optimize(left, leftConstraint, context);
+                    OptimizationResult optimizedRight = optimize(right, rightConstraint, context);
+
+                    PhysicalProperties deliveredProperties = PhysicalProperties.unpartitioned();
+                    OptimizedExpr result = new OptimizedExpr(expression.getId(), expression.getType(), ImmutableList.of(optimizedLeft, optimizedRight), deliveredProperties);
+                    alternatives.add(enforceConstraints(requirements, result, context));
+                }
+
+                // part(k) vs part(k)
+                {
+                    PhysicalConstraints leftConstraint = PhysicalConstraints.partitioned((List<Integer>) expression.getPayload());
+                    PhysicalConstraints rightConstraint = PhysicalConstraints.partitioned((List<Integer>) expression.getPayload());
+
+                    OptimizationResult optimizedLeft = optimize(left, leftConstraint, context);
+                    OptimizationResult optimizedRight = optimize(right, rightConstraint, context);
+
+                    // TODO: infer partitioning properties from left/right
+                    PhysicalProperties deliveredProperties = PhysicalProperties.partitioned((List<Integer>) expression.getPayload());
+                    OptimizedExpr result = new OptimizedExpr(expression.getId(), expression.getType(), ImmutableList.of(optimizedLeft, optimizedRight), deliveredProperties);
+                    alternatives.add(enforceConstraints(requirements, result, context));
+                }
+
+                // part(*) vs replicated
+                {
+                    PhysicalConstraints leftConstraint = PhysicalConstraints.partitionedAny();
+                    PhysicalConstraints rightConstraint = PhysicalConstraints.replicated();
+
+                    OptimizationResult optimizedLeft = optimize(left, leftConstraint, context);
+                    OptimizationResult optimizedRight = optimize(right, rightConstraint, context);
+
+                    // TODO: infer partitioning properties from left/right
+                    PhysicalProperties deliveredProperties = PhysicalProperties.partitioned((List<Integer>) expression.getPayload());
+                    OptimizedExpr result = new OptimizedExpr(expression.getId(), expression.getType(), ImmutableList.of(optimizedLeft, optimizedRight), deliveredProperties);
+                    alternatives.add(enforceConstraints(requirements, result, context));
+                }
+
+                OptimizationResult optimizationResult = new OptimizationResult(expression.getId(), Ordering.from(new CostComparator()).min(alternatives.build()), alternatives.build(), requirements);
+                context.recordOptimization(expression, requirements, optimizationResult);
+                return optimizationResult;
             }
             else {
                 throw new UnsupportedOperationException("Can't optimize: " + expression.getType());
             }
-//
-//        List<OptimizedExpr> alternatives = alternatives.build();
-//        OptimizedExpr best = Ordering.from(new CostComparator()).min(alternatives);
-//
-//        OptimizationResult result = new OptimizationResult(best, alternatives, requestedProperties);
-//        context.recordOptimization(expression, requirements, result);
-//        return result;
         }
         finally {
             context.decreaseDepth();

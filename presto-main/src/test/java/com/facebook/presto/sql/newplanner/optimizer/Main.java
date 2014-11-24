@@ -35,13 +35,13 @@ public class Main
 
     public static void main(String[] args)
     {
-        RelExpr expr =
-                expression(RelExpr.Type.GROUPED_AGGREGATION, ImmutableList.of(2),
-                        expression(RelExpr.Type.GROUPED_AGGREGATION, ImmutableList.of(1),
-                                expression(RelExpr.Type.LOCAL_GROUPED_AGGREGATION, ImmutableList.of(1),
-                                        expression(RelExpr.Type.FILTER,
-                                                expression(RelExpr.Type.PROJECT,
-                                                        expression(RelExpr.Type.TABLE, ImmutableList.of()))))));
+//        RelExpr expr =
+//                expression(RelExpr.Type.GROUPED_AGGREGATION, ImmutableList.of(2),
+//                        expression(RelExpr.Type.GROUPED_AGGREGATION, ImmutableList.of(1),
+//                                expression(RelExpr.Type.LOCAL_GROUPED_AGGREGATION, ImmutableList.of(1),
+//                                        expression(RelExpr.Type.FILTER,
+//                                                expression(RelExpr.Type.PROJECT,
+//                                                        expression(RelExpr.Type.TABLE, ImmutableList.of()))))));
 
 //        RelExpr expr =
 //                expression(RelExpr.Type.HASH_JOIN, ImmutableList.of(1),
@@ -49,14 +49,14 @@ public class Main
 //                                expression(RelExpr.Type.TABLE, ImmutableList.of(1)),
 //                                expression(RelExpr.Type.TABLE, ImmutableList.of(1))));
 
-//        RelExpr expr =
-//                expression(RelExpr.Type.HASH_JOIN, ImmutableList.of(1),
-//                        ImmutableList.of(
-//                                expression(RelExpr.Type.HASH_JOIN, ImmutableList.of(1),
-//                                        ImmutableList.of(
-//                                                expression(RelExpr.Type.TABLE, ImmutableList.of(1)),
-//                                                expression(RelExpr.Type.TABLE, ImmutableList.of(1)))),
-//                                        expression(RelExpr.Type.TABLE, ImmutableList.of(1))));
+        RelExpr expr =
+                expression(RelExpr.Type.HASH_JOIN, ImmutableList.of(1),
+                        ImmutableList.of(
+                                expression(RelExpr.Type.HASH_JOIN, ImmutableList.of(1),
+                                        ImmutableList.of(
+                                                expression(RelExpr.Type.TABLE, ImmutableList.of(1)),
+                                                expression(RelExpr.Type.TABLE, ImmutableList.of(2)))),
+                                        expression(RelExpr.Type.TABLE, ImmutableList.of(1))));
 
         Graph<String, String, String, String> graph = new Graph<>();
 
@@ -77,23 +77,22 @@ public class Main
     {
         String parentId = nodeId(parent.getRequestedExpressionId(), parent.getRequestedProperties());
         if (!graph.getNode(parentId).isPresent()) {
-//            graph.addNode(parentId, "label=\"OPT(" + parent.getRequestedExpressionId() + ", " + parent.getRequestedProperties() + ")\"");
             graph.addNode(parentId, "shape=point");
 
             for (OptimizedExpr alternative : parent.getAlternatives()) {
-
                 String alternativeId = nodeId(alternative);
 
                 if (!graph.getNode(alternativeId).isPresent()) {
                     if (alternative == parent.getBest()) {
-                        graph.addNode(alternativeId, "label=\"" + alternative.getType() + " (" + alternative.getId() + ")\",style=filled,fillcolor=salmon");
+                        graph.addNode(alternativeId, "label=\"" + alternative.getType() + " (" + alternative.getId() + ")\\n" + alternative.getProperties() + "\",style=filled,fillcolor=salmon");
                     }
                     else {
-                        graph.addNode(alternativeId, "label=\"" + alternative.getType() + " (" + alternative.getId() + ")\"");
+                        graph.addNode(alternativeId, "label=\"" + alternative.getType() + " (" + alternative.getId() + ")\\n" + alternative.getProperties() + "\"");
                     }
                 }
 
-                graph.addEdge(parentId, alternativeId, "label=\"" + alternative.getProperties() + "\",style=dotted,arrowhead=none");
+//                graph.addEdge(parentId, alternativeId, "label=\"" + alternative.getProperties() + "\",style=dotted,arrowhead=none");
+                graph.addEdge(parentId, alternativeId, "style=dotted,arrowhead=none");
 
                 for (OptimizationResult input : alternative.getInputs()) {
                     add(graph, input);
