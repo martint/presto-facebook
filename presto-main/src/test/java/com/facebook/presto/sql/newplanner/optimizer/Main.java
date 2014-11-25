@@ -43,20 +43,20 @@ public class Main
 //                                                expression(RelExpr.Type.PROJECT,
 //                                                        expression(RelExpr.Type.TABLE, ImmutableList.of()))))));
 
-//        RelExpr expr =
-//                expression(RelExpr.Type.HASH_JOIN, ImmutableList.of(1),
-//                        ImmutableList.of(
-//                                expression(RelExpr.Type.TABLE, ImmutableList.of(1)),
-//                                expression(RelExpr.Type.TABLE, ImmutableList.of(1))));
-
         RelExpr expr =
                 expression(RelExpr.Type.HASH_JOIN, ImmutableList.of(1),
                         ImmutableList.of(
-                                expression(RelExpr.Type.HASH_JOIN, ImmutableList.of(1),
-                                        ImmutableList.of(
-                                                expression(RelExpr.Type.TABLE, ImmutableList.of(1)),
-                                                expression(RelExpr.Type.TABLE, ImmutableList.of(2)))),
-                                        expression(RelExpr.Type.TABLE, ImmutableList.of(1))));
+                                expression(RelExpr.Type.TABLE, ImmutableList.of()),
+                                expression(RelExpr.Type.TABLE, ImmutableList.of())));
+
+//        RelExpr expr =
+//                expression(RelExpr.Type.HASH_JOIN, ImmutableList.of(1),
+//                        ImmutableList.of(
+//                                expression(RelExpr.Type.HASH_JOIN, ImmutableList.of(1),
+//                                        ImmutableList.of(
+//                                                expression(RelExpr.Type.TABLE, ImmutableList.of(1)),
+//                                                expression(RelExpr.Type.TABLE, ImmutableList.of(2)))),
+//                                        expression(RelExpr.Type.TABLE, ImmutableList.of(1))));
 
         Graph<String, String, String, String> graph = new Graph<>();
 
