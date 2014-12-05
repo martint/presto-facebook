@@ -33,7 +33,7 @@ import java.util.Set;
 /**
  * @deprecated Use {@link java.util.stream.Stream} instead
  */
-@Deprecated
+//@Deprecated
 public class IterableTransformer<E>
 {
     private final Iterable<E> iterable;

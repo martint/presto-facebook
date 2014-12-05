@@ -802,6 +802,7 @@
                 <configuration>
                     <javaVersion>1.8</javaVersion>
                     <failOnViolations>false</failOnViolations>
+                    <violationsFile>${air.main.basedir}/src/modernizer/modernizer.xml</violationsFile>
                 </configuration>
                 <executions>
                     <execution>
