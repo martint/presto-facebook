@@ -18,15 +18,15 @@ import com.facebook.presto.sql.newplanner.optimizer.RelExpr;
 import java.util.Comparator;
 
 public class CostComparator
-        implements Comparator<OptimizedExpr>
+        implements Comparator<RelExpr>
 {
-    public int compare(OptimizedExpr first, OptimizedExpr second)
+    public int compare(RelExpr first, RelExpr second)
     {
         // partitioned always wins over unpartitioned
-        if (first.getProperties().isPartitioned() && !second.getProperties().isPartitioned()) {
+        if (first.getProperties().get().isPartitioned() && !second.getProperties().get().isPartitioned()) {
             return -1;
         }
-        else if (!first.getProperties().isPartitioned() && second.getProperties().isPartitioned()) {
+        else if (!first.getProperties().get().isPartitioned() && second.getProperties().get().isPartitioned()) {
             return 1;
         }
         else {
@@ -34,16 +34,19 @@ public class CostComparator
         }
     }
 
-    private int countExchanges(OptimizedExpr expression)
+    private int countExchanges(RelExpr expression)
     {
         int count = 0;
 
-        for (OptimizationResult child : expression.getInputs()) {
-            count += countExchanges(child.getBest());
+        if (expression.getType() == RelExpr.Type.OPTIMIZE) {
+            count += countExchanges(((OptimizationResult) expression.getPayload()).getBest());
+        }
+        else if (expression.getType() == RelExpr.Type.MERGE || expression.getType() == RelExpr.Type.REPARTITION || expression.getType() == RelExpr.Type.REPLICATE) {
+            count++;
         }
 
-        if (expression.getType() == RelExpr.Type.MERGE || expression.getType() == RelExpr.Type.REPARTITION) {
-            count++;
+        for (RelExpr child : expression.getInputs()) {
+            count += countExchanges(child);
         }
 
         return count;

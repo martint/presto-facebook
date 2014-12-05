@@ -13,10 +13,11 @@
  */
 package com.facebook.presto.sql.newplanner.optimizer;
 
-import com.google.common.base.Objects;
+import com.facebook.presto.sql.newplanner.optimizer2.PhysicalProperties;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Optional;
 
 public class RelExpr
 {
@@ -24,6 +25,7 @@ public class RelExpr
     private final List<RelExpr> inputs;
     private final Type type;
     private final Object payload;
+    private final Optional<PhysicalProperties> properties;
 
     public Object getPayload()
     {
@@ -47,14 +49,20 @@ public class RelExpr
         OPTIMIZE
     }
 
+    public RelExpr(int id, Type type, List<RelExpr> inputs, PhysicalProperties properties)
+    {
+        this(id, type, null, inputs, properties);
+    }
+
+
     public RelExpr(int id, Type type)
     {
-        this(id, type, null, ImmutableList.<RelExpr>of());
+        this(id, type, null, ImmutableList.<RelExpr>of(), null);
     }
 
     public RelExpr(int id, Type type, Object payload)
     {
-        this(id, type, payload, ImmutableList.<RelExpr>of());
+        this(id, type, payload, ImmutableList.<RelExpr>of(), null);
     }
 
     public RelExpr(int id, Type type, RelExpr input)
@@ -64,15 +72,16 @@ public class RelExpr
 
     public RelExpr(int id, Type type, Object payload, RelExpr input)
     {
-        this(id, type, payload, ImmutableList.of(input));
+        this(id, type, payload, ImmutableList.of(input), null);
     }
 
-    public RelExpr(int id, Type type, Object payload, List<RelExpr> inputs)
+    public RelExpr(int id, Type type, Object payload, List<RelExpr> inputs, PhysicalProperties properties)
     {
         this.id = id;
         this.type = type;
         this.inputs = inputs;
         this.payload = payload;
+        this.properties = Optional.ofNullable(properties);
     }
 
     public int getId()
@@ -88,6 +97,11 @@ public class RelExpr
     public Type getType()
     {
         return type;
+    }
+
+    public Optional<PhysicalProperties> getProperties()
+    {
+        return properties;
     }
 
     @Override

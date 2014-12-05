@@ -15,7 +15,6 @@ package com.facebook.presto.sql.newplanner.optimizer;
 
 import com.facebook.presto.sql.newplanner.optimizer.graph.Graph;
 import com.facebook.presto.sql.newplanner.optimizer2.OptimizationResult;
-import com.facebook.presto.sql.newplanner.optimizer2.OptimizedExpr;
 import com.facebook.presto.sql.newplanner.optimizer2.Optimizer2;
 import com.facebook.presto.sql.newplanner.optimizer2.OptimizerContext2;
 import com.google.common.base.Functions;
@@ -24,8 +23,11 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
 import static com.facebook.presto.sql.newplanner.optimizer.RelExpr.Type.MERGE;
+import static com.facebook.presto.sql.newplanner.optimizer.RelExpr.Type.OPTIMIZE;
 import static com.facebook.presto.sql.newplanner.optimizer.RelExpr.Type.REPARTITION;
 import static com.facebook.presto.sql.newplanner.optimizer.RelExpr.Type.REPLICATE;
 
@@ -43,147 +45,152 @@ public class Main
 //                                                expression(RelExpr.Type.PROJECT,
 //                                                        expression(RelExpr.Type.TABLE, ImmutableList.of()))))));
 
-        RelExpr expr =
-                expression(RelExpr.Type.HASH_JOIN, ImmutableList.of(1),
-                        ImmutableList.of(
-                                expression(RelExpr.Type.TABLE, ImmutableList.of()),
-                                expression(RelExpr.Type.TABLE, ImmutableList.of())));
-
 //        RelExpr expr =
 //                expression(RelExpr.Type.HASH_JOIN, ImmutableList.of(1),
 //                        ImmutableList.of(
-//                                expression(RelExpr.Type.HASH_JOIN, ImmutableList.of(1),
-//                                        ImmutableList.of(
-//                                                expression(RelExpr.Type.TABLE, ImmutableList.of(1)),
-//                                                expression(RelExpr.Type.TABLE, ImmutableList.of(2)))),
-//                                        expression(RelExpr.Type.TABLE, ImmutableList.of(1))));
+//                                expression(RelExpr.Type.TABLE, ImmutableList.of()),
+//                                expression(RelExpr.Type.TABLE, ImmutableList.of())));
+
+        RelExpr expr =
+                expression(RelExpr.Type.GROUPED_AGGREGATION, ImmutableList.of(2),
+                        expression(RelExpr.Type.HASH_JOIN, ImmutableList.of(1),
+                                ImmutableList.of(
+                                        expression(RelExpr.Type.HASH_JOIN, ImmutableList.of(1),
+                                                ImmutableList.of(
+                                                        expression(RelExpr.Type.TABLE, ImmutableList.of(1)),
+                                                        expression(RelExpr.Type.TABLE, ImmutableList.of(2)))),
+                                        expression(RelExpr.Type.TABLE, ImmutableList.of(1)))));
 
         Graph<String, String, String, String> graph = new Graph<>();
 
         Optimizer2 optimizer = new Optimizer2();
-        OptimizationResult optimized = optimizer.optimize(expr, new OptimizerContext2(nextNodeId));
+        RelExpr optimized = optimizer.optimize(expr, PhysicalConstraints.any(), new OptimizerContext2(nextNodeId));
 
-        graph.addNode("root", "shape=point");
-        String optimizedId = nodeId(optimized.getRequestedExpressionId(), optimized.getRequestedProperties());
+//        graph.addNode("root", "shape=point");
+//        String optimizedId = nodeId(optimized.getId(), PhysicalConstraints.any());
 
-        add(graph, optimized);
+        add(graph, optimized, Optional.<RelExpr>empty(), true);
+        add(graph, optimized, Optional.<RelExpr>empty(), false);
 
-        graph.addEdge("root", optimizedId, "label=\"OPT(" + expr.getId() + ", " + PhysicalConstraints.any() + ")\"");
-
+//        graph.addEdge("root", optimizedId, "label=\"OPT(" + expr.getId() + ", " + PhysicalConstraints.any() + ")\"");
+//
         System.out.println(graph.toGraphviz(Functions.<String>identity(), Functions.<String>identity(), Functions.<String>identity()));
     }
 
-    private static void add(Graph<String, String, String, String> graph, OptimizationResult parent)
+    private static void add(Graph<String, String, String, String> graph, RelExpr node, Optional<RelExpr> parent, boolean onlyBest)
     {
-        String parentId = nodeId(parent.getRequestedExpressionId(), parent.getRequestedProperties());
-        if (!graph.getNode(parentId).isPresent()) {
-            graph.addNode(parentId, "shape=point");
+        String nodeId = nodeId(node);
 
-            for (OptimizedExpr alternative : parent.getAlternatives()) {
-                String alternativeId = nodeId(alternative);
+        boolean exists = graph.getNode(nodeId).isPresent();
 
-                if (!graph.getNode(alternativeId).isPresent()) {
-                    if (alternative == parent.getBest()) {
-                        graph.addNode(alternativeId, "label=\"" + alternative.getType() + " (" + alternative.getId() + ")\\n" + alternative.getProperties() + "\",style=filled,fillcolor=salmon");
-                    }
-                    else {
-                        graph.addNode(alternativeId, "label=\"" + alternative.getType() + " (" + alternative.getId() + ")\\n" + alternative.getProperties() + "\"");
-                    }
-                }
+        if (!exists) {
+            List<String> nodeAttributes = new ArrayList<>();
 
-//                graph.addEdge(parentId, alternativeId, "label=\"" + alternative.getProperties() + "\",style=dotted,arrowhead=none");
-                graph.addEdge(parentId, alternativeId, "style=dotted,arrowhead=none");
+            nodeAttributes.add("label=\"" + nodeLabel(node) + "\"");
+            if (node.getType() == OPTIMIZE) {
+                nodeAttributes.add("shape=point");
+            }
 
-                for (OptimizationResult input : alternative.getInputs()) {
-                    add(graph, input);
+            graph.addNode(nodeId, Joiner.on(',').join(nodeAttributes));
+        }
 
-                    String label = "";
-                    if (input.getRequestedExpressionId() >= 0) {
-                        label = "label=\"OPT(" + input.getRequestedExpressionId() + ", " + input.getRequestedProperties() + ")\"";
-                    }
-                    graph.addEdge(alternativeId, nodeId(input.getRequestedExpressionId(), input.getRequestedProperties()), label);
+        // recurse to add child nodes
+        if (node.getType() == OPTIMIZE) {
+            OptimizationResult optimization = (OptimizationResult) node.getPayload();
+            for (RelExpr alternative : optimization.getAlternatives()) {
+                if (alternative == optimization.getBest() && onlyBest || !onlyBest) {
+                    add(graph, alternative, Optional.of(node), onlyBest);
                 }
             }
         }
-    }
-
-    private static String nodeId(int id, PhysicalConstraints requestedProperties)
-    {
-        return "\"" + id + ":" + requestedProperties + "\"";
-    }
-
-    private static void add(Graph<String, String, String, String> graph, OptimizedExpr expression)
-    {
-        String parentNodeId = nodeId(expression);
-        if (!graph.getNode(parentNodeId).isPresent()) {
-            List<String> attributes = new ArrayList<>();
-            attributes.add("label=\"" + nodeLabel(expression) + "\"");
-
-            graph.addNode(parentNodeId, Joiner.on(",").join(attributes));
+        else {
+            for (RelExpr child : node.getInputs()) {
+                add(graph, child, Optional.of(node), onlyBest);
+            }
         }
 
-        List<OptimizationResult> inputs = expression.getInputs();
-        for (int i = 0; i < inputs.size(); i++) {
-            OptimizationResult child = inputs.get(i);
+        // add edges
+        if (parent.isPresent()) {
+            RelExpr parentNode = parent.get();
 
-            for (OptimizedExpr alternative : child.getAlternatives()) {
-                add(graph, alternative);
+            if (node.getType() == OPTIMIZE) {
+                OptimizationResult optimization = (OptimizationResult) node.getPayload();
 
-                String childNodeId = nodeId(alternative);
-                List<String> attributes = new ArrayList<>();
-
-                if (expression.getType() == MERGE || alternative.getType() == REPARTITION || alternative.getType() == REPLICATE) {
-                    attributes.add("style=dashed");
+                List<String> edgeAttributes = new ArrayList<>();
+                edgeAttributes.add("label=\"OPT(" + optimization.getRequestedProperties() + ")\"");
+                if (onlyBest) {
+                    edgeAttributes.add("color=red");
                 }
 
-                if (expression.getProperties().isPartitioned() && !alternative.getProperties().isPartitioned()) {
-                    attributes.add("arrowhead=none");
-                    attributes.add("arrowtail=crow");
+                if (graph.getEdge(nodeId(parentNode), nodeId) == null) {
+                    graph.addEdge(nodeId(parentNode), nodeId, Joiner.on(",").join(edgeAttributes));
                 }
-                else if (!expression.getProperties().isPartitioned() && alternative.getProperties().isPartitioned()) {
-                    attributes.add("arrowhead=crow");
-                    attributes.add("arrowtail=none");
-//                attributes.add("dir=back");
+            }
+            else {
+                List<String> edgeAttributes = new ArrayList<>();
+                if (parentNode.getType() == MERGE || node.getType() == REPARTITION || node.getType() == REPLICATE) {
+                    edgeAttributes.add("style=dashed");
+                }
+
+                if (parentNode.getType() == OPTIMIZE) {
+                    OptimizationResult optimization = (OptimizationResult) parentNode.getPayload();
+
+                    if (node == optimization.getBest() && onlyBest) {
+                        edgeAttributes.add("color=red");
+                    }
+                }
+                else if (onlyBest) {
+                    edgeAttributes.add("color=red");
+                }
+
+                if (parentNode.getProperties().get().isPartitioned() && !node.getProperties().get().isPartitioned()) {
+                    edgeAttributes.add("arrowhead=none");
+                    edgeAttributes.add("arrowtail=crow");
+                }
+                else if (!parentNode.getProperties().get().isPartitioned() && node.getProperties().get().isPartitioned()) {
+                    edgeAttributes.add("arrowhead=crow");
+                    edgeAttributes.add("arrowtail=none");
                 }
                 else {
-                    attributes.add("arrowhead=none");
-                    attributes.add("arrowtail=none");
+                    edgeAttributes.add("arrowhead=none");
+                    edgeAttributes.add("arrowtail=none");
                 }
 
-                graph.addEdge(parentNodeId, childNodeId, Joiner.on(",").join(attributes));
+                if (graph.getEdge(nodeId(parentNode), nodeId) == null) {
+                    graph.addEdge(nodeId(parentNode), nodeId, Joiner.on(",").join(edgeAttributes));
+                }
             }
         }
     }
 
-    private static String nodeLabel(OptimizedExpr expression)
+    private static String nodeLabel(RelExpr expression)
     {
-        return expression.getType() + " (" + expression.getId() + ")\\n" + expression.getProperties();
+        return expression.getType() + " (" + expression.getId() + ")\\n" + expression.getProperties().get();
     }
 
-    private static String nodeId(OptimizedExpr expression)
+    private static String nodeId(RelExpr expression)
     {
-//        long hash = Math.abs(XxHash64.hash(Slices.utf8Slice(expression.getProperties().toString())));
-        return "\"" + expression.hashCode() + "\"";
+        return "" + Objects.hash(expression.getId(), expression.getType(), expression.getPayload(), expression.getProperties(), expression.getInputs());
     }
 
     private static RelExpr expression(RelExpr.Type type, Object payload, RelExpr input)
     {
-        return new RelExpr(nextNodeId++, type, payload, ImmutableList.of(input));
+        return new RelExpr(nextNodeId++, type, payload, ImmutableList.of(input), null);
     }
 
     private static RelExpr expression(RelExpr.Type type, Object payload, List<RelExpr> inputs)
     {
-        return new RelExpr(nextNodeId++, type, payload, inputs);
+        return new RelExpr(nextNodeId++, type, payload, inputs, null);
     }
 
     private static RelExpr expression(RelExpr.Type type, RelExpr input)
     {
-        return new RelExpr(nextNodeId++, type, null, ImmutableList.of(input));
+        return new RelExpr(nextNodeId++, type, null, ImmutableList.of(input), null);
     }
 
     private static RelExpr expression(RelExpr.Type type, Object payload)
     {
-        return new RelExpr(nextNodeId++, type, payload, ImmutableList.<RelExpr>of());
+        return new RelExpr(nextNodeId++, type, payload, ImmutableList.<RelExpr>of(), null);
     }
 
     private static RelExpr expression(RelExpr.Type type)
@@ -191,11 +198,11 @@ public class Main
         return new RelExpr(nextNodeId++, type);
     }
 
-    private static void dump(OptimizedExpr expression, int indent)
-    {
-//        System.out.println(Utils.indent(indent) + expression.getId() + ":" + expression.getType() + " => " + expression.getProperties());
-//        for (OptimizedExpr input : expression.getInputs()) {
-//            dump(input, indent + 1);
-//        }
-    }
+//    private static void dump(OptimizedExpr expression, int indent)
+//    {
+////        System.out.println(Utils.indent(indent) + expression.getId() + ":" + expression.getType() + " => " + expression.getProperties());
+////        for (OptimizedExpr input : expression.getInputs()) {
+////            dump(input, indent + 1);
+////        }
+//    }
 }

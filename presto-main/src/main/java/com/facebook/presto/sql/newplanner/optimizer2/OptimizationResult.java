@@ -14,43 +14,29 @@
 package com.facebook.presto.sql.newplanner.optimizer2;
 
 import com.facebook.presto.sql.newplanner.optimizer.PhysicalConstraints;
-import com.google.common.collect.ImmutableList;
+import com.facebook.presto.sql.newplanner.optimizer.RelExpr;
 
 import java.util.List;
 
 public class OptimizationResult
 {
-    private final int requestedExpressionId;
-    private final OptimizedExpr best;
-    private final List<OptimizedExpr> alternatives;
+    private final RelExpr best;
+    private final List<RelExpr> alternatives;
     private final PhysicalConstraints requestedProperties;
-    private final int salt;
 
-    public OptimizationResult(int requestedExpressionId, OptimizedExpr best, List<OptimizedExpr> alternatives, PhysicalConstraints requestedProperties)
+    public OptimizationResult(RelExpr best, List<RelExpr> alternatives, PhysicalConstraints requestedProperties)
     {
-        this(requestedExpressionId, best, alternatives, requestedProperties, 0);
-    }
-
-    public OptimizationResult(int requestedExpressionId, OptimizedExpr best, List<OptimizedExpr> alternatives, PhysicalConstraints requestedProperties, int salt)
-    {
-        this.requestedExpressionId = requestedExpressionId;
         this.best = best;
         this.alternatives = alternatives;
         this.requestedProperties = requestedProperties;
-        this.salt = salt;
     }
 
-    public int getRequestedExpressionId()
-    {
-        return requestedExpressionId;
-    }
-
-    public OptimizedExpr getBest()
+    public RelExpr getBest()
     {
         return best;
     }
 
-    public List<OptimizedExpr> getAlternatives()
+    public List<RelExpr> getAlternatives()
     {
         return alternatives;
     }
@@ -58,5 +44,39 @@ public class OptimizationResult
     public PhysicalConstraints getRequestedProperties()
     {
         return requestedProperties;
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        OptimizationResult that = (OptimizationResult) o;
+
+        if (alternatives != null ? !alternatives.equals(that.alternatives) : that.alternatives != null) {
+            return false;
+        }
+        if (best != null ? !best.equals(that.best) : that.best != null) {
+            return false;
+        }
+        if (requestedProperties != null ? !requestedProperties.equals(that.requestedProperties) : that.requestedProperties != null) {
+            return false;
+        }
+
+        return true;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        int result = best != null ? best.hashCode() : 0;
+        result = 31 * result + (alternatives != null ? alternatives.hashCode() : 0);
+        result = 31 * result + (requestedProperties != null ? requestedProperties.hashCode() : 0);
+        return result;
     }
 }

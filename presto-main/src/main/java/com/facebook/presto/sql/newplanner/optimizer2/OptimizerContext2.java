@@ -25,7 +25,7 @@ public class OptimizerContext2
 {
     private int depth = -1;
     private int nextId;
-    private final Map<ExpressionWithRequirements, OptimizationResult> memoized = new HashMap<>();
+    private final Map<ExpressionWithRequirements, RelExpr> memoized = new HashMap<>();
 
     public OptimizerContext2(int nextId)
     {
@@ -47,13 +47,13 @@ public class OptimizerContext2
         depth--;
     }
 
-    public Optional<OptimizationResult> getOptimized(RelExpr expression, PhysicalConstraints requirements)
+    public Optional<RelExpr> getOptimized(RelExpr expression, PhysicalConstraints requirements)
     {
-        OptimizationResult result = memoized.get(new ExpressionWithRequirements(expression, requirements));
+        RelExpr result = memoized.get(new ExpressionWithRequirements(expression, requirements));
         return Optional.fromNullable(result);
     }
 
-    public void recordOptimization(RelExpr expression, PhysicalConstraints constraints, OptimizationResult result)
+    public void recordOptimization(RelExpr expression, PhysicalConstraints constraints, RelExpr result)
     {
         memoized.put(new ExpressionWithRequirements(expression, constraints), result);
     }

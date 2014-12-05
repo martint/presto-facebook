@@ -138,6 +138,11 @@ public class Graph<VID, V, E, C>
         return Optional.fromNullable(nodes.get(id));
     }
 
+    public E getEdge(VID from, VID to)
+    {
+        return edges.get(new Edge<>(from, to, false));
+    }
+
     private static final class Edge<VID>
     {
         private final VID from;
