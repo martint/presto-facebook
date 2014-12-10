@@ -30,7 +30,6 @@ import com.facebook.presto.sql.analyzer.TupleDescriptor;
 import com.facebook.presto.sql.newplanner.expression.FilterExpression;
 import com.facebook.presto.sql.newplanner.expression.LimitExpression;
 import com.facebook.presto.sql.newplanner.expression.RelationalExpression;
-import com.facebook.presto.sql.newplanner.expression.SortExpression;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.Expression;
@@ -64,7 +63,6 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_ORDINAL
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_CATALOG;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_SCHEMA;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
-import static com.facebook.presto.sql.tree.FunctionCall.argumentsGetter;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class SqlToRelationalTranslator
@@ -362,7 +360,7 @@ public class SqlToRelationalTranslator
 
         // 1. pre-project all scalar inputs (arguments and non-trivial group by expressions)
         Set<Expression> arguments = IterableTransformer.on(aggregates)
-                .transformAndFlatten(argumentsGetter())
+                .transformAndFlatten(FunctionCall::getArguments)
                 .set();
 
         Iterable<Expression> inputs = Iterables.concat(query.getGroupBy(), arguments);

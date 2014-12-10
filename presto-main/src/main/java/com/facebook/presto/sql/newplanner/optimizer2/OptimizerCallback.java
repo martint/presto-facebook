@@ -13,6 +13,10 @@
  */
 package com.facebook.presto.sql.newplanner.optimizer2;
 
-public class OptimizationRule
+import com.facebook.presto.sql.newplanner.optimizer.PhysicalConstraints;
+import com.facebook.presto.sql.newplanner.optimizer.RelExpr;
+
+public interface OptimizerCallback
 {
+    RelExpr optimize(RelExpr expression, PhysicalConstraints constraints);
 }

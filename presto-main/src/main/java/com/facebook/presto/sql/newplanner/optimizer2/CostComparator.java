@@ -16,6 +16,8 @@ package com.facebook.presto.sql.newplanner.optimizer2;
 import com.facebook.presto.sql.newplanner.optimizer.RelExpr;
 
 import java.util.Comparator;
+import java.util.EnumSet;
+import java.util.function.Predicate;
 
 public class CostComparator
         implements Comparator<RelExpr>
@@ -29,24 +31,30 @@ public class CostComparator
         else if (!first.getProperties().get().isPartitioned() && second.getProperties().get().isPartitioned()) {
             return 1;
         }
-        else {
-            return Integer.compare(countExchanges(first), countExchanges(second));
+
+        Predicate<RelExpr> isExchange = e -> EnumSet.of(RelExpr.Type.MERGE, RelExpr.Type.REPARTITION, RelExpr.Type.REPLICATE).contains(e.getType());
+        int exchanges = Integer.compare(count(first, isExchange), count(second, isExchange));
+        if (exchanges != 0) {
+            return exchanges;
         }
+
+        Predicate<RelExpr> isBroadcast = e -> e.getType() == RelExpr.Type.REPLICATE;
+        return Integer.compare(count(first, isBroadcast), count(second, isBroadcast));
     }
 
-    private int countExchanges(RelExpr expression)
+    private int count(RelExpr expression, Predicate<RelExpr> condition)
     {
         int count = 0;
 
         if (expression.getType() == RelExpr.Type.OPTIMIZE) {
-            count += countExchanges(((OptimizationResult) expression.getPayload()).getBest());
+            count += count(((OptimizationResult) expression.getPayload()).getBest(), condition);
         }
-        else if (expression.getType() == RelExpr.Type.MERGE || expression.getType() == RelExpr.Type.REPARTITION || expression.getType() == RelExpr.Type.REPLICATE) {
+        else if (condition.test(expression)) {
             count++;
         }
 
         for (RelExpr child : expression.getInputs()) {
-            count += countExchanges(child);
+            count += count(child, condition);
         }
 
         return count;
