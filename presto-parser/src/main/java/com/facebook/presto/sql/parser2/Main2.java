@@ -23,23 +23,20 @@ import javax.swing.JDialog;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
-
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class Main2
 {
     public static void main(String[] args)
             throws ExecutionException, InterruptedException, IOException
     {
-        String query = "SELECT COALESCE(orderkey, custkey), count(*) FROM orders GROUP BY COALESCE(orderkey, custkey)";
+        String query = "SELECT * FROM (TABLE a UNION TABLE b)";
+//        String query = "WITH a AS (SELECT * FROM orders) VALUES (1),(2)";
+//        String query = "SELECT COALESCE(orderkey, custkey), count(*) FROM orders GROUP BY COALESCE(orderkey, custkey)";
 //        StatementLexer lexer = new StatementLexer(new ANTLRInputStream(query));
-        StatementLexer lexer = new StatementLexer(new CaseInsensitiveStream2(new ANTLRInputStream(query)));
-        StatementParser parser = new StatementParser(new CommonTokenStream(lexer));
+        SqlLexer lexer = new SqlLexer(new CaseInsensitiveStream2(new ANTLRInputStream(query)));
+        SqlParser parser = new SqlParser(new CommonTokenStream(lexer));
 
         ParserRuleContext tree = parser.singleStatement();
         System.out.println(Trees.toStringTree(tree, parser));

@@ -13,62 +13,49 @@
  */
 package com.facebook.presto.sql.parser2;
 
-import com.facebook.presto.sql.tree.Node;
-import com.facebook.presto.sql.tree.NotExpression;
-import com.facebook.presto.sql.tree.Expression;
-import com.google.common.base.Optional;
-import org.antlr.v4.runtime.misc.NotNull;
-import org.antlr.v4.runtime.tree.ParseTree;
-import org.antlr.v4.runtime.tree.pattern.ParseTreeMatch;
-import org.antlr.v4.runtime.tree.pattern.ParseTreePattern;
-
-import java.util.HashMap;
-import java.util.Map;
-
 public class AstBuilder
-        extends BaseStatementVisitor<Node>
+//        extends BaseStatementVisitor<Node>
 {
-    private final StatementParser parser;
+    private final SqlParser parser;
 
-    public AstBuilder(StatementParser parser)
+    public AstBuilder(SqlParser parser)
     {
         this.parser = parser;
     }
-
-    @Override
-    public Node visitExpression(@NotNull StatementParser.ExpressionContext ctx)
-    {
-        Optional<Map<String, ParseTree>> match = match(ctx, pattern(token(StatementLexer.NOT), rule("child", StatementParser.RULE_booleanExpression)));
-        if (match.isPresent()) {
-            return new NotExpression((Expression) process(match.get(), "child"));
-        }
-
-        return null;
-    }
-
-    private Node process(Map<String, ParseTree> match, String label)
-    {
-        return visit(match.get(label));
-    }
-
-    public static Optional<Map<String, ParseTree>> match(ParseTree node, Object pattern)
-    {
-        Map<String, ParseTree> result = new HashMap<>();
-        return Optional.of(result);
-    }
-
-    public static Object pattern(Object... items)
-    {
-        return items;
-    }
-
-    public static Object token(int tokenId)
-    {
-        return "token:" + tokenId;
-    }
-
-    public static Object rule(String name, int ruleId)
-    {
-        return "rule:" + ruleId + "[" + name + "]";
-    }
+//
+//    public Node visitExpression(@NotNull SqlParser.ExpressionContext ctx)
+//    {
+//        Optional<Map<String, ParseTree>> match = match(ctx, pattern(token(SqlParser.NOT), rule("child", SqlParser.RULE_booleanExpression)));
+//        if (match.isPresent()) {
+//            return new NotExpression((Expression) process(match.get(), "child"));
+//        }
+//
+//        return null;
+//    }
+//
+//    private Node process(Map<String, ParseTree> match, String label)
+//    {
+//        return visit(match.get(label));
+//    }
+//
+//    public static Optional<Map<String, ParseTree>> match(ParseTree node, Object pattern)
+//    {
+//        Map<String, ParseTree> result = new HashMap<>();
+//        return Optional.of(result);
+//    }
+//
+//    public static Object pattern(Object... items)
+//    {
+//        return items;
+//    }
+//
+//    public static Object token(int tokenId)
+//    {
+//        return "token:" + tokenId;
+//    }
+//
+//    public static Object rule(String name, int ruleId)
+//    {
+//        return "rule:" + ruleId + "[" + name + "]";
+//    }
 }

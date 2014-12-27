@@ -16,19 +16,11 @@ package com.facebook.presto.sql.parser2;
 import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.ParserRuleContext;
-import org.antlr.v4.runtime.tree.Trees;
-import org.antlr.v4.runtime.tree.pattern.ParseTreeMatch;
-import org.antlr.v4.runtime.tree.pattern.ParseTreePattern;
 
-import javax.swing.JDialog;
-
-import java.awt.event.WindowAdapter;
-import java.awt.event.WindowEvent;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -43,8 +35,8 @@ public class Main
         for (String query : queries) {
             System.out.println(query);
 
-            StatementLexer lexer = new StatementLexer(new CaseInsensitiveStream2(new ANTLRInputStream(query)));
-            StatementParser parser = new StatementParser(new CommonTokenStream(lexer));
+            SqlLexer lexer = new SqlLexer(new CaseInsensitiveStream2(new ANTLRInputStream(query)));
+            SqlParser parser = new SqlParser(new CommonTokenStream(lexer));
 
             ParserRuleContext tree = parser.singleStatement();
 //            System.out.println(Trees.toStringTree(tree, parser));

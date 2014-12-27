@@ -12,7 +12,7 @@
  *  limitations under the License.
  */
 
-grammar Statement;
+grammar Sql;
 
 // TODO: error handling
 //  - detect invalid chars in idents (@, :, etc)
@@ -29,8 +29,8 @@ singleExpression
 statement
     : query
     | EXPLAIN explainOptions? statement
-    | SHOW TABLES ( (FROM | IN) qualifiedName )? ( LIKE STRING )?
-    | SHOW SCHEMAS ( (FROM | IN) ident )?
+    | SHOW TABLES ((FROM | IN) qualifiedName)? (LIKE STRING)?
+    | SHOW SCHEMAS ((FROM | IN) ident )?
     | SHOW CATALOGS
     | SHOW COLUMNS (FROM | IN) qualifiedName
     | DESCRIBE qualifiedName
@@ -39,20 +39,20 @@ statement
     | SHOW FUNCTIONS
     | USE CATALOG ident
     | USE SCHEMA ident
-    | CREATE TABLE qualifiedName tableContentsSource
+    | CREATE TABLE qualifiedName AS query
     | DROP TABLE qualifiedName
     | INSERT INTO qualifiedName query
     | ALTER TABLE qualifiedName RENAME TO qualifiedName
-    | CREATE orReplace? VIEW qualifiedName tableContentsSource
+    | CREATE (OR REPLACE)? VIEW qualifiedName AS query
     | DROP VIEW qualifiedName
     ;
 
 query
-    : ( WITH RECURSIVE? namedQuery (',' namedQuery)* )?
+    : (WITH RECURSIVE? namedQuery (',' namedQuery)*)?
       queryBody
       orderClause?
       limitClause?
-      ( APPROXIMATE AT number CONFIDENCE )?
+      (APPROXIMATE AT number CONFIDENCE)?
     ;
 
 queryBody
@@ -74,10 +74,10 @@ limitClause
 
 simpleQuery
     : SELECT setQuantifier? selectItem (',' selectItem)*
-      ( FROM tableRef (',' tableRef)* )?
+      (FROM relation (',' relation)*)?
       whereClause?
-      ( GROUP BY expression (',' expression)* )?
-      ( HAVING expression )?
+      (GROUP BY expression (',' expression)*)?
+      (HAVING expression)?
     ;
 
 rowValue
@@ -85,7 +85,7 @@ rowValue
     ;
 
 namedQuery
-    : ident aliasedColumns? AS '(' query ')'
+    : ident columnAliases? AS '(' query ')'
     ;
 
 whereClause
@@ -103,19 +103,25 @@ selectItem
     | '*'
     ;
 
-tableRef
-    : tableRef
-      ( CROSS JOIN tableRef
-      | joinType JOIN tableRef joinCriteria
-      | NATURAL joinType JOIN tableRef
+relation
+    : relation
+      ( CROSS JOIN relation
+      | joinType JOIN relation joinCriteria
+      | NATURAL joinType JOIN relation
       )
-    | tablePrimary
+    | sampledRelation
     ;
 
-tablePrimary
-    : ( qualifiedName | '(' tableRef ')' | '(' query ')')
-      ( AS? ident aliasedColumns? )?
-      ( TABLESAMPLE sampleType '(' expression ')' RESCALED? stratifyOn? )?
+sampledRelation
+    : aliasedRelation (TABLESAMPLE sampleType '(' expression ')' RESCALED? stratifyOn?)?
+    ;
+
+aliasedRelation
+    : (
+        qualifiedName
+      | '(' query ')'
+      | UNNEST '(' expr (',' expr)* ')')
+      (AS? ident columnAliases?)?
     ;
 
 sampleType
@@ -140,7 +146,7 @@ joinCriteria
     | USING '(' ident (',' ident)* ')'
     ;
 
-aliasedColumns
+columnAliases
     : '(' ident (',' ident)* ')'
     ;
 
@@ -243,6 +249,7 @@ literal
     | number
     | bool
     | STRING
+    | ARRAY '[' (expr (',' expr)*)? ']'
     ;
 
 intervalLiteral
@@ -253,7 +260,6 @@ intervalField
     : YEAR | MONTH | DAY | HOUR | MINUTE | SECOND
     ;
 
-// TODO: this should be 'dataType', which supports arbitrary type specifications. For now we constrain to simple types
 type
     : VARCHAR
     | BIGINT
@@ -304,64 +310,6 @@ explainOption
     | FORMAT JSON
     | TYPE LOGICAL
     | TYPE DISTRIBUTED
-    ;
-
-orReplace
-    : OR REPLACE
-    ;
-
-tableContentsSource
-    : AS query
-    ;
-
-tableElementList
-    : '(' tableElement (',' tableElement)* ')'
-    ;
-
-tableElement
-    : ident dataType columnConstDef*
-    ;
-
-dataType
-    : charType
-    | exactNumType
-    | dateType
-    ;
-
-charType
-    : CHAR charlen?
-    | CHARACTER charlen?
-    | VARCHAR charlen?
-    | CHAR VARYING charlen?
-    | CHARACTER VARYING charlen?
-    ;
-
-charlen
-    : '(' integer ')'
-    ;
-
-exactNumType
-    : NUMERIC numlen?
-    | DECIMAL numlen?
-    | DEC numlen?
-    | INTEGER
-    | INT
-    ;
-
-numlen
-    : '(' integer (',' integer)? ')'
-    ;
-
-dateType
-    : DATE
-    ;
-
-columnConstDef
-    : columnConst
-    ;
-
-columnConst
-    : NOT NULL
     ;
 
 qualifiedName
