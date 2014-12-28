@@ -51,19 +51,19 @@ queryBody
     ;
 
 queryPrimary
-    : simpleQuery
-    | '(' query ')'
-    | TABLE qualifiedName
-    | VALUES primary (',' primary)*
-    | EXPLAIN explainOptions? statement
-    | SHOW TABLES ((FROM | IN) qualifiedName)? (LIKE STRING)?
-    | SHOW SCHEMAS ((FROM | IN) identifier )?
-    | SHOW CATALOGS
-    | SHOW COLUMNS (FROM | IN) qualifiedName
-    | DESCRIBE qualifiedName
-    | DESC qualifiedName
-    | SHOW PARTITIONS (FROM | IN) qualifiedName whereClause? orderClause? limitClause?
-    | SHOW FUNCTIONS
+    : simpleQuery #queryBlock
+    | '(' query ')' #subquery
+    | TABLE qualifiedName #table
+    | VALUES primaryExpression (',' primaryExpression)* #inlineTable
+    | EXPLAIN explainOptions? statement #explain
+    | SHOW TABLES ((FROM | IN) qualifiedName)? (LIKE STRING)? #showTables
+    | SHOW SCHEMAS ((FROM | IN) identifier )? #showSchemas
+    | SHOW CATALOGS #showCatalogs
+    | SHOW COLUMNS (FROM | IN) qualifiedName #showColumns
+    | DESCRIBE qualifiedName #describe
+    | DESC qualifiedName #describe
+    | SHOW PARTITIONS (FROM | IN) qualifiedName whereClause? orderClause? limitClause? #showPartitions
+    | SHOW FUNCTIONS #showFunctions
     ;
 
 orderClause
@@ -75,7 +75,7 @@ sortItem
     ;
 
 limitClause
-    : LIMIT integer
+    : LIMIT INTEGER_VALUE
     ;
 
 simpleQuery
@@ -153,11 +153,6 @@ columnAliases
     : '(' identifier (',' identifier)* ')'
     ;
 
-// 1 = 2 is null            => 1 = (2 is null)
-// false = null is null     => false = (null is null)
-// 1 BETWEEN 2 AND 3 BETWEEN 4 AND 5 => (1 BETWEEN 2 AND 3) BETWEEN 4 AND 5
-// 'a' || 'b' IS NULL => 'a' || ('b' IS NULL)
-
 expression
     : valueExpression
     | booleanExpression
@@ -165,77 +160,81 @@ expression
 
 // TODO: precedence
 booleanExpression
-    : booleanExpression IS NOT? (TRUE | FALSE | UNKNOWN)
-    | NOT booleanExpression
-    | booleanExpression AND booleanExpression
-    | booleanExpression OR booleanExpression
-    | valueExpression comparisonOperator valueExpression
-    | valueExpression NOT? BETWEEN valueExpression AND valueExpression // TODO: SYMMETRIC/ASYMETRIC
-    | valueExpression NOT? IN '(' primary (',' primary)* ')'
-    | valueExpression NOT? IN '(' query ')'
-    | valueExpression NOT? LIKE valueExpression (ESCAPE valueExpression)? // TODO
-    | valueExpression IS NOT? NULL
-    | valueExpression comparisonOperator (ALL | SOME | ANY) '(' query ')' // TODO: add later
-    | EXISTS '(' query ')'
-    | UNIQUE '(' query ')' // TODO: add later
-    | valueExpression MATCH UNIQUE? (SIMPLE | PARTIAL | FULL) '(' query ')' // TODO: add later
-    | valueExpression OVERLAPS valueExpression // TODO: add later
-    | valueExpression IS NOT? DISTINCT FROM valueExpression
-    | valueExpression NOT? MEMBER OF? valueExpression // TODO add later
-    | valueExpression NOT? SUBMULTISET OF? valueExpression // TODO add later
-    | valueExpression IS NOT? A SET // TODO add later
-    | primary
+    // booleanExpression IS NOT? (TRUE | FALSE | UNKNOWN) // TODO: add later
+    //    #truth
+    : NOT booleanExpression #logicalNot
+    | left=booleanExpression operator=AND right=booleanExpression #logicalBinary
+    | left=booleanExpression operator=OR right=booleanExpression #logicalBinary
+    | left=valueExpression comparisonOperator right=valueExpression #comparison
+    | value=valueExpression NOT? BETWEEN lower=valueExpression AND upper=valueExpression #between // TODO: SYMMETRIC/ASYMETRIC
+        // TODO: valueExpression NOT? IN valueExpression ?
+    | valueExpression NOT? IN '(' primaryExpression (',' primaryExpression)* ')' #inList
+    | valueExpression NOT? IN '(' query ')' #inSubquery
+    | value=valueExpression NOT? LIKE pattern=valueExpression (ESCAPE escape=valueExpression)? #like
+    | valueExpression IS NOT? NULL #nullPredicate
+//    | valueExpression comparisonOperator (ALL | SOME | ANY) '(' query ')' // TODO: add later
+//        #quantifiedComparison
+    | EXISTS '(' query ')' #exists
+//    | UNIQUE '(' query ')' // TODO: add later
+//        #unique
+//    | valueExpression MATCH UNIQUE? (SIMPLE | PARTIAL | FULL) '(' query ')' // TODO: add later
+//        #match
+//    | valueExpression OVERLAPS valueExpression // TODO: add later
+//        #overlaps
+    | left=valueExpression IS NOT? DISTINCT FROM right=valueExpression #distinctFrom
+//    | valueExpression NOT? MEMBER OF? valueExpression // TODO add later
+//        #memberOf
+//    | valueExpression NOT? SUBMULTISET OF? valueExpression // TODO add later
+//        #submultiset
+//    | valueExpression IS NOT? A SET // TODO add later
+//        #setPredicate
+    | primaryExpression #booleanPrimary
     ;
 
 valueExpression
-    : primary
-    | valueExpression intervalQualifier
-    | MINUS valueExpression
-    | valueExpression AT timeZoneSpecifier
-    | valueExpression COLLATE (identifier '.')? identifier
-    | valueExpression (ASTERISK | SLASH | PERCENT) valueExpression
-    | valueExpression (PLUS | MINUS) valueExpression
-    | valueExpression CONCAT valueExpression
+    : primaryExpression #valuePrimary
+//    | valueExpression intervalField (TO intervalField)? #intervalConversion
+    | MINUS valueExpression #arithmeticNegation
+    | valueExpression AT timeZoneSpecifier #atTimeZone
+//    | valueExpression COLLATE (identifier '.')? identifier #collated
+    | left=valueExpression operator=(ASTERISK | SLASH | PERCENT) right=valueExpression #arithmeticBinary
+    | left=valueExpression operator=(PLUS | MINUS) right=valueExpression #arithmeticBinary
+    | left=valueExpression CONCAT right=valueExpression #concatenation
     ;
 
-primary
-    : literal
-    | qualifiedName
-    | functionCall
-    | '(' expression ',' expression (',' expression)* ')' // row expression
-    | ROW '(' expression (',' expression)* ')'
-    | '(' query ')'
-    | CASE valueExpression whenClause+ elseClause? END
-    | CASE whenClause+ elseClause? END
-    | '(' expression ')' ('.' identifier)?
-    | primary '.' identifier
-    | CAST '(' expression AS type ')'
-    | TRY_CAST '(' expression AS type ')'
-    | ARRAY '[' (expression (',' expression)*)? ']'
-    | primary '[' valueExpression ']' // TODO: valueExpression '[' ... ']' ?
-    | ELEMENT '(' valueExpression ')'
-    | CURRENT_DATE
-    | CURRENT_TIME ('(' integer ')')?
-    | CURRENT_TIMESTAMP ('(' integer ')')?
-    | LOCALTIME ('(' integer ')')?
-    | LOCALTIMESTAMP ('(' integer ')')?
-    | SUBSTRING '(' valueExpression FROM valueExpression (FOR valueExpression)? ')'
-    | EXTRACT '(' identifier FROM valueExpression ')'
+primaryExpression
+    : NULL #nullLiteral
+    | interval #intervalLiteral
+    | identifier STRING #typeConstructor
+    | number #numericLiteral
+    | booleanValue #booleanLiteral
+    | STRING #stringLiteral
+    | qualifiedName #columnReference
+    | qualifiedName '(' ASTERISK ')' over? #functionCall
+    | qualifiedName '(' (setQuantifier? expression (',' expression)*)? ')' over? #functionCall
+    | '(' expression ',' expression (',' expression)* ')'  #rowConstructor
+    | ROW '(' expression (',' expression)* ')' #rowConstuctor
+    | '(' query ')' #subqueryExpression
+    | CASE valueExpression whenClause+ elseClause? END #simpleCase
+    | CASE whenClause+ elseClause? END #searchedCase
+    | primaryExpression '.' identifier #fieldReference
+    | CAST '(' expression AS type ')' #cast
+    | TRY_CAST '(' expression AS type ')' #cast
+    | ARRAY '[' (expression (',' expression)*)? ']' #arrayConstructor
+    | primaryExpression '[' valueExpression ']' #subscript // TODO: valueExpression '[' ... ']' ?
+//    | ELEMENT '(' valueExpression ')'  #element // TODO: add later
+    | name=CURRENT_DATE #specialDateTimeFunction
+    | name=CURRENT_TIME ('(' precision=INTEGER_VALUE ')')? #specialDateTimeFunction
+    | name=CURRENT_TIMESTAMP ('(' precision=INTEGER_VALUE ')')? #specialDateTimeFunction
+    | name=LOCALTIME ('(' precision=INTEGER_VALUE ')')? #specialDateTimeFunction
+    | name=LOCALTIMESTAMP ('(' precision=INTEGER_VALUE ')')? #specialDateTimeFunction
+    | SUBSTRING '(' valueExpression FROM valueExpression (FOR valueExpression)? ')' #substring
+    | EXTRACT '(' identifier FROM valueExpression ')' #extract
     ;
 
 timeZoneSpecifier
     : LOCAL
-    | TIME ZONE (intervalLiteral | STRING)
-    ;
-
-intervalQualifier
-    : intervalField TO intervalField
-    | intervalField
-    ;
-
-functionCall
-    : qualifiedName '(' ASTERISK ')' over?
-    | qualifiedName '(' (setQuantifier? expression (',' expression)*)? ')' over?
+    | TIME ZONE (interval | STRING)
     ;
 
 ordering
@@ -252,23 +251,12 @@ comparisonOperator
     : EQ | NEQ | LT | LTE | GT | GTE
     ;
 
-literal
-    : NULL
-    | VARCHAR STRING
-    | BIGINT STRING
-    | DOUBLE STRING
-    | BOOLEAN STRING
-    | DATE STRING
-    | TIME STRING
-    | TIMESTAMP STRING
-    | intervalLiteral
-    | identifier STRING
-    | number
-    | bool
-    | STRING
+booleanValue
+    : TRUE
+    | FALSE
     ;
 
-intervalLiteral
+interval
     : INTERVAL (PLUS | MINUS)? STRING intervalField ( TO intervalField )?
     ;
 
@@ -277,11 +265,7 @@ intervalField
     ;
 
 type
-    : VARCHAR
-    | BIGINT
-    | DOUBLE
-    | BOOLEAN
-    | TIME WITH TIME ZONE
+    : TIME WITH TIME ZONE
     | TIMESTAMP WITH TIME ZONE
     | identifier
     ;
@@ -338,25 +322,21 @@ qualifiedName
     : identifier ('.' identifier)*
     ;
 
+// TODO: add Identifier AST node with "quoted" attribute
 identifier
     : IDENTIFIER
+        #unquotedIdentifier
     | QUOTED_IDENTIFIER
+        #quotedIdentifier
     | nonReserved
+        #unquotedIdentifier
     ;
-
 
 number
     : DECIMAL_VALUE
+        #decimalLiteral
     | INTEGER_VALUE
-    ;
-
-bool
-    : TRUE
-    | FALSE
-    ;
-
-integer
-    : INTEGER_VALUE
+        #integerLiteral
     ;
 
 nonReserved
@@ -459,7 +439,6 @@ INTO: 'INTO';
 CHAR: 'CHAR';
 CHARACTER: 'CHARACTER';
 VARYING: 'VARYING';
-VARCHAR: 'VARCHAR';
 NUMERIC: 'NUMERIC';
 NUMBER: 'NUMBER';
 DECIMAL: 'DECIMAL';

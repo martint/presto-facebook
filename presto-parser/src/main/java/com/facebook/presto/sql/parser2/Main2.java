@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.parser2;
 
+import com.facebook.presto.sql.TreePrinter;
+import com.facebook.presto.sql.tree.Node;
 import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.CommonToken;
 import org.antlr.v4.runtime.CommonTokenStream;
@@ -27,6 +29,7 @@ import javax.swing.JDialog;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.IOException;
+import java.util.IdentityHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 
@@ -35,7 +38,7 @@ public class Main2
     public static void main(String[] args)
             throws ExecutionException, InterruptedException, IOException
     {
-        String query = "a";
+        String query = "current_date";
 //        String query = "SELECT * FROM (TABLE a UNION TABLE b)";
 //        String query = "WITH a AS (SELECT * FROM orders) VALUES (1),(2)";
 //        String query = "SELECT COALESCE(orderkey, custkey), count(*) FROM orders GROUP BY COALESCE(orderkey, custkey)";
@@ -43,31 +46,32 @@ public class Main2
         SqlLexer lexer = new SqlLexer(new CaseInsensitiveStream2(new ANTLRInputStream(query)));
         SqlParser parser = new SqlParser(new CommonTokenStream(lexer));
 
-        // replace nonReserved words with IDENT tokens
         parser.addParseListener(new SqlBaseListener()
         {
             @Override
             public void exitNonReserved(@NotNull SqlParser.NonReservedContext ctx)
             {
+                // replace nonReserved words with IDENT tokens
+
                 ctx.getParent().removeLastChild();
 
                 Token token = (Token) ctx.getChild(0).getPayload();
                 ctx.getParent().addChild(new CommonToken(
                         new Pair<>(token.getTokenSource(), token.getInputStream()),
-                        SqlLexer.IDENT,
+                        SqlLexer.IDENTIFIER,
                         token.getChannel(),
                         token.getStartIndex(),
                         token.getStopIndex()));
             }
         });
 
-        ParserRuleContext tree = parser.singleExpression();
+        ParserRuleContext tree = parser.expression();
         System.out.println(Trees.toStringTree(tree, parser));
         System.out.println();
 
-//        AstBuilder builder = new AstBuilder(parser);
-//        List<Node> ast = builder.visit(tree);
-//        System.out.println(ast);
+        AstBuilder builder = new AstBuilder(parser);
+        Node ast = builder.visit(tree);
+        new TreePrinter(new IdentityHashMap<>(), System.out).print(ast);
 
         JDialog dialog = tree.inspect(parser).get();
         final CountDownLatch latch = new CountDownLatch(1);
