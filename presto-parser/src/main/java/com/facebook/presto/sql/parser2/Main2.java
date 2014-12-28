@@ -14,8 +14,12 @@
 package com.facebook.presto.sql.parser2;
 
 import org.antlr.v4.runtime.ANTLRInputStream;
+import org.antlr.v4.runtime.CommonToken;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.ParserRuleContext;
+import org.antlr.v4.runtime.Token;
+import org.antlr.v4.runtime.misc.NotNull;
+import org.antlr.v4.runtime.misc.Pair;
 import org.antlr.v4.runtime.tree.Trees;
 
 import javax.swing.JDialog;
@@ -31,7 +35,7 @@ public class Main2
     public static void main(String[] args)
             throws ExecutionException, InterruptedException, IOException
     {
-        String query = "1 = 2 is true and 1 > 2 is false";
+        String query = "a";
 //        String query = "SELECT * FROM (TABLE a UNION TABLE b)";
 //        String query = "WITH a AS (SELECT * FROM orders) VALUES (1),(2)";
 //        String query = "SELECT COALESCE(orderkey, custkey), count(*) FROM orders GROUP BY COALESCE(orderkey, custkey)";
@@ -39,9 +43,31 @@ public class Main2
         SqlLexer lexer = new SqlLexer(new CaseInsensitiveStream2(new ANTLRInputStream(query)));
         SqlParser parser = new SqlParser(new CommonTokenStream(lexer));
 
+        // replace nonReserved words with IDENT tokens
+        parser.addParseListener(new SqlBaseListener()
+        {
+            @Override
+            public void exitNonReserved(@NotNull SqlParser.NonReservedContext ctx)
+            {
+                ctx.getParent().removeLastChild();
+
+                Token token = (Token) ctx.getChild(0).getPayload();
+                ctx.getParent().addChild(new CommonToken(
+                        new Pair<>(token.getTokenSource(), token.getInputStream()),
+                        SqlLexer.IDENT,
+                        token.getChannel(),
+                        token.getStartIndex(),
+                        token.getStopIndex()));
+            }
+        });
+
         ParserRuleContext tree = parser.singleExpression();
         System.out.println(Trees.toStringTree(tree, parser));
         System.out.println();
+
+//        AstBuilder builder = new AstBuilder(parser);
+//        List<Node> ast = builder.visit(tree);
+//        System.out.println(ast);
 
         JDialog dialog = tree.inspect(parser).get();
         final CountDownLatch latch = new CountDownLatch(1);

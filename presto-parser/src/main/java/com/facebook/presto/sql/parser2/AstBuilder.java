@@ -13,8 +13,16 @@
  */
 package com.facebook.presto.sql.parser2;
 
+import com.facebook.presto.sql.tree.Node;
+import com.google.common.collect.ImmutableList;
+import org.antlr.v4.runtime.misc.NotNull;
+
+import java.util.List;
+
+import static com.google.common.base.Preconditions.checkArgument;
+
 public class AstBuilder
-//        extends BaseStatementVisitor<Node>
+        extends SqlBaseVisitor<List<Node>>
 {
     private final SqlParser parser;
 
@@ -22,7 +30,54 @@ public class AstBuilder
     {
         this.parser = parser;
     }
+
+    @Override
+    protected List<Node> defaultResult()
+    {
+        return ImmutableList.of();
+    }
+
+    @Override
+    protected List<Node> aggregateResult(List<Node> aggregate, List<Node> nextResult)
+    {
+        return ImmutableList.<Node>builder()
+                .addAll(aggregate)
+                .addAll(nextResult)
+                .build();
+    }
+
+    @Override
+    public List<Node> visitExpression(@NotNull SqlParser.ExpressionContext ctx)
+    {
+        List<Node> children = visitChildren(ctx);
+        return null;
+    }
+
+    @Override
+    public List<Node> visitIdent(@NotNull SqlParser.IdentContext ctx)
+    {
+        checkArgument(ctx.getChildCount() == 1, "Expected 1 child");
+        return null;
+    }
+
+    @Override
+    public List<Node> visitNonReserved(@NotNull SqlParser.NonReservedContext ctx)
+    {
+//        checkArgument(ctx.getChildCount() == 1);
 //
+//        TerminalNode child = (TerminalNode) ctx.getChild(0);
+//        Token symbol = child.getSymbol();
+//
+//        return new TerminalNodeImpl(new CommonToken(
+//                new Pair<>(symbol.getTokenSource(), symbol.getInputStream()),
+//                SqlLexer.IDENT,
+//                symbol.getChannel(),
+//                symbol.getStartIndex(),
+//                symbol.getStopIndex()));
+        return null;
+    }
+
+    //
 //    public Node visitExpression(@NotNull SqlParser.ExpressionContext ctx)
 //    {
 //        Optional<Map<String, ParseTree>> match = match(ctx, pattern(token(SqlParser.NOT), rule("child", SqlParser.RULE_booleanExpression)));

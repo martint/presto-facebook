@@ -16,7 +16,6 @@ grammar Sql;
 
 // TODO: error handling
 //  - detect invalid chars in idents (@, :, etc)
-//  - replace non-reserved tokens with ident with their text
 
 singleStatement
     : statement EOF
@@ -28,16 +27,7 @@ singleExpression
 
 statement
     : query
-    | EXPLAIN explainOptions? statement
-    | SHOW TABLES ((FROM | IN) qualifiedName)? (LIKE STRING)?
-    | SHOW SCHEMAS ((FROM | IN) ident )?
-    | SHOW CATALOGS
-    | SHOW COLUMNS (FROM | IN) qualifiedName
-    | DESCRIBE qualifiedName
-    | DESC qualifiedName
-    | SHOW PARTITIONS (FROM | IN) qualifiedName whereClause? orderClause? limitClause?
-    | SHOW FUNCTIONS
-    | USE ident ('.' ident)?
+    | USE identifier ('.' identifier)?
     | CREATE TABLE qualifiedName AS query
     | DROP TABLE qualifiedName
     | INSERT INTO qualifiedName query
@@ -55,12 +45,25 @@ query
     ;
 
 queryBody
+    : queryPrimary
+    | queryBody INTERSECT setQuantifier? queryBody
+    | queryBody (UNION | EXCEPT) setQuantifier? queryBody
+    ;
+
+queryPrimary
     : simpleQuery
     | '(' query ')'
     | TABLE qualifiedName
     | VALUES primary (',' primary)*
-    | queryBody INTERSECT setQuantifier? queryBody
-    | queryBody (UNION | EXCEPT) setQuantifier? queryBody
+    | EXPLAIN explainOptions? statement
+    | SHOW TABLES ((FROM | IN) qualifiedName)? (LIKE STRING)?
+    | SHOW SCHEMAS ((FROM | IN) identifier )?
+    | SHOW CATALOGS
+    | SHOW COLUMNS (FROM | IN) qualifiedName
+    | DESCRIBE qualifiedName
+    | DESC qualifiedName
+    | SHOW PARTITIONS (FROM | IN) qualifiedName whereClause? orderClause? limitClause?
+    | SHOW FUNCTIONS
     ;
 
 orderClause
@@ -84,7 +87,7 @@ simpleQuery
     ;
 
 namedQuery
-    : ident columnAliases? AS '(' query ')'
+    : identifier columnAliases? AS '(' query ')'
     ;
 
 whereClause
@@ -97,9 +100,9 @@ setQuantifier
     ;
 
 selectItem
-    : expression (AS? ident)?
-    | qualifiedName '.' '*'
-    | '*'
+    : expression (AS? identifier)?
+    | qualifiedName '.' ASTERISK
+    | ASTERISK
     ;
 
 relation
@@ -117,10 +120,11 @@ sampledRelation
 
 aliasedRelation
     : (
-        qualifiedName
-      | '(' query ')'
-      | UNNEST '(' expression (',' expression)* ')')
-      (AS? ident columnAliases?)?
+        qualifiedName // table name reference
+        | '(' query ')' // subquery expression
+        | UNNEST '(' expression (',' expression)* ')' // table function
+      )
+      (AS? identifier columnAliases?)?
     ;
 
 sampleType
@@ -142,11 +146,11 @@ joinType
 
 joinCriteria
     : ON booleanExpression
-    | USING '(' ident (',' ident)* ')'
+    | USING '(' identifier (',' identifier)* ')'
     ;
 
 columnAliases
-    : '(' ident (',' ident)* ')'
+    : '(' identifier (',' identifier)* ')'
     ;
 
 // 1 = 2 is null            => 1 = (2 is null)
@@ -186,12 +190,12 @@ booleanExpression
 valueExpression
     : primary
     | valueExpression intervalQualifier
-    | '-' valueExpression
+    | MINUS valueExpression
     | valueExpression AT timeZoneSpecifier
-    | valueExpression COLLATE (ident '.')? ident
-    | valueExpression ('*' | '/') valueExpression
-    | valueExpression ('+' | '-') valueExpression
-    | valueExpression '||' valueExpression
+    | valueExpression COLLATE (identifier '.')? identifier
+    | valueExpression (ASTERISK | SLASH | PERCENT) valueExpression
+    | valueExpression (PLUS | MINUS) valueExpression
+    | valueExpression CONCAT valueExpression
     ;
 
 primary
@@ -203,8 +207,8 @@ primary
     | '(' query ')'
     | CASE valueExpression whenClause+ elseClause? END
     | CASE whenClause+ elseClause? END
-    | '(' expression ')' ('.' ident)?
-    | primary '.' ident
+    | '(' expression ')' ('.' identifier)?
+    | primary '.' identifier
     | CAST '(' expression AS type ')'
     | TRY_CAST '(' expression AS type ')'
     | ARRAY '[' (expression (',' expression)*)? ']'
@@ -216,7 +220,7 @@ primary
     | LOCALTIME ('(' integer ')')?
     | LOCALTIMESTAMP ('(' integer ')')?
     | SUBSTRING '(' valueExpression FROM valueExpression (FOR valueExpression)? ')'
-    | EXTRACT '(' ident FROM valueExpression ')'
+    | EXTRACT '(' identifier FROM valueExpression ')'
     ;
 
 timeZoneSpecifier
@@ -230,7 +234,7 @@ intervalQualifier
     ;
 
 functionCall
-    : qualifiedName '(' '*' ')' over?
+    : qualifiedName '(' ASTERISK ')' over?
     | qualifiedName '(' (setQuantifier? expression (',' expression)*)? ')' over?
     ;
 
@@ -258,14 +262,14 @@ literal
     | TIME STRING
     | TIMESTAMP STRING
     | intervalLiteral
-    | ident STRING
+    | identifier STRING
     | number
     | bool
     | STRING
     ;
 
 intervalLiteral
-    : INTERVAL ('+' | '-')? STRING intervalField ( TO intervalField )?
+    : INTERVAL (PLUS | MINUS)? STRING intervalField ( TO intervalField )?
     ;
 
 intervalField
@@ -279,7 +283,7 @@ type
     | BOOLEAN
     | TIME WITH TIME ZONE
     | TIMESTAMP WITH TIME ZONE
-    | ident
+    | identifier
     ;
 
 
@@ -331,14 +335,15 @@ explainOption
     ;
 
 qualifiedName
-    : ident ('.' ident)*
+    : identifier ('.' identifier)*
     ;
 
-ident
-    : IDENT
-    | QUOTED_IDENT
+identifier
+    : IDENTIFIER
+    | QUOTED_IDENTIFIER
     | nonReserved
     ;
+
 
 number
     : DECIMAL_VALUE
@@ -521,6 +526,13 @@ LTE : '<=';
 GT  : '>';
 GTE : '>=';
 
+PLUS: '+';
+MINUS: '-';
+ASTERISK: '*';
+SLASH: '/';
+PERCENT: '%';
+CONCAT: '||';
+
 STRING
     : '\'' ( ~'\'' | '\'\'' )* '\''
     ;
@@ -536,19 +548,19 @@ DECIMAL_VALUE
     | '.' DIGIT+ EXPONENT
     ;
 
-IDENT
+IDENTIFIER
     : (LETTER | '_') (LETTER | DIGIT | '_' | '@' | ':')*
     ;
 
-DIGIT_IDENT
+DIGIT_IDENTIFIER
     : DIGIT (LETTER | DIGIT | '_' | '@' | ':')+
     ;
 
-QUOTED_IDENT
+QUOTED_IDENTIFIER
     : '"' ( ~'"' | '""' )* '"'
     ;
 
-BACKQUOTED_IDENT
+BACKQUOTED_IDENTIFIER
     : '`' ( ~'`' | '``' )* '`'
     ;
 
