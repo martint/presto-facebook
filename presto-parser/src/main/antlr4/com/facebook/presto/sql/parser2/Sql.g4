@@ -58,7 +58,7 @@ queryBody
     : simpleQuery
     | '(' query ')'
     | TABLE qualifiedName
-    | VALUES rowExpression (',' rowExpression)*
+    | VALUES primary (',' primary)*
     | queryBody INTERSECT setQuantifier? queryBody
     | queryBody (UNION | EXCEPT) setQuantifier? queryBody
     ;
@@ -154,81 +154,61 @@ columnAliases
 // 1 BETWEEN 2 AND 3 BETWEEN 4 AND 5 => (1 BETWEEN 2 AND 3) BETWEEN 4 AND 5
 // 'a' || 'b' IS NULL => 'a' || ('b' IS NULL)
 
-rowExpression
-    : primary
-    | rowValueConstructor
-    ;
-
 expression
     : valueExpression
     | booleanExpression
-    | rowExpression
     ;
 
-predicate
-    : rowValuePredicand comparisonOperator rowValuePredicand
-    | rowValuePredicand NOT? BETWEEN rowValuePredicand AND rowValuePredicand // TODO: SYMMETRIC/ASYMETRIC
-    | rowValuePredicand NOT? IN '(' rowExpression (',' rowExpression)* ')'
-    | rowValuePredicand NOT? IN '(' query ')'
-    | rowValuePredicand NOT? LIKE valueExpression (ESCAPE valueExpression)? // TODO
-    | rowValuePredicand IS NOT? NULL
-    | rowValuePredicand comparisonOperator (ALL | SOME | ANY) '(' query ')' // TODO: add later
+// TODO: precedence
+booleanExpression
+    : booleanExpression IS NOT? (TRUE | FALSE | UNKNOWN)
+    | NOT booleanExpression
+    | booleanExpression AND booleanExpression
+    | booleanExpression OR booleanExpression
+    | valueExpression comparisonOperator valueExpression
+    | valueExpression NOT? BETWEEN valueExpression AND valueExpression // TODO: SYMMETRIC/ASYMETRIC
+    | valueExpression NOT? IN '(' primary (',' primary)* ')'
+    | valueExpression NOT? IN '(' query ')'
+    | valueExpression NOT? LIKE valueExpression (ESCAPE valueExpression)? // TODO
+    | valueExpression IS NOT? NULL
+    | valueExpression comparisonOperator (ALL | SOME | ANY) '(' query ')' // TODO: add later
     | EXISTS '(' query ')'
     | UNIQUE '(' query ')' // TODO: add later
-    | rowValuePredicand MATCH UNIQUE? (SIMPLE | PARTIAL | FULL) '(' query ')'
-    | rowValuePredicand OVERLAPS rowValuePredicand // TODO: add later
-    | rowValuePredicand IS NOT? DISTINCT FROM rowValuePredicand
-    | rowValuePredicand NOT? MEMBER OF? valueExpression // TODO add later
-    | rowValuePredicand NOT? SUBMULTISET OF? valueExpression // TODO add later
-    | rowValuePredicand IS NOT? A SET // TODO add later
-    ;
-
-rowValuePredicand
-    : valueExpression
-    | '(' booleanExpression ')'
-    | rowValueConstructor
-    ;
-
-rowValueConstructor
-    : '(' expression ',' expression (',' expression)* ')'
-    | ROW '(' expression (',' expression)* ')'
-    | '(' query ')'
-    ;
-
-
-booleanExpression
-    : booleanExpression OR booleanFactor  // TODO: precedence of OR vs AND
-    | booleanExpression AND booleanFactor
-    | NOT booleanExpression
-    | booleanExpression IS NOT? (TRUE | FALSE | UNKNOWN)
-    | '(' booleanExpression ')'
-    | predicate
+    | valueExpression MATCH UNIQUE? (SIMPLE | PARTIAL | FULL) '(' query ')' // TODO: add later
+    | valueExpression OVERLAPS valueExpression // TODO: add later
+    | valueExpression IS NOT? DISTINCT FROM valueExpression
+    | valueExpression NOT? MEMBER OF? valueExpression // TODO add later
+    | valueExpression NOT? SUBMULTISET OF? valueExpression // TODO add later
+    | valueExpression IS NOT? A SET // TODO add later
     | primary
     ;
 
 valueExpression
-    : valueExpression ('+' | '-') valueExpression
-    | valueExpression '||' valueExpression
-    | valueExpression ('*' | '/') valueExpression
-// TODO: precedence between '-' and AT timeZoneSpecifier
-    | '-'? primary intervalQualifier? // commonValueExpression?
+    : primary
+    | valueExpression intervalQualifier
+    | '-' valueExpression
     | valueExpression AT timeZoneSpecifier
     | valueExpression COLLATE (ident '.')? ident
+    | valueExpression ('*' | '/') valueExpression
+    | valueExpression ('+' | '-') valueExpression
+    | valueExpression '||' valueExpression
     ;
 
 primary
     : literal
     | qualifiedName
     | functionCall
+    | '(' expression ',' expression (',' expression)* ')' // row expression
+    | ROW '(' expression (',' expression)* ')'
     | '(' query ')'
-    | CASE rowValuePredicand whenClause+ elseClause? END
+    | CASE valueExpression whenClause+ elseClause? END
     | CASE whenClause+ elseClause? END
     | '(' expression ')' ('.' ident)?
     | primary '.' ident
     | CAST '(' expression AS type ')'
     | TRY_CAST '(' expression AS type ')'
     | ARRAY '[' (expression (',' expression)*)? ']'
-    | primary '[' valueExpression ']' // TODO: commonValueExpression '[' ... ']' ?
+    | primary '[' valueExpression ']' // TODO: valueExpression '[' ... ']' ?
     | ELEMENT '(' valueExpression ')'
     | CURRENT_DATE
     | CURRENT_TIME ('(' integer ')')?
@@ -383,6 +363,7 @@ nonReserved
     | TABLESAMPLE | SYSTEM | BERNOULLI | POISSONIZED | USE | JSON | TO
     | RESCALED | APPROXIMATE | AT | CONFIDENCE
     | VIEW | REPLACE
+    | A
     ;
 
 SELECT: 'SELECT';

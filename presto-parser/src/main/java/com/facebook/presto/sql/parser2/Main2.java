@@ -31,7 +31,7 @@ public class Main2
     public static void main(String[] args)
             throws ExecutionException, InterruptedException, IOException
     {
-        String query = "1 IS DISTINCT FROM 2 IS DISTINCT FROM 3";
+        String query = "1 = 2 is true and 1 > 2 is false";
 //        String query = "SELECT * FROM (TABLE a UNION TABLE b)";
 //        String query = "WITH a AS (SELECT * FROM orders) VALUES (1),(2)";
 //        String query = "SELECT COALESCE(orderkey, custkey), count(*) FROM orders GROUP BY COALESCE(orderkey, custkey)";
@@ -39,7 +39,7 @@ public class Main2
         SqlLexer lexer = new SqlLexer(new CaseInsensitiveStream2(new ANTLRInputStream(query)));
         SqlParser parser = new SqlParser(new CommonTokenStream(lexer));
 
-        ParserRuleContext tree = null; //parser.expression();
+        ParserRuleContext tree = parser.singleExpression();
         System.out.println(Trees.toStringTree(tree, parser));
         System.out.println();
 
