@@ -31,14 +31,15 @@ public class Main2
     public static void main(String[] args)
             throws ExecutionException, InterruptedException, IOException
     {
-        String query = "SELECT * FROM (TABLE a UNION TABLE b)";
+        String query = "1 IS DISTINCT FROM 2 IS DISTINCT FROM 3";
+//        String query = "SELECT * FROM (TABLE a UNION TABLE b)";
 //        String query = "WITH a AS (SELECT * FROM orders) VALUES (1),(2)";
 //        String query = "SELECT COALESCE(orderkey, custkey), count(*) FROM orders GROUP BY COALESCE(orderkey, custkey)";
 //        StatementLexer lexer = new StatementLexer(new ANTLRInputStream(query));
         SqlLexer lexer = new SqlLexer(new CaseInsensitiveStream2(new ANTLRInputStream(query)));
         SqlParser parser = new SqlParser(new CommonTokenStream(lexer));
 
-        ParserRuleContext tree = parser.singleStatement();
+        ParserRuleContext tree = null; //parser.expression();
         System.out.println(Trees.toStringTree(tree, parser));
         System.out.println();
 

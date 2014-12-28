@@ -12,7 +12,7 @@
  *  limitations under the License.
  */
 
-grammar Sql;
+grammar Statement;
 
 // TODO: error handling
 //  - detect invalid chars in idents (@, :, etc)
@@ -29,36 +29,37 @@ singleExpression
 statement
     : query
     | EXPLAIN explainOptions? statement
-    | SHOW TABLES ((FROM | IN) qualifiedName)? (LIKE STRING)?
-    | SHOW SCHEMAS ((FROM | IN) ident )?
+    | SHOW TABLES ( (FROM | IN) qualifiedName )? ( LIKE STRING )?
+    | SHOW SCHEMAS ( (FROM | IN) ident )?
     | SHOW CATALOGS
     | SHOW COLUMNS (FROM | IN) qualifiedName
     | DESCRIBE qualifiedName
     | DESC qualifiedName
     | SHOW PARTITIONS (FROM | IN) qualifiedName whereClause? orderClause? limitClause?
     | SHOW FUNCTIONS
-    | USE ident ('.' ident)?
-    | CREATE TABLE qualifiedName AS query
+    | USE CATALOG ident
+    | USE SCHEMA ident
+    | CREATE TABLE qualifiedName tableContentsSource
     | DROP TABLE qualifiedName
     | INSERT INTO qualifiedName query
     | ALTER TABLE qualifiedName RENAME TO qualifiedName
-    | CREATE (OR REPLACE)? VIEW qualifiedName AS query
+    | CREATE orReplace? VIEW qualifiedName tableContentsSource
     | DROP VIEW qualifiedName
     ;
 
 query
-    : (WITH RECURSIVE? namedQuery (',' namedQuery)*)?
+    : ( WITH RECURSIVE? namedQuery (',' namedQuery)* )?
       queryBody
       orderClause?
       limitClause?
-      (APPROXIMATE AT number CONFIDENCE)?
+      ( APPROXIMATE AT number CONFIDENCE )?
     ;
 
 queryBody
     : simpleQuery
     | '(' query ')'
     | TABLE qualifiedName
-    | VALUES rowExpression (',' rowExpression)*
+    | VALUES rowValue (',' rowValue)*
     | queryBody INTERSECT setQuantifier? queryBody
     | queryBody (UNION | EXCEPT) setQuantifier? queryBody
     ;
@@ -67,28 +68,28 @@ orderClause
     : ORDER BY sortItem (',' sortItem)*
     ;
 
-sortItem
-    : expression ordering? nullOrdering?
-    ;
-
 limitClause
     : LIMIT integer
     ;
 
 simpleQuery
     : SELECT setQuantifier? selectItem (',' selectItem)*
-      (FROM relation (',' relation)*)?
+      ( FROM tableRef (',' tableRef)* )?
       whereClause?
-      (GROUP BY expression (',' expression)*)?
-      (HAVING booleanExpression)?
+      ( GROUP BY expression (',' expression)* )?
+      ( HAVING expression )?
+    ;
+
+rowValue
+    : '(' expression (',' expression)* ')'
     ;
 
 namedQuery
-    : ident columnAliases? AS '(' query ')'
+    : ident aliasedColumns? AS '(' query ')'
     ;
 
 whereClause
-    : WHERE booleanExpression
+    : WHERE expression
     ;
 
 setQuantifier
@@ -102,25 +103,19 @@ selectItem
     | '*'
     ;
 
-relation
-    : relation
-      ( CROSS JOIN relation
-      | joinType JOIN relation joinCriteria
-      | NATURAL joinType JOIN relation
+tableRef
+    : tableRef
+      ( CROSS JOIN tableRef
+      | joinType JOIN tableRef joinCriteria
+      | NATURAL joinType JOIN tableRef
       )
-    | sampledRelation
+    | tablePrimary
     ;
 
-sampledRelation
-    : aliasedRelation (TABLESAMPLE sampleType '(' expression ')' RESCALED? stratifyOn?)?
-    ;
-
-aliasedRelation
-    : (
-        qualifiedName
-      | '(' query ')'
-      | UNNEST '(' expression (',' expression)* ')')
-      (AS? ident columnAliases?)?
+tablePrimary
+    : ( qualifiedName | '(' tableRef ')' | '(' query ')')
+      ( AS? ident aliasedColumns? )?
+      ( TABLESAMPLE sampleType '(' expression ')' RESCALED? stratifyOn? )?
     ;
 
 sampleType
@@ -141,11 +136,11 @@ joinType
     ;
 
 joinCriteria
-    : ON booleanExpression
+    : ON expression
     | USING '(' ident (',' ident)* ')'
     ;
 
-columnAliases
+aliasedColumns
     : '(' ident (',' ident)* ')'
     ;
 
@@ -154,104 +149,70 @@ columnAliases
 // 1 BETWEEN 2 AND 3 BETWEEN 4 AND 5 => (1 BETWEEN 2 AND 3) BETWEEN 4 AND 5
 // 'a' || 'b' IS NULL => 'a' || ('b' IS NULL)
 
-rowExpression
-    : primary
-    | rowValueConstructor
-    ;
 
 expression
-    : valueExpression
-    | booleanExpression
-    | rowExpression
-    ;
-
-predicate
-    : rowValuePredicand comparisonOperator rowValuePredicand
-    | rowValuePredicand NOT? BETWEEN rowValuePredicand AND rowValuePredicand // TODO: SYMMETRIC/ASYMETRIC
-    | rowValuePredicand NOT? IN '(' rowExpression (',' rowExpression)* ')'
-    | rowValuePredicand NOT? IN '(' query ')'
-    | rowValuePredicand NOT? LIKE valueExpression (ESCAPE valueExpression)? // TODO
-    | rowValuePredicand IS NOT? NULL
-    | rowValuePredicand comparisonOperator (ALL | SOME | ANY) '(' query ')' // TODO: add later
-    | EXISTS '(' query ')'
-    | UNIQUE '(' query ')' // TODO: add later
-    | rowValuePredicand MATCH UNIQUE? (SIMPLE | PARTIAL | FULL) '(' query ')'
-    | rowValuePredicand OVERLAPS rowValuePredicand // TODO: add later
-    | rowValuePredicand IS NOT? DISTINCT FROM rowValuePredicand
-    | rowValuePredicand NOT? MEMBER OF? valueExpression // TODO add later
-    | rowValuePredicand NOT? SUBMULTISET OF? valueExpression // TODO add later
-    | rowValuePredicand IS NOT? A SET // TODO add later
-    ;
-
-rowValuePredicand
-    : valueExpression
-    | '(' booleanExpression ')'
-    | rowValueConstructor
-    ;
-
-rowValueConstructor
-    : '(' expression ',' expression (',' expression)* ')'
-    | ROW '(' expression (',' expression)* ')'
-    | '(' query ')'
-    ;
-
+    : booleanExpression;
 
 booleanExpression
-    : booleanExpression OR booleanFactor  // TODO: precedence of OR vs AND
-    | booleanExpression AND booleanFactor
-    | NOT booleanExpression
-    | booleanExpression IS NOT? (TRUE | FALSE | UNKNOWN)
-    | '(' booleanExpression ')'
-    | predicate
-    | primary
+    : NOT booleanExpression
+    | booleanExpression AND booleanExpression
+    | booleanExpression OR booleanExpression
+    | EXISTS '(' query ')'
+    | comparisonExpression
     ;
 
-valueExpression
-    : valueExpression ('+' | '-') valueExpression
-    | valueExpression '||' valueExpression
-    | valueExpression ('*' | '/') valueExpression
-// TODO: precedence between '-' and AT timeZoneSpecifier
-    | '-'? primary intervalQualifier? // commonValueExpression?
-    | valueExpression AT timeZoneSpecifier
-    | valueExpression COLLATE (ident '.')? ident
+comparisonExpression
+    : comparisonExpression BETWEEN comparisonExpression AND comparisonExpression
+    | comparisonExpression NOT BETWEEN comparisonExpression AND comparisonExpression
+    | comparisonExpression LIKE comparisonExpression (ESCAPE comparisonExpression)?
+    | comparisonExpression NOT LIKE comparisonExpression (ESCAPE comparisonExpression)?
+    | comparisonExpression IN inList
+    | comparisonExpression NOT IN inList
+    | expressionTerm
     ;
 
-primary
+expressionTerm
     : literal
     | qualifiedName
     | functionCall
-    | '(' query ')'
-    | CASE rowValuePredicand whenClause+ elseClause? END
+    | CASE expression whenClause+ elseClause? END
     | CASE whenClause+ elseClause? END
-    | '(' expression ')' ('.' ident)?
-    | primary '.' ident
-    | CAST '(' expression AS type ')'
-    | TRY_CAST '(' expression AS type ')'
-    | ARRAY '[' (expression (',' expression)*)? ']'
-    | primary '[' valueExpression ']' // TODO: commonValueExpression '[' ... ']' ?
-    | ELEMENT '(' valueExpression ')'
-    | CURRENT_DATE
-    | CURRENT_TIME ('(' integer ')')?
-    | CURRENT_TIMESTAMP ('(' integer ')')?
-    | LOCALTIME ('(' integer ')')?
-    | LOCALTIMESTAMP ('(' integer ')')?
-    | SUBSTRING '(' valueExpression FROM valueExpression (FOR valueExpression)? ')'
-    | EXTRACT '(' ident FROM valueExpression ')'
-    ;
-
-timeZoneSpecifier
-    : LOCAL
-    | TIME ZONE (intervalLiteral | STRING)
-    ;
-
-intervalQualifier
-    : intervalField TO intervalField
-    | intervalField
+    | '(' expression ')'
+    | '(' query ')'
+    | expressionTerm ( AT TIME ZONE STRING | AT TIME ZONE intervalLiteral)
+    | ('+' | '-') expressionTerm
+    | expressionTerm ('*' | '/' | '%') expressionTerm
+    | expressionTerm ('+' | '-') expressionTerm
+    | expressionTerm IS NOT? NULL
+    | expressionTerm '||' expressionTerm
+    | expressionTerm cmpOp expressionTerm
     ;
 
 functionCall
     : qualifiedName '(' '*' ')' over?
     | qualifiedName '(' (setQuantifier? expression (',' expression)*)? ')' over?
+    | specialFunction
+    ;
+
+specialFunction
+    : CURRENT_DATE
+    | CURRENT_TIME ('(' integer ')')?
+    | CURRENT_TIMESTAMP ('(' integer ')')?
+    | LOCALTIME ('(' integer ')')?
+    | LOCALTIMESTAMP ('(' integer ')')?
+    | SUBSTRING '(' expression FROM expression (FOR expression)? ')'
+    | EXTRACT '(' ident FROM expression ')'
+    | CAST '(' expression AS type ')'
+    | TRY_CAST '(' expression AS type ')'
+    ;
+
+inList
+    : '(' expression (',' expression)* ')'
+    | '(' query ')'
+    ;
+
+sortItem
+    : expression ordering? nullOrdering?
     ;
 
 ordering
@@ -264,8 +225,8 @@ nullOrdering
     | NULLS LAST
     ;
 
-comparisonOperator
-    : EQ | NEQ | LT | LTE | GT | GTE
+cmpOp
+    : EQ | NEQ | LT | LTE | GT | GTE | IS DISTINCT FROM | IS NOT DISTINCT FROM
     ;
 
 literal
@@ -292,6 +253,7 @@ intervalField
     : YEAR | MONTH | DAY | HOUR | MINUTE | SECOND
     ;
 
+// TODO: this should be 'dataType', which supports arbitrary type specifications. For now we constrain to simple types
 type
     : VARCHAR
     | BIGINT
@@ -302,14 +264,8 @@ type
     | ident
     ;
 
-
-// TODO: special form of simple CASE:
-// CASE x
-//   WHEN > 3 THEN ...
-//   WHEN DISTINCT FROM 4 THEN ...
-
 whenClause
-    : WHEN booleanExpression THEN expression
+    : WHEN expression THEN expression
     ;
 
 elseClause
@@ -335,7 +291,7 @@ frameBound
     : UNBOUNDED PRECEDING
     | UNBOUNDED FOLLOWING
     | CURRENT ROW
-    | expression ( PRECEDING | FOLLOWING ) // valueExpression should be unsignedLiteral
+    | expression ( PRECEDING | FOLLOWING )
     ;
 
 explainOptions
@@ -348,6 +304,64 @@ explainOption
     | FORMAT JSON
     | TYPE LOGICAL
     | TYPE DISTRIBUTED
+    ;
+
+orReplace
+    : OR REPLACE
+    ;
+
+tableContentsSource
+    : AS query
+    ;
+
+tableElementList
+    : '(' tableElement (',' tableElement)* ')'
+    ;
+
+tableElement
+    : ident dataType columnConstDef*
+    ;
+
+dataType
+    : charType
+    | exactNumType
+    | dateType
+    ;
+
+charType
+    : CHAR charlen?
+    | CHARACTER charlen?
+    | VARCHAR charlen?
+    | CHAR VARYING charlen?
+    | CHARACTER VARYING charlen?
+    ;
+
+charlen
+    : '(' integer ')'
+    ;
+
+exactNumType
+    : NUMERIC numlen?
+    | DECIMAL numlen?
+    | DEC numlen?
+    | INTEGER
+    | INT
+    ;
+
+numlen
+    : '(' integer (',' integer)? ')'
+    ;
+
+dateType
+    : DATE
+    ;
+
+columnConstDef
+    : columnConst
+    ;
+
+columnConst
+    : NOT NULL
     ;
 
 qualifiedName
@@ -380,7 +394,7 @@ nonReserved
     | DATE | TIME | TIMESTAMP | INTERVAL
     | YEAR | MONTH | DAY | HOUR | MINUTE | SECOND
     | EXPLAIN | FORMAT | TYPE | TEXT | GRAPHVIZ | LOGICAL | DISTRIBUTED
-    | TABLESAMPLE | SYSTEM | BERNOULLI | POISSONIZED | USE | JSON | TO
+    | TABLESAMPLE | SYSTEM | BERNOULLI | POISSONIZED | USE | SCHEMA | CATALOG | JSON | TO
     | RESCALED | APPROXIMATE | AT | CONFIDENCE
     | VIEW | REPLACE
     ;
@@ -389,8 +403,6 @@ SELECT: 'SELECT';
 FROM: 'FROM';
 AS: 'AS';
 ALL: 'ALL';
-SOME: 'SOME';
-ANY: 'ANY';
 DISTINCT: 'DISTINCT';
 WHERE: 'WHERE';
 GROUP: 'GROUP';
@@ -497,7 +509,9 @@ CAST: 'CAST';
 TRY_CAST: 'TRY_CAST';
 SHOW: 'SHOW';
 TABLES: 'TABLES';
+SCHEMA: 'SCHEMA';
 SCHEMAS: 'SCHEMAS';
+CATALOG: 'CATALOG';
 CATALOGS: 'CATALOGS';
 COLUMNS: 'COLUMNS';
 USE: 'USE';
@@ -516,22 +530,6 @@ RESCALED: 'RESCALED';
 STRATIFY: 'STRATIFY';
 ALTER: 'ALTER';
 RENAME: 'RENAME';
-UNNEST: 'UNNEST';
-ARRAY: 'ARRAY';
-UNIQUE: 'UNIQUE';
-MATCH: 'MATCH';
-SIMPLE: 'SIMPLE';
-PARTIAL: 'PARTIAL';
-OVERLAPS: 'OVERLAPS';
-MEMBER: 'MEMBER';
-OF: 'OF';
-SUBMULTISET: 'SUBMULTISET';
-A: 'A';
-SET: 'SET';
-UNKNOWN: 'UNKNOWN';
-COLLATE: 'COLLATE';
-LOCAL: 'LOCAL';
-ELEMENT: 'ELEMENT';
 
 EQ  : '=';
 NEQ : '<>' | '!=';

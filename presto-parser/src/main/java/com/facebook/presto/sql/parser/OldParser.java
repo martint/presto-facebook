@@ -23,12 +23,12 @@ public class OldParser
     public static void main(String[] args)
             throws RecognitionException
     {
-        String sql = "WITH a AS (SELECT *) VALUES (1),(2)";
+        String sql = "1 = 2 is null";
         StatementLexer lexer = new StatementLexer(new CaseInsensitiveStream(new ANTLRStringStream(sql)));
         StatementParser parser = new StatementParser(new CommonTokenStream(lexer));
 
-//        CommonTree tree = (CommonTree) parser.expr().getTree();
-        CommonTree tree = (CommonTree) parser.statement().getTree();
+        CommonTree tree = (CommonTree) parser.expr().getTree();
+//        CommonTree tree = (CommonTree) parser.statement().getTree();
 
         System.out.println(tree.toStringTree());
     }
