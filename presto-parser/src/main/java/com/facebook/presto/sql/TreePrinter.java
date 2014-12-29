@@ -22,10 +22,12 @@ import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
+import com.facebook.presto.sql.tree.Except;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.InPredicate;
+import com.facebook.presto.sql.tree.Intersect;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
@@ -33,6 +35,7 @@ import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
+import com.facebook.presto.sql.tree.QueryBody;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SampledRelation;
@@ -46,10 +49,14 @@ import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableSubquery;
+import com.facebook.presto.sql.tree.Union;
+import com.facebook.presto.sql.tree.Use;
 import com.facebook.presto.sql.tree.Values;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.sql.tree.WindowFrame;
+import com.facebook.presto.sql.tree.With;
+import com.facebook.presto.sql.tree.WithQuery;
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 
@@ -82,22 +89,24 @@ public class TreePrinter
             @Override
             protected Void visitQuery(Query node, Integer indentLevel)
             {
-                print(indentLevel, "Query ");
+                print(indentLevel, "Query");
 
-                indentLevel++;
+                if (node.getWith().isPresent()) {
+                    process(node.getWith().get(), indentLevel + 1);
+                }
 
-                print(indentLevel, "QueryBody");
-                process(node.getQueryBody(), indentLevel);
+                print(indentLevel + 1, "QueryBody");
+                process(node.getQueryBody(), indentLevel + 2);
 
                 if (!node.getOrderBy().isEmpty()) {
-                    print(indentLevel, "OrderBy");
+                    print(indentLevel + 1, "OrderBy");
                     for (SortItem sortItem : node.getOrderBy()) {
-                        process(sortItem, indentLevel + 1);
+                        process(sortItem, indentLevel + 2);
                     }
                 }
 
                 if (node.getLimit().isPresent()) {
-                    print(indentLevel, "Limit: " + node.getLimit().get());
+                    print(indentLevel + 1, "Limit: " + node.getLimit().get());
                 }
 
                 return null;
@@ -458,6 +467,81 @@ public class TreePrinter
             {
                 print(context, node.getType().toString());
                 super.visitFrameBound(node, context + 1);
+
+                return null;
+            }
+
+            @Override
+            protected Void visitUse(Use node, Integer context)
+            {
+                if (node.getCatalog().isPresent()) {
+                    print(context, "USE[" + node.getCatalog().get() + "." + node.getSchema() + "]");
+                }
+                else {
+                    print(context, "USE[" + node.getSchema() + "]");
+                }
+
+                return null;
+            }
+
+            @Override
+            protected Void visitQueryBody(QueryBody node, Integer context)
+            {
+                print(context, "QUERY_BODY");
+
+                super.visitQueryBody(node, context + 1);
+
+                return null;
+            }
+
+            @Override
+            protected Void visitUnion(Union node, Integer context)
+            {
+                print(context, "UNION");
+
+                super.visitUnion(node, context + 1);
+
+                return null;
+            }
+
+            @Override
+            protected Void visitIntersect(Intersect node, Integer context)
+            {
+                print(context, "INTERSECT");
+
+                super.visitIntersect(node, context + 1);
+
+                return null;
+            }
+
+            @Override
+            protected Void visitExcept(Except node, Integer context)
+            {
+                print(context, "EXCEPT");
+
+                super.visitExcept(node, context + 1);
+
+                return null;
+            }
+
+            @Override
+            protected Void visitWith(With node, Integer context)
+            {
+                print(context, "With");
+
+                super.visitWith(node, context + 1);
+
+                return null;
+            }
+
+            @Override
+            protected Void visitWithQuery(WithQuery node, Integer context)
+            {
+                String aliases = node.getColumnNames() == null? "" : "(" + Joiner.on(",").join(node.getColumnNames()) + ")";
+
+                print(context, "NamedQuery[" + node.getName() + aliases + "]");
+
+                super.visitWithQuery(node, context + 1);
 
                 return null;
             }

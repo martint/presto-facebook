@@ -13,21 +13,34 @@
  */
 package com.facebook.presto.sql.parser2;
 
+import com.facebook.presto.sql.tree.AllColumns;
+import com.facebook.presto.sql.tree.Approximate;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
 import com.facebook.presto.sql.tree.ArrayConstructor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.CreateTable;
+import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.CurrentTime;
 import com.facebook.presto.sql.tree.DoubleLiteral;
+import com.facebook.presto.sql.tree.DropTable;
+import com.facebook.presto.sql.tree.DropView;
+import com.facebook.presto.sql.tree.Except;
+import com.facebook.presto.sql.tree.Explain;
+import com.facebook.presto.sql.tree.ExplainOption;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Extract;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
+import com.facebook.presto.sql.tree.Insert;
+import com.facebook.presto.sql.tree.Intersect;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
+import com.facebook.presto.sql.tree.Join;
+import com.facebook.presto.sql.tree.JoinCriteria;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
@@ -38,20 +51,43 @@ import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
 import com.facebook.presto.sql.tree.Query;
+import com.facebook.presto.sql.tree.QueryBody;
+import com.facebook.presto.sql.tree.QuerySpecification;
+import com.facebook.presto.sql.tree.Relation;
+import com.facebook.presto.sql.tree.RenameTable;
+import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
+import com.facebook.presto.sql.tree.Select;
+import com.facebook.presto.sql.tree.SelectItem;
+import com.facebook.presto.sql.tree.ShowCatalogs;
+import com.facebook.presto.sql.tree.ShowColumns;
+import com.facebook.presto.sql.tree.ShowFunctions;
+import com.facebook.presto.sql.tree.ShowPartitions;
+import com.facebook.presto.sql.tree.ShowSchemas;
+import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
+import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.SortItem;
+import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.SubscriptExpression;
+import com.facebook.presto.sql.tree.Table;
+import com.facebook.presto.sql.tree.Union;
+import com.facebook.presto.sql.tree.Use;
+import com.facebook.presto.sql.tree.Values;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.sql.tree.Window;
 import com.facebook.presto.sql.tree.WindowFrame;
+import com.facebook.presto.sql.tree.With;
+import com.facebook.presto.sql.tree.WithQuery;
 import com.google.common.collect.ImmutableList;
+import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.misc.NotNull;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.TerminalNode;
 
+import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -64,6 +100,324 @@ public class AstBuilder
     public AstBuilder(SqlParser parser)
     {
         this.parser = parser;
+    }
+
+    @Override
+    public Node visitSingleStatement(@NotNull SqlParser.SingleStatementContext ctx)
+    {
+        return visit(ctx.statement());
+    }
+
+    @Override
+    public Node visitSingleExpression(@NotNull SqlParser.SingleExpressionContext ctx)
+    {
+        return visit(ctx.expression());
+    }
+
+    // statements
+
+    @Override
+    public Node visitUse(@NotNull SqlParser.UseContext ctx)
+    {
+        Optional<String> catalog = Optional.ofNullable(ctx.catalog)
+                .map(ParseTree::getText);
+
+        return new Use(catalog, ctx.schema.getText());
+    }
+
+    @Override
+    public Node visitCreateTableAsSelect(@NotNull SqlParser.CreateTableAsSelectContext ctx)
+    {
+        return new CreateTable(getQualifiedName(ctx.qualifiedName()), (Query) visit(ctx.query()));
+    }
+
+    @Override
+    public Node visitDropTable(@NotNull SqlParser.DropTableContext ctx)
+    {
+        return new DropTable(getQualifiedName(ctx.qualifiedName()));
+    }
+
+    @Override
+    public Node visitDropView(@NotNull SqlParser.DropViewContext ctx)
+    {
+        return new DropView(getQualifiedName(ctx.qualifiedName()));
+    }
+
+    @Override
+    public Node visitInsertInto(@NotNull SqlParser.InsertIntoContext ctx)
+    {
+        return new Insert(getQualifiedName(ctx.qualifiedName()), (Query) visit(ctx.query()));
+    }
+
+    @Override
+    public Node visitRenameTable(@NotNull SqlParser.RenameTableContext ctx)
+    {
+        return new RenameTable(getQualifiedName(ctx.from), getQualifiedName(ctx.to));
+    }
+
+    @Override
+    public Node visitCreateView(@NotNull SqlParser.CreateViewContext ctx)
+    {
+        boolean replace = ctx.REPLACE() != null;
+        return new CreateView(getQualifiedName(ctx.qualifiedName()), (Query) visit(ctx.query()), replace);
+    }
+
+    // query expressions
+
+    @Override
+    public Node visitQuery(@NotNull SqlParser.QueryContext ctx)
+    {
+        Optional<With> with = Optional.ofNullable(ctx.with())
+                .map(this::visit)
+                .map(With.class::cast);
+
+        Query body = (Query) visit(ctx.queryNoWith());
+
+        return new Query(with,
+                body.getQueryBody(),
+                body.getOrderBy(),
+                body.getLimit(),
+                body.getApproximate());
+    }
+
+    @Override
+    public Node visitWith(@NotNull SqlParser.WithContext ctx)
+    {
+        List<WithQuery> namedQueries = ctx.namedQuery().stream()
+                .map(this::visit)
+                .map(WithQuery.class::cast)
+                .collect(Collectors.toList());
+
+        return new With(ctx.RECURSIVE() != null, namedQueries);
+    }
+
+    @Override
+    public Node visitNamedQuery(@NotNull SqlParser.NamedQueryContext ctx)
+    {
+        List<String> columnNames = null;
+
+        if (ctx.columnAliases() != null) {
+            columnNames = ctx.columnAliases().identifier().stream()
+                    .map(ParseTree::getText)
+                    .collect(Collectors.toList());
+        }
+
+        return new WithQuery(ctx.name.getText(), (Query) visit(ctx.query()), columnNames);
+    }
+
+    @Override
+    public Node visitQueryNoWith(@NotNull SqlParser.QueryNoWithContext ctx)
+    {
+        QueryBody term = (QueryBody) visit(ctx.queryTerm());
+
+        List<SortItem> orderBy = ctx.sortItem().stream()
+                .map(this::visit)
+                .map(SortItem.class::cast)
+                .collect(Collectors.toList());
+
+        Optional<String> limit = Optional.ofNullable(ctx.limit)
+                .map(Token::getText);
+
+        Optional<Approximate> approximate = Optional.ofNullable(ctx.confidence)
+                .map(ParseTree::getText)
+                .map(Approximate::new);
+
+        if (term instanceof QuerySpecification) {
+            // When we have a simple query specification
+            // followed by order by limit, fold the order by and limit
+            // clauses into the query specification (analyzer/planner
+            // expects this structure to resolve references with respect
+            // to columns defined in the query specification)
+            QuerySpecification query = (QuerySpecification) term;
+
+            return new Query(
+                    Optional.<With>empty(),
+                    new QuerySpecification(
+                            query.getSelect(),
+                            query.getFrom(),
+                            query.getWhere(),
+                            query.getGroupBy(),
+                            query.getHaving(),
+                            orderBy,
+                            limit),
+                    ImmutableList.of(),
+                    Optional.<String>empty(),
+                    approximate);
+        }
+
+        return new Query(Optional.<With>empty(), term, orderBy, limit, approximate);
+    }
+
+    @Override
+    public Node visitQuerySpecification(@NotNull SqlParser.QuerySpecificationContext ctx)
+    {
+        List<SelectItem> selectItems = ctx.selectItem().stream()
+                .map(this::visit)
+                .map(SelectItem.class::cast)
+                .collect(Collectors.toList());
+
+        Select select = new Select(isDistinct(ctx.setQuantifier()), selectItems);
+
+        List<Relation> relations = ctx.relation().stream()
+                .map(this::visit)
+                .map(Relation.class::cast)
+                .collect(Collectors.toList());
+
+        Optional<Relation> from = Optional.empty();
+
+        if (!relations.isEmpty()) {
+            // synthesize implicit join nodes
+            Iterator<Relation> iterator = relations.iterator();
+            Relation relation = iterator.next();
+
+            while (iterator.hasNext()) {
+                relation = new Join(Join.Type.IMPLICIT, relation, iterator.next(), Optional.<JoinCriteria>empty());
+            }
+
+            from = Optional.of(relation);
+        }
+
+        Optional<Expression> where = Optional.ofNullable(ctx.where)
+                .map(this::visit)
+                .map(Expression.class::cast);
+
+        List<Expression> groupBy = ctx.groupBy.stream()
+                .map(this::visit)
+                .map(Expression.class::cast)
+                .collect(Collectors.toList());
+
+        Optional<Expression> having = Optional.ofNullable(ctx.having)
+                .map(this::visit)
+                .map(Expression.class::cast);
+
+        return new QuerySpecification(select, from, where, groupBy, having, ImmutableList.of(), Optional.<String>empty());
+    }
+
+    @Override
+    public Node visitSetOperation(@NotNull SqlParser.SetOperationContext ctx)
+    {
+        QueryBody left = (QueryBody) visit(ctx.left);
+        QueryBody right = (QueryBody) visit(ctx.right);
+
+        boolean distinct = isDistinct(ctx.setQuantifier());
+
+        switch (ctx.operator.getType()) {
+            case SqlLexer.UNION:
+                return new Union(ImmutableList.of(left, right), distinct);
+            case SqlLexer.INTERSECT:
+                return new Intersect(ImmutableList.of(left, right), distinct);
+            case SqlLexer.EXCEPT:
+                return new Except(left, right, distinct);
+        }
+
+        throw new UnsupportedOperationException("Unsupported set operation: " + ctx.operator.getText());
+    }
+
+    @Override
+    public Node visitSelectAll(@NotNull SqlParser.SelectAllContext ctx)
+    {
+        if (ctx.qualifiedName() != null) {
+            return new AllColumns(getQualifiedName(ctx.qualifiedName()));
+        }
+
+        return new AllColumns();
+    }
+
+    @Override
+    public Node visitSelectSingle(@NotNull SqlParser.SelectSingleContext ctx)
+    {
+        Optional<String> alias = Optional.ofNullable(ctx.identifier())
+                .map(ParseTree::getText);
+
+        return new SingleColumn((Expression) visit(ctx.expression()), alias);
+    }
+
+    @Override
+    public Node visitTable(@NotNull SqlParser.TableContext ctx)
+    {
+        return new Table(getQualifiedName(ctx.qualifiedName()));
+    }
+
+    @Override
+    public Node visitInlineTable(@NotNull SqlParser.InlineTableContext ctx)
+    {
+        List<Row> rows = ctx.primaryExpression().stream()
+                .map(this::visit)
+                .map(Row.class::cast)
+                .collect(Collectors.toList());
+
+        // TODO: handle simple expressions
+        return new Values(rows);
+    }
+
+    @Override
+    public Node visitExplain(@NotNull SqlParser.ExplainContext ctx)
+    {
+        List<ExplainOption> options = ctx.explainOption().stream()
+                .map(this::visit)
+                .map(ExplainOption.class::cast)
+                .collect(Collectors.toList());
+
+        return new Explain((Statement) visit(ctx.statement()), options);
+    }
+
+    @Override
+    public Node visitShowTables(@NotNull SqlParser.ShowTablesContext ctx)
+    {
+        QualifiedName schema = Optional.ofNullable(ctx.qualifiedName())
+                .map(AstBuilder::getQualifiedName)
+                .orElse(null);
+
+        String pattern = Optional.of(ctx.pattern)
+                .map(Token::getText)
+                .orElse(null);
+
+        return new ShowTables(schema, pattern);
+    }
+
+    @Override
+    public Node visitShowSchemas(@NotNull SqlParser.ShowSchemasContext ctx)
+    {
+        Optional<String> catalog = Optional.ofNullable(ctx.identifier())
+                .map(ParseTree::getText);
+
+        return new ShowSchemas(catalog);
+    }
+
+    @Override
+    public Node visitShowCatalogs(@NotNull SqlParser.ShowCatalogsContext ctx)
+    {
+        return new ShowCatalogs();
+    }
+
+    @Override
+    public Node visitShowColumns(@NotNull SqlParser.ShowColumnsContext ctx)
+    {
+        return new ShowColumns(getQualifiedName(ctx.qualifiedName()));
+    }
+
+    @Override
+    public Node visitShowPartitions(@NotNull SqlParser.ShowPartitionsContext ctx)
+    {
+        Optional<Expression> where = Optional.of(ctx.booleanExpression())
+                .map(this::visit)
+                .map(Expression.class::cast);
+
+        List<SortItem> orderBy = ctx.sortItem().stream()
+                .map(this::visit)
+                .map(SortItem.class::cast)
+                .collect(Collectors.toList());
+
+        Optional<String> limit = Optional.ofNullable(ctx.limit)
+                .map(Token::getText);
+
+        return new ShowPartitions(getQualifiedName(ctx.qualifiedName()), where, orderBy, limit);
+    }
+
+    @Override
+    public Node visitShowFunctions(@NotNull SqlParser.ShowFunctionsContext ctx)
+    {
+        return new ShowFunctions();
     }
 
     // boolean expressions
@@ -368,7 +722,7 @@ public class AstBuilder
                 .map(Expression.class::cast)
                 .collect(Collectors.toList());
 
-        boolean distinct = ctx.setQuantifier() != null && ctx.setQuantifier().DISTINCT() != null;
+        boolean distinct = isDistinct(ctx.setQuantifier());
 
         Window window = Optional.ofNullable(ctx.over())
                 .map(this::visit)
@@ -433,7 +787,6 @@ public class AstBuilder
 
         return new SortItem((Expression) visit(ctx.expression()), orderingType, nullOrderingType);
     }
-
 
     @Override
     public Node visitWindowFrame(@NotNull SqlParser.WindowFrameContext ctx)
@@ -565,5 +918,10 @@ public class AstBuilder
                 .collect(Collectors.toList());
 
         return new QualifiedName(parts);
+    }
+
+    private static boolean isDistinct(SqlParser.SetQuantifierContext setQuantifier)
+    {
+        return setQuantifier != null && setQuantifier.DISTINCT() != null;
     }
 }

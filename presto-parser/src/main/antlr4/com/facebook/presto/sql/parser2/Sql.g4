@@ -26,68 +26,68 @@ singleExpression
     ;
 
 statement
-    : query
-    | USE identifier ('.' identifier)?
-    | CREATE TABLE qualifiedName AS query
-    | DROP TABLE qualifiedName
-    | INSERT INTO qualifiedName query
-    | ALTER TABLE qualifiedName RENAME TO qualifiedName
-    | CREATE (OR REPLACE)? VIEW qualifiedName AS query
-    | DROP VIEW qualifiedName
+    : query #queryStatement
+    | USE schema=identifier #use
+    | USE catalog=identifier '.' schema=identifier #use
+    | CREATE TABLE qualifiedName AS query #createTableAsSelect
+    | DROP TABLE qualifiedName #dropTable
+    | INSERT INTO qualifiedName query #insertInto
+    | ALTER TABLE from=qualifiedName RENAME TO to=qualifiedName #renameTable
+    | CREATE (OR REPLACE)? VIEW qualifiedName AS query #createView
+    | DROP VIEW qualifiedName #dropView
     ;
 
 query
-    : (WITH RECURSIVE? namedQuery (',' namedQuery)*)?
-      queryBody
-      orderClause?
-      limitClause?
-      (APPROXIMATE AT number CONFIDENCE)?
+    :  with? queryNoWith
     ;
 
-queryBody
-    : queryPrimary
-    | queryBody INTERSECT setQuantifier? queryBody
-    | queryBody (UNION | EXCEPT) setQuantifier? queryBody
+with
+    : WITH RECURSIVE? namedQuery (',' namedQuery)*
+    ;
+
+queryNoWith:
+      queryTerm
+      (ORDER BY sortItem (',' sortItem)*)?
+      (LIMIT limit=INTEGER_VALUE)?
+      (APPROXIMATE AT confidence=number CONFIDENCE)?
+    ;
+
+queryTerm
+    : queryPrimary #queryTermPrimary
+    | left=queryTerm operator=INTERSECT setQuantifier? right=queryTerm #setOperation
+    | left=queryTerm operator=(UNION | EXCEPT) setQuantifier? right=queryTerm #setOperation
     ;
 
 queryPrimary
-    : simpleQuery #queryBlock
-    | '(' query ')' #subquery
+    : querySpecification #queryPrimarySpecification
     | TABLE qualifiedName #table
     | VALUES primaryExpression (',' primaryExpression)* #inlineTable
-    | EXPLAIN explainOptions? statement #explain
-    | SHOW TABLES ((FROM | IN) qualifiedName)? (LIKE STRING)? #showTables
+    | EXPLAIN ('(' explainOption (',' explainOption)* ')')? statement #explain
+    | SHOW TABLES ((FROM | IN) qualifiedName)? (LIKE pattern=STRING)? #showTables
     | SHOW SCHEMAS ((FROM | IN) identifier )? #showSchemas
     | SHOW CATALOGS #showCatalogs
     | SHOW COLUMNS (FROM | IN) qualifiedName #showColumns
-    | DESCRIBE qualifiedName #describe
-    | DESC qualifiedName #describe
-    | SHOW PARTITIONS (FROM | IN) qualifiedName (WHERE booleanExpression)? orderClause? limitClause? #showPartitions
+    | DESCRIBE qualifiedName #showColumns
+    | DESC qualifiedName #showColumns
+    | SHOW PARTITIONS (FROM | IN) qualifiedName (WHERE booleanExpression)? (ORDER BY sortItem (',' sortItem)*)? (LIMIT limit=INTEGER_VALUE)? #showPartitions
     | SHOW FUNCTIONS #showFunctions
-    ;
-
-orderClause
-    : ORDER BY sortItem (',' sortItem)*
+    | '(' queryNoWith  ')' #subquery
     ;
 
 sortItem
     : expression ordering=(ASC | DESC)? (NULLS nullOrdering=(FIRST | LAST))?
     ;
 
-limitClause
-    : LIMIT INTEGER_VALUE
-    ;
-
-simpleQuery
+querySpecification
     : SELECT setQuantifier? selectItem (',' selectItem)*
       (FROM relation (',' relation)*)?
-      (WHERE booleanExpression)?
-      (GROUP BY expression (',' expression)*)?
-      (HAVING booleanExpression)?
+      (WHERE where=booleanExpression)?
+      (GROUP BY groupBy+=expression (',' groupBy+=expression)*)?
+      (HAVING having=booleanExpression)?
     ;
 
 namedQuery
-    : identifier columnAliases? AS '(' query ')'
+    : name=identifier (columnAliases)? AS '(' query ')'
     ;
 
 setQuantifier
@@ -96,9 +96,9 @@ setQuantifier
     ;
 
 selectItem
-    : expression (AS? identifier)?
-    | qualifiedName '.' ASTERISK
-    | ASTERISK
+    : expression (AS? identifier)? #selectSingle
+    | qualifiedName '.' ASTERISK #selectAll
+    | ASTERISK #selectAll
     ;
 
 relation
@@ -281,9 +281,6 @@ frameBound
     | expression boundType=(PRECEDING | FOLLOWING) #boundedFrame // valueExpression should be unsignedLiteral
     ;
 
-explainOptions
-    : '(' explainOption (',' explainOption)* ')'
-    ;
 
 explainOption
     : FORMAT TEXT

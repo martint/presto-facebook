@@ -15,6 +15,7 @@ package com.facebook.presto.sql.parser2;
 
 import com.facebook.presto.sql.TreePrinter;
 import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.Statement;
 import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.CommonToken;
 import org.antlr.v4.runtime.CommonTokenStream;
@@ -38,13 +39,16 @@ public class Main2
     public static void main(String[] args)
             throws ExecutionException, InterruptedException, IOException
     {
-        String query = "foo(distinct 1,2,3) over (partition by a, b order by c, d RANGE BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING)";
+        String query = "WITH a AS (TABLE x) TABLE y";
 //        String query = "SELECT * FROM (TABLE a UNION TABLE b)";
 //        String query = "WITH a AS (SELECT * FROM orders) VALUES (1),(2)";
 //        String query = "SELECT COALESCE(orderkey, custkey), count(*) FROM orders GROUP BY COALESCE(orderkey, custkey)";
 //        StatementLexer lexer = new StatementLexer(new ANTLRInputStream(query));
         SqlLexer lexer = new SqlLexer(new CaseInsensitiveStream2(new ANTLRInputStream(query)));
         SqlParser parser = new SqlParser(new CommonTokenStream(lexer));
+
+        Statement old = new com.facebook.presto.sql.parser.SqlParser().createStatement(query);
+        new TreePrinter(new IdentityHashMap<>(), System.out).print(old);
 
         parser.addParseListener(new SqlBaseListener()
         {
@@ -65,13 +69,9 @@ public class Main2
             }
         });
 
-        ParserRuleContext tree = parser.expression();
+        ParserRuleContext tree = parser.singleStatement();
         System.out.println(Trees.toStringTree(tree, parser));
         System.out.println();
-
-        AstBuilder builder = new AstBuilder(parser);
-        Node ast = builder.visit(tree);
-        new TreePrinter(new IdentityHashMap<>(), System.out).print(ast);
 
         JDialog dialog = tree.inspect(parser).get();
         final CountDownLatch latch = new CountDownLatch(1);
@@ -83,6 +83,11 @@ public class Main2
                 latch.countDown();
             }
         });
+
+        AstBuilder builder = new AstBuilder(parser);
+        Node ast = builder.visit(tree);
+        new TreePrinter(new IdentityHashMap<>(), System.out).print(ast);
+
 
         latch.await();
     }

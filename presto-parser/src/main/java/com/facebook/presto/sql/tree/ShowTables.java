@@ -23,6 +23,7 @@ public class ShowTables
     private final QualifiedName schema;
     private final String likePattern;
 
+    // TODO: make schema and pattern Optionals
     public ShowTables(QualifiedName schema, String likePattern)
     {
         this.schema = schema;
