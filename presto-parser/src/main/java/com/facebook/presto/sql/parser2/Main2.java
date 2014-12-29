@@ -32,7 +32,10 @@ public class Main2
     public static void main(String[] args)
             throws ExecutionException, InterruptedException, IOException
     {
-        String query = "select fuu from dual order by fuu order by fuu";
+//        String query = "SELECT a";
+        String query = "SELECT orderstatus, cardinality(approx_set(IF(custkey % 2 <> 0, custkey))) \n" +
+                "FROM orders \n" +
+                "GROUP BY orderstatus";
 //        String query = "SELECT * FROM (TABLE a UNION TABLE b)";
 //        String query = "WITH a AS (SELECT * FROM orders) VALUES (1),(2)";
 //        String query = "SELECT COALESCE(orderkey, custkey), count(*) FROM orders GROUP BY COALESCE(orderkey, custkey)";

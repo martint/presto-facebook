@@ -26,6 +26,7 @@ import com.facebook.presto.sql.tree.Except;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.Intersect;
 import com.facebook.presto.sql.tree.LikePredicate;
@@ -223,6 +224,13 @@ public class TreePrinter
 
                 super.visitLogicalBinaryExpression(node, indentLevel + 1);
 
+                return null;
+            }
+
+            @Override
+            protected Void visitGenericLiteral(GenericLiteral node, Integer indentLevel)
+            {
+                print(indentLevel, "Literal[" + node.getType() + ":" + node.getValue() + "]");
                 return null;
             }
 

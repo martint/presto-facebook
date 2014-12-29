@@ -35,6 +35,15 @@ statement
     | ALTER TABLE from=qualifiedName RENAME TO to=qualifiedName #renameTable
     | CREATE (OR REPLACE)? VIEW qualifiedName AS query #createView
     | DROP VIEW qualifiedName #dropView
+    | EXPLAIN ('(' explainOption (',' explainOption)* ')')? statement #explain
+    | SHOW TABLES ((FROM | IN) qualifiedName)? (LIKE pattern=STRING)? #showTables
+    | SHOW SCHEMAS ((FROM | IN) identifier )? #showSchemas
+    | SHOW CATALOGS #showCatalogs
+    | SHOW COLUMNS (FROM | IN) qualifiedName #showColumns
+    | DESCRIBE qualifiedName #showColumns
+    | DESC qualifiedName #showColumns
+    | SHOW PARTITIONS (FROM | IN) qualifiedName (WHERE booleanExpression)? (ORDER BY sortItem (',' sortItem)*)? (LIMIT limit=INTEGER_VALUE)? #showPartitions
+    | SHOW FUNCTIONS #showFunctions
     ;
 
 query
@@ -62,15 +71,6 @@ queryPrimary
     : querySpecification #queryPrimarySpecification
     | TABLE qualifiedName #table
     | VALUES primaryExpression (',' primaryExpression)* #inlineTable
-    | EXPLAIN ('(' explainOption (',' explainOption)* ')')? statement #explain
-    | SHOW TABLES ((FROM | IN) qualifiedName)? (LIKE pattern=STRING)? #showTables
-    | SHOW SCHEMAS ((FROM | IN) identifier )? #showSchemas
-    | SHOW CATALOGS #showCatalogs
-    | SHOW COLUMNS (FROM | IN) qualifiedName #showColumns
-    | DESCRIBE qualifiedName #showColumns
-    | DESC qualifiedName #showColumns
-    | SHOW PARTITIONS (FROM | IN) qualifiedName (WHERE booleanExpression)? (ORDER BY sortItem (',' sortItem)*)? (LIMIT limit=INTEGER_VALUE)? #showPartitions
-    | SHOW FUNCTIONS #showFunctions
     | '(' queryNoWith  ')' #subquery
     ;
 
@@ -126,6 +126,7 @@ relationPrimary
     : qualifiedName #tableName
     | '(' query ')' #subqueryRelation
     | UNNEST '(' expression (',' expression)* ')' #unnest
+    | '(' relation ')' #parenthesizedRelation
     ;
 
 sampleType
@@ -166,7 +167,7 @@ booleanExpression
     | valueExpression NOT? IN '(' primaryExpression (',' primaryExpression)* ')' #inList
     | valueExpression NOT? IN '(' query ')' #inSubquery
     | value=valueExpression NOT? LIKE pattern=valueExpression (ESCAPE escape=valueExpression)? #like
-    | valueExpression IS NOT? NULL #nullPredicate
+    | value=valueExpression IS NOT? NULL #nullPredicate
     | EXISTS '(' query ')' #exists
     | left=valueExpression IS NOT? DISTINCT FROM right=valueExpression #distinctFrom
     | primaryExpression #booleanPrimary
@@ -182,7 +183,7 @@ booleanExpression
 
 valueExpression
     : primaryExpression #valuePrimary
-    | MINUS valueExpression #arithmeticNegation
+    | operator=(MINUS | PLUS) valueExpression #arithmeticUnary
     | valueExpression AT timeZoneSpecifier #atTimeZone
     | left=valueExpression operator=(ASTERISK | SLASH | PERCENT) right=valueExpression #arithmeticBinary
     | left=valueExpression operator=(PLUS | MINUS) right=valueExpression #arithmeticBinary
@@ -200,7 +201,9 @@ primaryExpression
     | STRING #stringLiteral
     | qualifiedName #columnReference
     | qualifiedName '(' ASTERISK ')' over? #functionCall
-    | qualifiedName '(' (setQuantifier? expression (',' expression)*)? ')' over? #functionCall
+    | qualifiedName '(' (setQuantifier? expression (',' expression)*)? ')' over #functionCall
+    | qualifiedName '(' (setQuantifier expression (',' expression)*)? ')' #functionCall
+    | qualifiedName '(' (expression (',' expression)*)? ')' #scalarFunctionCall
 //    | '(' expression ',' expression (',' expression)* ')'  #rowConstructor
 //    | ROW '(' expression (',' expression)* ')' #rowConstuctor
     | '(' query ')' #subqueryExpression
@@ -237,7 +240,7 @@ booleanValue
     ;
 
 interval
-    : INTERVAL (PLUS | MINUS)? STRING intervalField ( TO intervalField )?
+    : INTERVAL sign=(PLUS | MINUS)? STRING from=intervalField ( TO to=intervalField )?
     ;
 
 intervalField
@@ -298,10 +301,14 @@ qualifiedName
 // TODO: add Identifier AST node with "quoted" attribute
 identifier
     : IDENTIFIER #unquotedIdentifier
-    | QUOTED_IDENTIFIER #quotedIdentifier
+    | quotedIdentifier #quotedIdentifierAlternative
     | BACKQUOTED_IDENTIFIER #backQuotedIdentifier
     | DIGIT_IDENTIFIER #digitIdentifier
     | nonReserved #unquotedIdentifier
+    ;
+
+quotedIdentifier
+    : QUOTED_IDENTIFIER
     ;
 
 number
@@ -321,6 +328,7 @@ nonReserved
     | RESCALED | APPROXIMATE | AT | CONFIDENCE
     | VIEW | REPLACE
     | A
+    | IF | NULLIF | COALESCE
     ;
 
 SELECT: 'SELECT';
@@ -457,6 +465,10 @@ UNKNOWN: 'UNKNOWN';
 COLLATE: 'COLLATE';
 LOCAL: 'LOCAL';
 ELEMENT: 'ELEMENT';
+
+IF: 'IF';
+NULLIF: 'NULLIF';
+COALESCE: 'COALESCE';
 
 EQ  : '=';
 NEQ : '<>' | '!=';

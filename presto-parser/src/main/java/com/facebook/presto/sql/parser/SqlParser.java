@@ -145,10 +145,25 @@ public class SqlParser
             }
 
             @Override
+            public void exitQuotedIdentifier(@NotNull com.facebook.presto.sql.parser2.SqlParser.QuotedIdentifierContext ctx)
+            {
+                // Remove quotes
+                // TODO: introduce Identifier class to represent all identifiers in AST
+                ctx.getParent().removeLastChild();
+
+                Token token = (Token) ctx.getChild(0).getPayload();
+                ctx.getParent().addChild(new CommonToken(
+                        new Pair<>(token.getTokenSource(), token.getInputStream()),
+                        SqlLexer.IDENTIFIER,
+                        token.getChannel(),
+                        token.getStartIndex() + 1,
+                        token.getStopIndex() - 1));
+            }
+
+            @Override
             public void exitNonReserved(@NotNull com.facebook.presto.sql.parser2.SqlParser.NonReservedContext ctx)
             {
                 // replace nonReserved words with IDENT tokens
-
                 ctx.getParent().removeLastChild();
 
                 Token token = (Token) ctx.getChild(0).getPayload();

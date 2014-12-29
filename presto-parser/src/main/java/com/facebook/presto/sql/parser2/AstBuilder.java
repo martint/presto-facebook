@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.parser2;
 
+import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.Approximate;
@@ -21,6 +22,7 @@ import com.facebook.presto.sql.tree.ArrayConstructor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
+import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateView;
@@ -36,8 +38,11 @@ import com.facebook.presto.sql.tree.Extract;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
+import com.facebook.presto.sql.tree.IfExpression;
+import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.Intersect;
+import com.facebook.presto.sql.tree.IntervalLiteral;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.Join;
@@ -51,6 +56,7 @@ import com.facebook.presto.sql.tree.NaturalJoin;
 import com.facebook.presto.sql.tree.NegativeExpression;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NotExpression;
+import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.QualifiedNameReference;
@@ -101,11 +107,11 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 // TODO: VALUES
-// TODO: intervals
 // TODO: in list
 // TODO: in subquery
 // TODO: TestSqlParser.testParseErrorStartOfLine should report "expected {AS, identifier, WHERE}"
 // TODO: improve error message for TestSqlParser.testTokenizeErrorIncompleteToken
+// TODO: preserve + in unary arithmetic expression
 public class AstBuilder
         extends SqlBaseVisitor<Node>
 {
@@ -537,7 +543,13 @@ public class AstBuilder
         return new Unnest(visitExpressions(ctx.expression()));
     }
 
-    // predicates
+    @Override
+    public Node visitParenthesizedRelation(@NotNull SqlParser.ParenthesizedRelationContext ctx)
+    {
+        return visit(ctx.relation());
+    }
+
+// predicates
 
     @Override
     public Node visitComparison(@NotNull SqlParser.ComparisonContext ctx)
@@ -598,7 +610,7 @@ public class AstBuilder
     @Override
     public Node visitNullPredicate(@NotNull SqlParser.NullPredicateContext ctx)
     {
-        Expression child = (Expression) visit(ctx.valueExpression());
+        Expression child = (Expression) visit(ctx.value);
 
         if (ctx.NOT() == null) {
             return new IsNullPredicate(child);
@@ -624,12 +636,32 @@ public class AstBuilder
         return result;
     }
 
-    // ************** value expressions **************
+    @Override
+    public Node visitInSubquery(@NotNull SqlParser.InSubqueryContext ctx)
+    {
+        Expression result = new InPredicate(
+                (Expression) visit(ctx.valueExpression()),
+                new SubqueryExpression((Query) visit(ctx.query())));
+
+        if (ctx.NOT() != null) {
+            result = new NotExpression(result);
+        }
+
+        return result;
+    }
+
+// ************** value expressions **************
 
     @Override
-    public Node visitArithmeticNegation(@NotNull SqlParser.ArithmeticNegationContext ctx)
+    public Node visitArithmeticUnary(@NotNull SqlParser.ArithmeticUnaryContext ctx)
     {
-        return new NegativeExpression((Expression) visit(ctx.valueExpression()));
+        Expression result = (Expression) visit(ctx.valueExpression());
+
+        if (ctx.operator.getType() == SqlLexer.MINUS) {
+            result = new NegativeExpression(result);
+        }
+
+        return result;
     }
 
     @Override
@@ -802,6 +834,42 @@ public class AstBuilder
     }
 
     @Override
+    public Node visitScalarFunctionCall(@NotNull SqlParser.ScalarFunctionCallContext ctx)
+    {
+        QualifiedName name = getQualifiedName(ctx.qualifiedName());
+
+        if (name.toString().equals("if")) {
+            if (ctx.expression().size() != 2 && ctx.expression().size() != 3) {
+                throw new ParsingException("Invalid number of arguments for 'if' function", null, ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine());
+            }
+
+            Expression elseExpression = null;
+            if (ctx.expression().size() == 3) {
+                elseExpression = (Expression) visit(ctx.expression(2));
+            }
+
+            return new IfExpression(
+                    (Expression) visit(ctx.expression(0)),
+                    (Expression) visit(ctx.expression(1)),
+                    elseExpression);
+        }
+        else if (name.toString().equals("nullif")) {
+            if (ctx.expression().size() != 2) {
+                throw new ParsingException("Invalid number of arguments for 'nullif' function", null, ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine());
+            }
+            return new NullIfExpression(
+                    (Expression) visit(ctx.expression(0)),
+                    (Expression) visit(ctx.expression(1)));
+        }
+        else if (name.toString().equals("coalesce")) {
+            return new CoalesceExpression(visitExpressions(ctx.expression()));
+        }
+
+
+        return new FunctionCall(name, null, false, visitExpressions(ctx.expression()));
+    }
+
+    @Override
     public Node visitOver(@NotNull SqlParser.OverContext ctx)
     {
 
@@ -912,7 +980,7 @@ public class AstBuilder
         return new FrameBound(FrameBound.Type.CURRENT_ROW);
     }
 
-// ************** literals **************
+    // ************** literals **************
 
     @Override
     public Node visitNullLiteral(@NotNull SqlParser.NullLiteralContext ctx)
@@ -949,6 +1017,33 @@ public class AstBuilder
     {
         return new BooleanLiteral(ctx.getText());
     }
+
+    @Override
+    public Node visitInterval(@NotNull SqlParser.IntervalContext ctx)
+    {
+        IntervalLiteral.Sign sign = IntervalLiteral.Sign.POSITIVE;
+        if (ctx.sign != null) {
+            switch (ctx.sign.getType()) {
+                case SqlLexer.MINUS:
+                    sign = IntervalLiteral.Sign.NEGATIVE;
+                    break;
+                case SqlLexer.PLUS:
+                    sign = IntervalLiteral.Sign.POSITIVE;
+                    break;
+                default:
+                    throw new UnsupportedOperationException("Unsupported sign: " + ctx.sign.getText());
+            }
+        }
+
+        IntervalLiteral.IntervalField from = getIntervalField(ctx.from);
+        IntervalLiteral.IntervalField to = Optional.ofNullable(ctx.to)
+                .map(AstBuilder::getIntervalField)
+                .orElse(null);
+
+        return new IntervalLiteral(unquote(ctx.STRING().getText()), sign, from, to);
+    }
+
+    // helpers
 
     @Override
     protected Node defaultResult()
@@ -998,6 +1093,35 @@ public class AstBuilder
                 .collect(Collectors.toList());
 
         return new QualifiedName(parts);
+    }
+
+    private static IntervalLiteral.IntervalField getIntervalField(SqlParser.IntervalFieldContext context)
+    {
+        IntervalLiteral.IntervalField field;
+        Token token = (Token) context.getChild(0).getPayload();
+        switch (token.getType()) {
+            case SqlLexer.YEAR:
+                field = IntervalLiteral.IntervalField.YEAR;
+                break;
+            case SqlLexer.MONTH:
+                field = IntervalLiteral.IntervalField.MONTH;
+                break;
+            case SqlLexer.DAY:
+                field = IntervalLiteral.IntervalField.DAY;
+                break;
+            case SqlLexer.HOUR:
+                field = IntervalLiteral.IntervalField.HOUR;
+                break;
+            case SqlLexer.MINUTE:
+                field = IntervalLiteral.IntervalField.MINUTE;
+                break;
+            case SqlLexer.SECOND:
+                field = IntervalLiteral.IntervalField.SECOND;
+                break;
+            default:
+                throw new UnsupportedOperationException("Unsupported interval field: " + token.getText());
+        }
+        return field;
     }
 
     private static boolean isDistinct(SqlParser.SetQuantifierContext setQuantifier)
