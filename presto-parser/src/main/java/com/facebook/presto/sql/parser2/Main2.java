@@ -38,7 +38,7 @@ public class Main2
     public static void main(String[] args)
             throws ExecutionException, InterruptedException, IOException
     {
-        String query = "current_date";
+        String query = "foo(distinct 1,2,3) over (partition by a, b order by c, d RANGE BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING)";
 //        String query = "SELECT * FROM (TABLE a UNION TABLE b)";
 //        String query = "WITH a AS (SELECT * FROM orders) VALUES (1),(2)";
 //        String query = "SELECT COALESCE(orderkey, custkey), count(*) FROM orders GROUP BY COALESCE(orderkey, custkey)";

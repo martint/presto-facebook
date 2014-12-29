@@ -16,11 +16,14 @@ package com.facebook.presto.sql;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
+import com.facebook.presto.sql.tree.ArrayConstructor;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BooleanLiteral;
+import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.LikePredicate;
@@ -33,14 +36,20 @@ import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SampledRelation;
+import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.Select;
+import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SubqueryExpression;
+import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.Values;
+import com.facebook.presto.sql.tree.WhenClause;
+import com.facebook.presto.sql.tree.Window;
+import com.facebook.presto.sql.tree.WindowFrame;
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 
@@ -256,6 +265,9 @@ public class TreePrinter
             {
                 String name = Joiner.on('.').join(node.getName().getParts());
                 print(indentLevel, "FunctionCall[" + name + "]");
+                if (node.isDistinct()) {
+                    print(indentLevel + 1, "DISTINCT");
+                }
 
                 super.visitFunctionCall(node, indentLevel + 1);
 
@@ -342,6 +354,110 @@ public class TreePrinter
                 print(indentLevel, "SubQuery");
 
                 super.visitSubqueryExpression(node, indentLevel + 1);
+
+                return null;
+            }
+
+            @Override
+            protected Void visitSubscriptExpression(SubscriptExpression node, Integer indentLevel)
+            {
+                print(indentLevel, "[]");
+
+                super.visitSubscriptExpression(node, indentLevel + 1);
+
+                return null;
+            }
+
+            @Override
+            protected Void visitArrayConstructor(ArrayConstructor node, Integer indentLevel)
+            {
+                print(indentLevel, "Array");
+
+                super.visitArrayConstructor(node, indentLevel + 1);
+
+                return null;
+            }
+
+            @Override
+            protected Void visitCast(Cast node, Integer indent)
+            {
+                if (node.isSafe()) {
+                    print(indent, "TRY_CAST[" + node.getType() + "]");
+                }
+                else {
+                    print(indent, "CAST[" + node.getType() + "]");
+                }
+
+                super.visitCast(node, indent + 1);
+
+                return null;
+            }
+
+            @Override
+            protected Void visitSimpleCaseExpression(SimpleCaseExpression node, Integer context)
+            {
+                print(context, "CASE");
+
+                super.visitSimpleCaseExpression(node, context + 1);
+
+                return null;
+            }
+
+            @Override
+            protected Void visitSearchedCaseExpression(SearchedCaseExpression node, Integer context)
+            {
+                print(context, "CASE");
+
+                super.visitSearchedCaseExpression(node, context + 1);
+
+                return null;
+            }
+
+            @Override
+            protected Void visitWhenClause(WhenClause node, Integer context)
+            {
+                print(context, "WHEN");
+
+                super.visitWhenClause(node, context + 1);
+
+                return null;
+            }
+
+            @Override
+            public Void visitWindow(Window node, Integer context)
+            {
+                print(context, "OVER");
+
+                print(context + 1, "PARTITION BY");
+                for (Expression expression : node.getPartitionBy()) {
+                    process(expression, context + 2);
+                }
+
+                print(context + 1, "ORDER BY");
+                for (SortItem item : node.getOrderBy()) {
+                    process(item, context + 2);
+                }
+
+                node.getFrame().ifPresent((frame) -> process(frame, context + 1));
+
+                return null;
+            }
+
+            @Override
+            public Void visitWindowFrame(WindowFrame node, Integer context)
+            {
+                print(context, "FRAME[" + node.getType() + "]");
+
+                super.visitWindowFrame(node, context + 1);
+
+                return null;
+            }
+
+            @Override
+            public Void visitFrameBound(FrameBound node, Integer context)
+            {
+                print(context, node.getType().toString());
+                super.visitFrameBound(node, context + 1);
 
                 return null;
             }

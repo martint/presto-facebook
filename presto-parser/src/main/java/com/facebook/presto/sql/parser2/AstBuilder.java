@@ -14,12 +14,16 @@
 package com.facebook.presto.sql.parser2;
 
 import com.facebook.presto.sql.tree.ArithmeticExpression;
+import com.facebook.presto.sql.tree.ArrayConstructor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BooleanLiteral;
+import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CurrentTime;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.Extract;
+import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
@@ -32,10 +36,25 @@ import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.sql.tree.QualifiedNameReference;
+import com.facebook.presto.sql.tree.Query;
+import com.facebook.presto.sql.tree.SearchedCaseExpression;
+import com.facebook.presto.sql.tree.SimpleCaseExpression;
+import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.StringLiteral;
+import com.facebook.presto.sql.tree.SubqueryExpression;
+import com.facebook.presto.sql.tree.SubscriptExpression;
+import com.facebook.presto.sql.tree.WhenClause;
+import com.facebook.presto.sql.tree.Window;
+import com.facebook.presto.sql.tree.WindowFrame;
 import com.google.common.collect.ImmutableList;
 import org.antlr.v4.runtime.misc.NotNull;
+import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.TerminalNode;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 public class AstBuilder
         extends SqlBaseVisitor<Node>
@@ -211,7 +230,29 @@ public class AstBuilder
                 (Expression) visit(ctx.right)));
     }
 
-    // primary expression
+    // primary expressions
+
+    @Override
+    public Node visitSubExpression(@NotNull SqlParser.SubExpressionContext ctx)
+    {
+        return visit(ctx.expression());
+    }
+
+    @Override
+    public Node visitArrayConstructor(@NotNull SqlParser.ArrayConstructorContext ctx)
+    {
+        return new ArrayConstructor(ctx.expression().stream()
+                .map(this::visit)
+                .map(Expression.class::cast)
+                .collect(Collectors.toList()));
+    }
+
+    @Override
+    public Node visitCast(@NotNull SqlParser.CastContext ctx)
+    {
+        boolean isTryCast = ctx.TRY_CAST() != null;
+        return new Cast((Expression) visit(ctx.expression()), ctx.type().getText(), isTryCast);
+    }
 
     @Override
     public Node visitSpecialDateTimeFunction(@NotNull SqlParser.SpecialDateTimeFunctionContext ctx)
@@ -245,7 +286,215 @@ public class AstBuilder
         return new CurrentTime(type);
     }
 
-    // ************** literals **************
+    @Override
+    public Node visitExtract(@NotNull SqlParser.ExtractContext ctx)
+    {
+        return new Extract((Expression) visit(ctx.valueExpression()), Extract.Field.valueOf(ctx.identifier().getText().toUpperCase()));
+    }
+
+    @Override
+    public Node visitSubstring(@NotNull SqlParser.SubstringContext ctx)
+    {
+        List<Expression> arguments = ctx.valueExpression().stream()
+                .map(this::visit)
+                .map(Expression.class::cast)
+                .collect(Collectors.toList());
+
+        return new FunctionCall(new QualifiedName("substr"),
+                arguments);
+    }
+
+    @Override
+    public Node visitSubscript(@NotNull SqlParser.SubscriptContext ctx)
+    {
+        return new SubscriptExpression((Expression) visit(ctx.value), (Expression) visit(ctx.index));
+    }
+
+    @Override
+    public Node visitSubqueryExpression(@NotNull SqlParser.SubqueryExpressionContext ctx)
+    {
+        return new SubqueryExpression((Query) visit(ctx.query()));
+    }
+
+    @Override
+    public Node visitColumnReference(@NotNull SqlParser.ColumnReferenceContext ctx)
+    {
+        return new QualifiedNameReference(getQualifiedName(ctx.qualifiedName()));
+    }
+
+    @Override
+    public Node visitSimpleCase(@NotNull SqlParser.SimpleCaseContext ctx)
+    {
+        List<WhenClause> whenClauses = ctx.whenClause().stream()
+                .map(this::visit)
+                .map(WhenClause.class::cast)
+                .collect(Collectors.toList());
+
+        Expression elseClause = Optional.ofNullable(ctx.elseExpression)
+                .map(this::visit)
+                .map(Expression.class::cast)
+                .orElse(null);
+
+        return new SimpleCaseExpression((Expression) visit(ctx.valueExpression()), whenClauses, elseClause);
+    }
+
+    @Override
+    public Node visitSearchedCase(@NotNull SqlParser.SearchedCaseContext ctx)
+    {
+        List<WhenClause> whenClauses = ctx.whenClause().stream()
+                .map(this::visit)
+                .map(WhenClause.class::cast)
+                .collect(Collectors.toList());
+
+        Expression elseClause = Optional.ofNullable(ctx.elseExpression)
+                .map(this::visit)
+                .map(Expression.class::cast)
+                .orElse(null);
+
+        return new SearchedCaseExpression(whenClauses, elseClause);
+    }
+
+    @Override
+    public Node visitWhenClause(@NotNull SqlParser.WhenClauseContext ctx)
+    {
+        return new WhenClause((Expression) visit(ctx.booleanExpression()), (Expression) visit(ctx.expression()));
+    }
+
+    @Override
+    public Node visitFunctionCall(@NotNull SqlParser.FunctionCallContext ctx)
+    {
+        List<Expression> arguments = ctx.expression().stream()
+                .map(this::visit)
+                .map(Expression.class::cast)
+                .collect(Collectors.toList());
+
+        boolean distinct = ctx.setQuantifier() != null && ctx.setQuantifier().DISTINCT() != null;
+
+        Window window = Optional.ofNullable(ctx.over())
+                .map(this::visit)
+                .map(Window.class::cast)
+                .orElse(null);
+
+        return new FunctionCall(getQualifiedName(ctx.qualifiedName()), window, distinct, arguments);
+    }
+
+    @Override
+    public Node visitOver(@NotNull SqlParser.OverContext ctx)
+    {
+        List<Expression> partitionBy = ctx.partition.stream()
+                .map(this::visit)
+                .map(Expression.class::cast)
+                .collect(Collectors.toList());
+
+        List<SortItem> orderBy = ctx.sortItem().stream()
+                .map(this::visit)
+                .map(SortItem.class::cast)
+                .collect(Collectors.toList());
+
+        WindowFrame frame = Optional.ofNullable(ctx.windowFrame())
+                .map(this::visit)
+                .map(WindowFrame.class::cast)
+                .orElse(null);
+
+        return new Window(partitionBy, orderBy, frame);
+    }
+
+    @Override
+    public Node visitSortItem(@NotNull SqlParser.SortItemContext ctx)
+    {
+        SortItem.Ordering orderingType = SortItem.Ordering.ASCENDING;
+
+        if (ctx.ordering != null) {
+            switch (ctx.ordering.getType()) {
+                case SqlLexer.ASC:
+                    orderingType = SortItem.Ordering.ASCENDING;
+                    break;
+                case SqlLexer.DESC:
+                    orderingType = SortItem.Ordering.DESCENDING;
+                    break;
+                default:
+                    throw new UnsupportedOperationException("Unsupported ordering: " + ctx.ordering.getText());
+            }
+        }
+
+        SortItem.NullOrdering nullOrderingType = SortItem.NullOrdering.UNDEFINED;
+        if (ctx.nullOrdering != null) {
+            switch (ctx.nullOrdering.getType()) {
+                case SqlLexer.FIRST:
+                    nullOrderingType = SortItem.NullOrdering.FIRST;
+                    break;
+                case SqlLexer.LAST:
+                    nullOrderingType = SortItem.NullOrdering.LAST;
+                    break;
+                default:
+                    throw new UnsupportedOperationException("Unsupported ordering: " + ctx.nullOrdering.getText());
+            }
+        }
+
+        return new SortItem((Expression) visit(ctx.expression()), orderingType, nullOrderingType);
+    }
+
+
+    @Override
+    public Node visitWindowFrame(@NotNull SqlParser.WindowFrameContext ctx)
+    {
+        WindowFrame.Type frameType;
+
+        switch (ctx.frameType.getType()) {
+            case SqlLexer.RANGE:
+                frameType = WindowFrame.Type.RANGE;
+                break;
+            case SqlLexer.ROWS:
+                frameType = WindowFrame.Type.ROWS;
+                break;
+            default:
+                throw new UnsupportedOperationException("Unsupported frame type: " + ctx.frameType.getText());
+        }
+
+        FrameBound start = (FrameBound) visit(ctx.start);
+        FrameBound end = Optional.ofNullable(ctx.end)
+                .map(this::visit)
+                .map(FrameBound.class::cast)
+                .orElse(null);
+
+        return new WindowFrame(frameType, start, end);
+    }
+
+    @Override
+    public Node visitUnboundedFrame(@NotNull SqlParser.UnboundedFrameContext ctx)
+    {
+        switch (ctx.boundType.getType()) {
+            case SqlLexer.PRECEDING:
+                return new FrameBound(FrameBound.Type.UNBOUNDED_PRECEDING);
+            case SqlLexer.FOLLOWING:
+                return new FrameBound(FrameBound.Type.UNBOUNDED_FOLLOWING);
+        }
+
+        throw new UnsupportedOperationException("Unsupported bound type: " + ctx.boundType.getText());
+    }
+
+    @Override
+    public Node visitBoundedFrame(@NotNull SqlParser.BoundedFrameContext ctx)
+    {
+        Expression bound = (Expression) visit(ctx.expression());
+
+        switch (ctx.boundType.getType()) {
+            case SqlLexer.PRECEDING:
+                return new FrameBound(FrameBound.Type.PRECEDING, bound);
+            case SqlLexer.FOLLOWING:
+                return new FrameBound(FrameBound.Type.FOLLOWING, bound);
+        }
+
+        throw new UnsupportedOperationException("Unsupported bound type: " + ctx.boundType.getText());
+    }
+
+    @Override
+    public Node visitCurrentRowBound(@NotNull SqlParser.CurrentRowBoundContext ctx)
+    {
+        return new FrameBound(FrameBound.Type.CURRENT_ROW);
+    }
+
+// ************** literals **************
 
     @Override
     public Node visitNullLiteral(@NotNull SqlParser.NullLiteralContext ctx)
@@ -306,5 +555,15 @@ public class AstBuilder
     private static String unquote(String string)
     {
         return string.substring(1, string.length() - 1);
+    }
+
+    private static QualifiedName getQualifiedName(SqlParser.QualifiedNameContext context)
+    {
+        List<String> parts = context
+                .identifier().stream()
+                .map(ParseTree::getText)
+                .collect(Collectors.toList());
+
+        return new QualifiedName(parts);
     }
 }

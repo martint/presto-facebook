@@ -62,7 +62,7 @@ queryPrimary
     | SHOW COLUMNS (FROM | IN) qualifiedName #showColumns
     | DESCRIBE qualifiedName #describe
     | DESC qualifiedName #describe
-    | SHOW PARTITIONS (FROM | IN) qualifiedName whereClause? orderClause? limitClause? #showPartitions
+    | SHOW PARTITIONS (FROM | IN) qualifiedName (WHERE booleanExpression)? orderClause? limitClause? #showPartitions
     | SHOW FUNCTIONS #showFunctions
     ;
 
@@ -71,7 +71,7 @@ orderClause
     ;
 
 sortItem
-    : expression ordering? nullOrdering?
+    : expression ordering=(ASC | DESC)? (NULLS nullOrdering=(FIRST | LAST))?
     ;
 
 limitClause
@@ -81,17 +81,13 @@ limitClause
 simpleQuery
     : SELECT setQuantifier? selectItem (',' selectItem)*
       (FROM relation (',' relation)*)?
-      whereClause?
+      (WHERE booleanExpression)?
       (GROUP BY expression (',' expression)*)?
       (HAVING booleanExpression)?
     ;
 
 namedQuery
     : identifier columnAliases? AS '(' query ')'
-    ;
-
-whereClause
-    : WHERE booleanExpression
     ;
 
 setQuantifier
@@ -212,16 +208,16 @@ primaryExpression
     | qualifiedName #columnReference
     | qualifiedName '(' ASTERISK ')' over? #functionCall
     | qualifiedName '(' (setQuantifier? expression (',' expression)*)? ')' over? #functionCall
-    | '(' expression ',' expression (',' expression)* ')'  #rowConstructor
-    | ROW '(' expression (',' expression)* ')' #rowConstuctor
+//    | '(' expression ',' expression (',' expression)* ')'  #rowConstructor
+//    | ROW '(' expression (',' expression)* ')' #rowConstuctor
     | '(' query ')' #subqueryExpression
-    | CASE valueExpression whenClause+ elseClause? END #simpleCase
-    | CASE whenClause+ elseClause? END #searchedCase
-    | primaryExpression '.' identifier #fieldReference
+    | CASE valueExpression whenClause+ (ELSE elseExpression=expression)? END #simpleCase
+    | CASE whenClause+ (ELSE elseExpression=expression)? END #searchedCase
+//    | primaryExpression '.' identifier #fieldReference TODO: later
     | CAST '(' expression AS type ')' #cast
     | TRY_CAST '(' expression AS type ')' #cast
     | ARRAY '[' (expression (',' expression)*)? ']' #arrayConstructor
-    | primaryExpression '[' valueExpression ']' #subscript // TODO: valueExpression '[' ... ']' ?
+    | value=primaryExpression '[' index=valueExpression ']' #subscript // TODO: valueExpression '[' ... ']' ?
 //    | ELEMENT '(' valueExpression ')'  #element // TODO: add later
     | name=CURRENT_DATE #specialDateTimeFunction
     | name=CURRENT_TIME ('(' precision=INTEGER_VALUE ')')? #specialDateTimeFunction
@@ -230,21 +226,12 @@ primaryExpression
     | name=LOCALTIMESTAMP ('(' precision=INTEGER_VALUE ')')? #specialDateTimeFunction
     | SUBSTRING '(' valueExpression FROM valueExpression (FOR valueExpression)? ')' #substring
     | EXTRACT '(' identifier FROM valueExpression ')' #extract
+    | '(' expression ')' #subExpression
     ;
 
 timeZoneSpecifier
     : LOCAL
     | TIME ZONE (interval | STRING)
-    ;
-
-ordering
-    : ASC
-    | DESC
-    ;
-
-nullOrdering
-    : NULLS FIRST
-    | NULLS LAST
     ;
 
 comparisonOperator
@@ -280,30 +267,26 @@ whenClause
     : WHEN booleanExpression THEN expression
     ;
 
-elseClause
-    : ELSE expression
-    ;
-
 over
-    : OVER '(' windowPartition? orderClause? windowFrame? ')'
-    ;
-
-windowPartition
-    : PARTITION BY expression (',' expression)*
+    : OVER '('
+        (PARTITION BY partition+=expression (',' partition+=expression)*)?
+        (ORDER BY sortItem (',' sortItem)*)?
+        windowFrame?
+      ')'
     ;
 
 windowFrame
-    : RANGE frameBound
-    | ROWS frameBound
-    | RANGE BETWEEN frameBound AND frameBound
-    | ROWS BETWEEN frameBound AND frameBound
+    : frameType=RANGE start=frameBound
+    | frameType=ROWS start=frameBound
+    | frameType=RANGE BETWEEN start=frameBound AND end=frameBound
+    | frameType=ROWS BETWEEN start=frameBound AND end=frameBound
     ;
 
 frameBound
-    : UNBOUNDED PRECEDING
-    | UNBOUNDED FOLLOWING
-    | CURRENT ROW
-    | expression ( PRECEDING | FOLLOWING ) // valueExpression should be unsignedLiteral
+    : UNBOUNDED boundType=PRECEDING #unboundedFrame
+    | UNBOUNDED boundType=FOLLOWING #unboundedFrame
+    | CURRENT ROW #currentRowBound
+    | expression boundType=(PRECEDING | FOLLOWING) #boundedFrame // valueExpression should be unsignedLiteral
     ;
 
 explainOptions
