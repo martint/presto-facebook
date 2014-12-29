@@ -207,9 +207,6 @@ public class AstBuilder
                 .map(SortItem.class::cast)
                 .collect(Collectors.toList());
 
-        Optional<String> limit = Optional.ofNullable(ctx.limit)
-                .map(Token::getText);
-
         Optional<Approximate> approximate = getTextIfPresent(ctx.confidence)
                 .map(Approximate::new);
 
@@ -230,13 +227,13 @@ public class AstBuilder
                             query.getGroupBy(),
                             query.getHaving(),
                             orderBy,
-                            limit),
+                            getTextIfPresent(ctx.limit)),
                     ImmutableList.of(),
                     Optional.<String>empty(),
                     approximate);
         }
 
-        return new Query(Optional.<With>empty(), term, orderBy, limit, approximate);
+        return new Query(Optional.<With>empty(), term, orderBy, getTextIfPresent(ctx.limit), approximate);
     }
 
     @Override
@@ -268,15 +265,7 @@ public class AstBuilder
             from = Optional.of(relation);
         }
 
-        Optional<Expression> where = Optional.ofNullable(ctx.where)
-                .map(this::visit)
-                .map(Expression.class::cast);
-
-        Optional<Expression> having = Optional.ofNullable(ctx.having)
-                .map(this::visit)
-                .map(Expression.class::cast);
-
-        return new QuerySpecification(select, from, where, visitExpressions(ctx.groupBy), having, ImmutableList.of(), Optional.<String>empty());
+        return new QuerySpecification(select, from, visitIfPresent(ctx.where), visitExpressions(ctx.groupBy), visitIfPresent(ctx.having), ImmutableList.of(), Optional.<String>empty());
     }
 
     @Override
@@ -353,8 +342,7 @@ public class AstBuilder
                 .map(AstBuilder::getQualifiedName)
                 .orElse(null);
 
-        String pattern = Optional.of(ctx.pattern)
-                .map(Token::getText)
+        String pattern = getTextIfPresent(ctx.pattern)
                 .orElse(null);
 
         return new ShowTables(schema, pattern);
@@ -383,19 +371,14 @@ public class AstBuilder
     @Override
     public Node visitShowPartitions(@NotNull SqlParser.ShowPartitionsContext ctx)
     {
-        Optional<Expression> where = Optional.of(ctx.booleanExpression())
-                .map(this::visit)
-                .map(Expression.class::cast);
+        Optional<Expression> where = visitIfPresent(ctx.booleanExpression());
 
         List<SortItem> orderBy = ctx.sortItem().stream()
                 .map(this::visit)
                 .map(SortItem.class::cast)
                 .collect(Collectors.toList());
 
-        Optional<String> limit = Optional.ofNullable(ctx.limit)
-                .map(Token::getText);
-
-        return new ShowPartitions(getQualifiedName(ctx.qualifiedName()), where, orderBy, limit);
+        return new ShowPartitions(getQualifiedName(ctx.qualifiedName()), where, orderBy, getTextIfPresent(ctx.limit));
     }
 
     @Override
@@ -775,9 +758,7 @@ public class AstBuilder
                 .map(WhenClause.class::cast)
                 .collect(Collectors.toList());
 
-        Expression elseClause = Optional.ofNullable(ctx.elseExpression)
-                .map(this::visit)
-                .map(Expression.class::cast)
+        Expression elseClause = visitIfPresent(ctx.elseExpression)
                 .orElse(null);
 
         return new SimpleCaseExpression((Expression) visit(ctx.valueExpression()), whenClauses, elseClause);
@@ -791,9 +772,7 @@ public class AstBuilder
                 .map(WhenClause.class::cast)
                 .collect(Collectors.toList());
 
-        Expression elseClause = Optional.ofNullable(ctx.elseExpression)
-                .map(this::visit)
-                .map(Expression.class::cast)
+        Expression elseClause = visitIfPresent(ctx.elseExpression)
                 .orElse(null);
 
         return new SearchedCaseExpression(whenClauses, elseClause);
@@ -987,6 +966,13 @@ public class AstBuilder
         throw new UnsupportedOperationException("not yet implemented");
     }
 
+    private Optional<Expression> visitIfPresent(ParserRuleContext context)
+    {
+        return Optional.ofNullable(context)
+                .map(this::visit)
+                .map(Expression.class::cast);
+    }
+
     private List<Expression> visitExpressions(List<? extends ParserRuleContext> context)
     {
         return context.stream()
@@ -1019,6 +1005,12 @@ public class AstBuilder
     {
         return Optional.ofNullable(context)
                 .map(ParseTree::getText);
+    }
+
+    private static Optional<String> getTextIfPresent(Token token)
+    {
+        return Optional.ofNullable(token)
+                .map(Token::getText);
     }
 
     private static List<String> getColumnAliases(SqlParser.ColumnAliasesContext columnAliasesContext)
