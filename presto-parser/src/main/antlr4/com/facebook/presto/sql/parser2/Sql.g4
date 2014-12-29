@@ -102,35 +102,36 @@ selectItem
     ;
 
 relation
-    : relation
-      ( CROSS JOIN relation
-      | joinType JOIN relation joinCriteria
-      | NATURAL joinType JOIN relation
-      )
-    | sampledRelation
+    : left=relation
+      ( CROSS JOIN right=relation
+      | joinType JOIN right=relation joinCriteria
+      | NATURAL joinType JOIN right=relation
+      ) #joinRelation
+    | sampledRelation #sampledRelationPrimary
     ;
 
 sampledRelation
-    : aliasedRelation (TABLESAMPLE sampleType '(' expression ')' RESCALED? stratifyOn?)?
+    : aliasedRelation (
+        TABLESAMPLE sampleType '(' percentage=expression ')'
+        RESCALED?
+        (STRATIFY ON '(' stratify+=expression (',' stratify+=expression)* ')')?
+      )?
     ;
 
 aliasedRelation
-    : (
-        qualifiedName // table name reference
-        | '(' query ')' // subquery expression
-        | UNNEST '(' expression (',' expression)* ')' // table function
-      )
-      (AS? identifier columnAliases?)?
+    : relationPrimary (AS? identifier columnAliases?)?
+    ;
+
+relationPrimary
+    : qualifiedName #tableName
+    | '(' query ')' #subqueryRelation
+    | UNNEST '(' expression (',' expression)* ')' #unnest
     ;
 
 sampleType
     : BERNOULLI
     | SYSTEM
     | POISSONIZED
-    ;
-
-stratifyOn
-    : STRATIFY ON '(' expression (',' expression)* ')'
     ;
 
 joinType

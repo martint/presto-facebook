@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.parser2;
 
+import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.Approximate;
 import com.facebook.presto.sql.tree.ArithmeticExpression;
@@ -41,9 +42,12 @@ import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.JoinCriteria;
+import com.facebook.presto.sql.tree.JoinOn;
+import com.facebook.presto.sql.tree.JoinUsing;
 import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
+import com.facebook.presto.sql.tree.NaturalJoin;
 import com.facebook.presto.sql.tree.NegativeExpression;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NotExpression;
@@ -56,6 +60,7 @@ import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.RenameTable;
 import com.facebook.presto.sql.tree.Row;
+import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
@@ -73,7 +78,9 @@ import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.Table;
+import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.Union;
+import com.facebook.presto.sql.tree.Unnest;
 import com.facebook.presto.sql.tree.Use;
 import com.facebook.presto.sql.tree.Values;
 import com.facebook.presto.sql.tree.WhenClause;
@@ -448,6 +455,140 @@ public class AstBuilder
                 type,
                 (Expression) visit(ctx.left),
                 (Expression) visit(ctx.right));
+    }
+
+    // from clause
+
+    @Override
+    public Node visitJoinRelation(@NotNull SqlParser.JoinRelationContext ctx)
+    {
+        Relation left = (Relation) visit(ctx.left);
+        Relation right = (Relation) visit(ctx.right);
+
+        if (ctx.CROSS() != null) {
+            return new Join(Join.Type.CROSS, left, right, Optional.<JoinCriteria>empty());
+        }
+
+        JoinCriteria criteria;
+        if (ctx.NATURAL() != null) {
+            criteria = new NaturalJoin();
+        }
+        else if (ctx.joinCriteria().ON() != null) {
+            criteria = new JoinOn((Expression) visit(ctx.joinCriteria().booleanExpression()));
+        }
+        else if (ctx.joinCriteria().USING() != null) {
+            List<String> columns = ctx.joinCriteria()
+                    .identifier().stream()
+                    .map(ParseTree::getText)
+                    .collect(Collectors.toList());
+
+            criteria = new JoinUsing(columns);
+        }
+        else {
+            throw new UnsupportedOperationException("Unsupported join criteria");
+        }
+
+        Join.Type joinType;
+        if (ctx.joinType().LEFT() != null) {
+            joinType = Join.Type.LEFT;
+        }
+        else if (ctx.joinType().RIGHT() != null) {
+            joinType = Join.Type.RIGHT;
+        }
+        else if (ctx.joinType().FULL() != null) {
+            joinType = Join.Type.FULL;
+        }
+        else {
+            joinType = Join.Type.INNER;
+        }
+
+        return new Join(joinType, left, right, Optional.of(criteria));
+    }
+
+    @Override
+    public Node visitSampledRelation(@NotNull SqlParser.SampledRelationContext ctx)
+    {
+        Relation child = (Relation) visit(ctx.aliasedRelation());
+
+        if (ctx.TABLESAMPLE() == null) {
+            return child;
+        }
+
+        SampledRelation.Type type;
+        Token token = (Token) ctx.sampleType().getPayload();
+        switch (token.getType()) {
+            case SqlLexer.BERNOULLI:
+                type = SampledRelation.Type.BERNOULLI;
+                break;
+            case SqlLexer.SYSTEM:
+                type = SampledRelation.Type.SYSTEM;
+                break;
+            case SqlLexer.POISSONIZED:
+                type = SampledRelation.Type.POISSONIZED;
+                break;
+            default:
+                throw new UnsupportedOperationException("Unsupported sampling method: " + token.getText());
+        }
+
+        Optional<List<Expression>> stratifyOn = Optional.empty();
+        if (ctx.STRATIFY() != null) {
+            List<Expression> expressions = ctx.stratify.stream()
+                    .map(this::visit)
+                    .map(Expression.class::cast)
+                    .collect(Collectors.toList());
+
+            stratifyOn = Optional.of(expressions);
+        }
+
+        return new SampledRelation(
+                child,
+                type,
+                (Expression) visit(ctx.percentage),
+                ctx.RESCALED() != null,
+                stratifyOn);
+    }
+
+    @Override
+    public Node visitAliasedRelation(@NotNull SqlParser.AliasedRelationContext ctx)
+    {
+        Relation child = (Relation) visit(ctx.relationPrimary());
+
+        if (ctx.identifier() == null) {
+            return child;
+        }
+
+        List<String> columnNames = null;
+
+        if (ctx.columnAliases() != null) {
+            columnNames = ctx.columnAliases().identifier().stream()
+                    .map(ParseTree::getText)
+                    .collect(Collectors.toList());
+        }
+
+        return new AliasedRelation(child, ctx.identifier().getText(), columnNames);
+    }
+
+    @Override
+    public Node visitTableName(@NotNull SqlParser.TableNameContext ctx)
+    {
+        return new Table(getQualifiedName(ctx.qualifiedName()));
+    }
+
+    @Override
+    public Node visitSubqueryRelation(@NotNull SqlParser.SubqueryRelationContext ctx)
+    {
+        return new TableSubquery((Query) visit(ctx.query()));
+    }
+
+    @Override
+    public Node visitUnnest(@NotNull SqlParser.UnnestContext ctx)
+    {
+        List<Expression> expressions = ctx.expression().stream()
+                .map(this::visit)
+                .map(Expression.class::cast)
+                .collect(Collectors.toList());
+
+        return new Unnest(expressions);
     }
 
     // predicates
