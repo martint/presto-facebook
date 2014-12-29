@@ -84,7 +84,7 @@ public class Main2
             }
         });
 
-        AstBuilder builder = new AstBuilder(parser);
+        AstBuilder builder = new AstBuilder();
         Node ast = builder.visit(tree);
         new TreePrinter(new IdentityHashMap<>(), System.out).print(ast);
 

@@ -89,6 +89,7 @@ import com.facebook.presto.sql.tree.WindowFrame;
 import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
 import com.google.common.collect.ImmutableList;
+import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.misc.NotNull;
 import org.antlr.v4.runtime.tree.ParseTree;
@@ -99,16 +100,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+// TODO: VALUES
+// TODO: intervals
 public class AstBuilder
         extends SqlBaseVisitor<Node>
 {
-    private final SqlParser parser;
-
-    public AstBuilder(SqlParser parser)
-    {
-        this.parser = parser;
-    }
-
     @Override
     public Node visitSingleStatement(@NotNull SqlParser.SingleStatementContext ctx)
     {
@@ -126,10 +122,7 @@ public class AstBuilder
     @Override
     public Node visitUse(@NotNull SqlParser.UseContext ctx)
     {
-        Optional<String> catalog = Optional.ofNullable(ctx.catalog)
-                .map(ParseTree::getText);
-
-        return new Use(catalog, ctx.schema.getText());
+        return new Use(getTextIfPresent(ctx.catalog), ctx.schema.getText());
     }
 
     @Override
@@ -201,15 +194,7 @@ public class AstBuilder
     @Override
     public Node visitNamedQuery(@NotNull SqlParser.NamedQueryContext ctx)
     {
-        List<String> columnNames = null;
-
-        if (ctx.columnAliases() != null) {
-            columnNames = ctx.columnAliases().identifier().stream()
-                    .map(ParseTree::getText)
-                    .collect(Collectors.toList());
-        }
-
-        return new WithQuery(ctx.name.getText(), (Query) visit(ctx.query()), columnNames);
+        return new WithQuery(ctx.name.getText(), (Query) visit(ctx.query()), getColumnAliases(ctx.columnAliases()));
     }
 
     @Override
@@ -225,8 +210,7 @@ public class AstBuilder
         Optional<String> limit = Optional.ofNullable(ctx.limit)
                 .map(Token::getText);
 
-        Optional<Approximate> approximate = Optional.ofNullable(ctx.confidence)
-                .map(ParseTree::getText)
+        Optional<Approximate> approximate = getTextIfPresent(ctx.confidence)
                 .map(Approximate::new);
 
         if (term instanceof QuerySpecification) {
@@ -288,16 +272,11 @@ public class AstBuilder
                 .map(this::visit)
                 .map(Expression.class::cast);
 
-        List<Expression> groupBy = ctx.groupBy.stream()
-                .map(this::visit)
-                .map(Expression.class::cast)
-                .collect(Collectors.toList());
-
         Optional<Expression> having = Optional.ofNullable(ctx.having)
                 .map(this::visit)
                 .map(Expression.class::cast);
 
-        return new QuerySpecification(select, from, where, groupBy, having, ImmutableList.of(), Optional.<String>empty());
+        return new QuerySpecification(select, from, where, visitExpressions(ctx.groupBy), having, ImmutableList.of(), Optional.<String>empty());
     }
 
     @Override
@@ -333,8 +312,7 @@ public class AstBuilder
     @Override
     public Node visitSelectSingle(@NotNull SqlParser.SelectSingleContext ctx)
     {
-        Optional<String> alias = Optional.ofNullable(ctx.identifier())
-                .map(ParseTree::getText);
+        Optional<String> alias = getTextIfPresent(ctx.identifier());
 
         return new SingleColumn((Expression) visit(ctx.expression()), alias);
     }
@@ -385,8 +363,7 @@ public class AstBuilder
     @Override
     public Node visitShowSchemas(@NotNull SqlParser.ShowSchemasContext ctx)
     {
-        Optional<String> catalog = Optional.ofNullable(ctx.identifier())
-                .map(ParseTree::getText);
+        Optional<String> catalog = getTextIfPresent(ctx.identifier());
 
         return new ShowSchemas(catalog);
     }
@@ -532,12 +509,7 @@ public class AstBuilder
 
         Optional<List<Expression>> stratifyOn = Optional.empty();
         if (ctx.STRATIFY() != null) {
-            List<Expression> expressions = ctx.stratify.stream()
-                    .map(this::visit)
-                    .map(Expression.class::cast)
-                    .collect(Collectors.toList());
-
-            stratifyOn = Optional.of(expressions);
+            stratifyOn = Optional.of(visitExpressions(ctx.stratify));
         }
 
         return new SampledRelation(
@@ -557,15 +529,7 @@ public class AstBuilder
             return child;
         }
 
-        List<String> columnNames = null;
-
-        if (ctx.columnAliases() != null) {
-            columnNames = ctx.columnAliases().identifier().stream()
-                    .map(ParseTree::getText)
-                    .collect(Collectors.toList());
-        }
-
-        return new AliasedRelation(child, ctx.identifier().getText(), columnNames);
+        return new AliasedRelation(child, ctx.identifier().getText(), getColumnAliases(ctx.columnAliases()));
     }
 
     @Override
@@ -583,12 +547,7 @@ public class AstBuilder
     @Override
     public Node visitUnnest(@NotNull SqlParser.UnnestContext ctx)
     {
-        List<Expression> expressions = ctx.expression().stream()
-                .map(this::visit)
-                .map(Expression.class::cast)
-                .collect(Collectors.toList());
-
-        return new Unnest(expressions);
+        return new Unnest(visitExpressions(ctx.expression()));
     }
 
     // predicates
@@ -736,10 +695,7 @@ public class AstBuilder
     @Override
     public Node visitArrayConstructor(@NotNull SqlParser.ArrayConstructorContext ctx)
     {
-        return new ArrayConstructor(ctx.expression().stream()
-                .map(this::visit)
-                .map(Expression.class::cast)
-                .collect(Collectors.toList()));
+        return new ArrayConstructor(visitExpressions(ctx.expression()));
     }
 
     @Override
@@ -790,13 +746,7 @@ public class AstBuilder
     @Override
     public Node visitSubstring(@NotNull SqlParser.SubstringContext ctx)
     {
-        List<Expression> arguments = ctx.valueExpression().stream()
-                .map(this::visit)
-                .map(Expression.class::cast)
-                .collect(Collectors.toList());
-
-        return new FunctionCall(new QualifiedName("substr"),
-                arguments);
+        return new FunctionCall(new QualifiedName("substr"), visitExpressions(ctx.valueExpression()));
     }
 
     @Override
@@ -858,11 +808,6 @@ public class AstBuilder
     @Override
     public Node visitFunctionCall(@NotNull SqlParser.FunctionCallContext ctx)
     {
-        List<Expression> arguments = ctx.expression().stream()
-                .map(this::visit)
-                .map(Expression.class::cast)
-                .collect(Collectors.toList());
-
         boolean distinct = isDistinct(ctx.setQuantifier());
 
         Window window = Optional.ofNullable(ctx.over())
@@ -870,16 +815,12 @@ public class AstBuilder
                 .map(Window.class::cast)
                 .orElse(null);
 
-        return new FunctionCall(getQualifiedName(ctx.qualifiedName()), window, distinct, arguments);
+        return new FunctionCall(getQualifiedName(ctx.qualifiedName()), window, distinct, visitExpressions(ctx.expression()));
     }
 
     @Override
     public Node visitOver(@NotNull SqlParser.OverContext ctx)
     {
-        List<Expression> partitionBy = ctx.partition.stream()
-                .map(this::visit)
-                .map(Expression.class::cast)
-                .collect(Collectors.toList());
 
         List<SortItem> orderBy = ctx.sortItem().stream()
                 .map(this::visit)
@@ -891,7 +832,7 @@ public class AstBuilder
                 .map(WindowFrame.class::cast)
                 .orElse(null);
 
-        return new Window(partitionBy, orderBy, frame);
+        return new Window(visitExpressions(ctx.partition), orderBy, frame);
     }
 
     @Override
@@ -1046,6 +987,14 @@ public class AstBuilder
         throw new UnsupportedOperationException("not yet implemented");
     }
 
+    private List<Expression> visitExpressions(List<? extends ParserRuleContext> context)
+    {
+        return context.stream()
+                .map(this::visit)
+                .map(Expression.class::cast)
+                .collect(Collectors.toList());
+    }
+
     private static String unquote(String string)
     {
         return string.substring(1, string.length() - 1);
@@ -1064,5 +1013,23 @@ public class AstBuilder
     private static boolean isDistinct(SqlParser.SetQuantifierContext setQuantifier)
     {
         return setQuantifier != null && setQuantifier.DISTINCT() != null;
+    }
+
+    private static Optional<String> getTextIfPresent(ParserRuleContext context)
+    {
+        return Optional.ofNullable(context)
+                .map(ParseTree::getText);
+    }
+
+    private static List<String> getColumnAliases(SqlParser.ColumnAliasesContext columnAliasesContext)
+    {
+        List<String> columnNames = null;
+        if (columnAliasesContext != null) {
+            columnNames = columnAliasesContext
+                    .identifier().stream()
+                    .map(ParseTree::getText)
+                    .collect(Collectors.toList());
+        }
+        return columnNames;
     }
 }
