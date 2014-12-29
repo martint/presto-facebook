@@ -15,14 +15,7 @@ package com.facebook.presto.sql.parser2;
 
 import com.facebook.presto.sql.TreePrinter;
 import com.facebook.presto.sql.tree.Node;
-import com.facebook.presto.sql.tree.Statement;
-import org.antlr.v4.runtime.ANTLRInputStream;
-import org.antlr.v4.runtime.CommonToken;
-import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.ParserRuleContext;
-import org.antlr.v4.runtime.Token;
-import org.antlr.v4.runtime.misc.NotNull;
-import org.antlr.v4.runtime.misc.Pair;
 import org.antlr.v4.runtime.tree.Trees;
 
 import javax.swing.JDialog;
@@ -39,35 +32,13 @@ public class Main2
     public static void main(String[] args)
             throws ExecutionException, InterruptedException, IOException
     {
-        String query = "SELECT * FROM t LEFT JOIN u ON a = b";
+        String query = "select fuu from dual order by fuu order by fuu";
 //        String query = "SELECT * FROM (TABLE a UNION TABLE b)";
 //        String query = "WITH a AS (SELECT * FROM orders) VALUES (1),(2)";
 //        String query = "SELECT COALESCE(orderkey, custkey), count(*) FROM orders GROUP BY COALESCE(orderkey, custkey)";
 //        StatementLexer lexer = new StatementLexer(new ANTLRInputStream(query));
-        SqlLexer lexer = new SqlLexer(new CaseInsensitiveStream2(new ANTLRInputStream(query)));
-        SqlParser parser = new SqlParser(new CommonTokenStream(lexer));
 
-        Statement old = new com.facebook.presto.sql.parser.SqlParser().createStatement(query);
-        new TreePrinter(new IdentityHashMap<>(), System.out).print(old);
-
-        parser.addParseListener(new SqlBaseListener()
-        {
-            @Override
-            public void exitNonReserved(@NotNull SqlParser.NonReservedContext ctx)
-            {
-                // replace nonReserved words with IDENT tokens
-
-                ctx.getParent().removeLastChild();
-
-                Token token = (Token) ctx.getChild(0).getPayload();
-                ctx.getParent().addChild(new CommonToken(
-                        new Pair<>(token.getTokenSource(), token.getInputStream()),
-                        SqlLexer.IDENTIFIER,
-                        token.getChannel(),
-                        token.getStartIndex(),
-                        token.getStopIndex()));
-            }
-        });
+        SqlParser parser = new com.facebook.presto.sql.parser.SqlParser().createNewParser(query);
 
         ParserRuleContext tree = parser.singleStatement();
         System.out.println(Trees.toStringTree(tree, parser));

@@ -21,9 +21,23 @@ import static java.lang.String.format;
 public class ParsingException
         extends RuntimeException
 {
+    private final int line;
+    private final int charPositionInLine;
+
     public ParsingException(String message, RecognitionException cause)
     {
         super(message, cause);
+
+        this.line = cause.line;
+        this.charPositionInLine = cause.charPositionInLine;
+    }
+
+    public ParsingException(String message, org.antlr.v4.runtime.RecognitionException cause, int line, int charPositionInLine)
+    {
+        super(message, cause);
+
+        this.line = line;
+        this.charPositionInLine = charPositionInLine;
     }
 
     public ParsingException(String message)
@@ -31,20 +45,14 @@ public class ParsingException
         this(message, new RecognitionException(new ANTLRStringStream()));
     }
 
-    @Override
-    public RecognitionException getCause()
-    {
-        return (RecognitionException) super.getCause();
-    }
-
     public int getLineNumber()
     {
-        return getCause().line;
+        return line;
     }
 
     public int getColumnNumber()
     {
-        return getCause().charPositionInLine + 1;
+        return charPositionInLine + 1;
     }
 
     public String getErrorMessage()

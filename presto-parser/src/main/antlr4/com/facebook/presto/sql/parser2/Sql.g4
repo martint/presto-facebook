@@ -245,8 +245,8 @@ intervalField
     ;
 
 type
-    : TIME WITH TIME ZONE
-    | TIMESTAMP WITH TIME ZONE
+    : TIME_WITH_TIME_ZONE
+    | TIMESTAMP_WITH_TIME_ZONE
     | identifier
     ;
 
@@ -297,12 +297,11 @@ qualifiedName
 
 // TODO: add Identifier AST node with "quoted" attribute
 identifier
-    : IDENTIFIER
-        #unquotedIdentifier
-    | QUOTED_IDENTIFIER
-        #quotedIdentifier
-    | nonReserved
-        #unquotedIdentifier
+    : IDENTIFIER #unquotedIdentifier
+    | QUOTED_IDENTIFIER #quotedIdentifier
+    | BACKQUOTED_IDENTIFIER #backQuotedIdentifier
+    | DIGIT_IDENTIFIER #digitIdentifier
+    | nonReserved #unquotedIdentifier
     ;
 
 number
@@ -409,18 +408,6 @@ VIEW: 'VIEW';
 REPLACE: 'REPLACE';
 INSERT: 'INSERT';
 INTO: 'INTO';
-CHAR: 'CHAR';
-CHARACTER: 'CHARACTER';
-VARYING: 'VARYING';
-NUMERIC: 'NUMERIC';
-NUMBER: 'NUMBER';
-DECIMAL: 'DECIMAL';
-DEC: 'DEC';
-INTEGER: 'INTEGER';
-INT: 'INT';
-DOUBLE: 'DOUBLE';
-BIGINT: 'BIGINT';
-BOOLEAN: 'BOOLEAN';
 CONSTRAINT: 'CONSTRAINT';
 DESCRIBE: 'DESCRIBE';
 EXPLAIN: 'EXPLAIN';
@@ -514,6 +501,14 @@ QUOTED_IDENTIFIER
 
 BACKQUOTED_IDENTIFIER
     : '`' ( ~'`' | '``' )* '`'
+    ;
+
+TIME_WITH_TIME_ZONE
+    : 'TIME' WS 'WITH' WS 'TIME' WS 'ZONE'
+    ;
+
+TIMESTAMP_WITH_TIME_ZONE
+    : 'TIMESTAMP' WS 'WITH' WS 'TIME' WS 'ZONE'
     ;
 
 fragment EXPONENT

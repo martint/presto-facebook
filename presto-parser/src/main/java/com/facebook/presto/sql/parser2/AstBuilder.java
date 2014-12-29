@@ -102,6 +102,10 @@ import java.util.stream.Collectors;
 
 // TODO: VALUES
 // TODO: intervals
+// TODO: in list
+// TODO: in subquery
+// TODO: TestSqlParser.testParseErrorStartOfLine should report "expected {AS, identifier, WHERE}"
+// TODO: improve error message for TestSqlParser.testTokenizeErrorIncompleteToken
 public class AstBuilder
         extends SqlBaseVisitor<Node>
 {
