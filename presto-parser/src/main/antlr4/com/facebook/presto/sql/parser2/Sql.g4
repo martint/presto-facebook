@@ -156,8 +156,6 @@ expression
 
 // TODO: precedence
 booleanExpression
-    // booleanExpression IS NOT? (TRUE | FALSE | UNKNOWN) // TODO: add later
-    //    #truth
     : NOT booleanExpression #logicalNot
     | left=booleanExpression operator=AND right=booleanExpression #logicalBinary
     | left=booleanExpression operator=OR right=booleanExpression #logicalBinary
@@ -168,34 +166,28 @@ booleanExpression
     | valueExpression NOT? IN '(' query ')' #inSubquery
     | value=valueExpression NOT? LIKE pattern=valueExpression (ESCAPE escape=valueExpression)? #like
     | valueExpression IS NOT? NULL #nullPredicate
-//    | valueExpression comparisonOperator (ALL | SOME | ANY) '(' query ')' // TODO: add later
-//        #quantifiedComparison
     | EXISTS '(' query ')' #exists
-//    | UNIQUE '(' query ')' // TODO: add later
-//        #unique
-//    | valueExpression MATCH UNIQUE? (SIMPLE | PARTIAL | FULL) '(' query ')' // TODO: add later
-//        #match
-//    | valueExpression OVERLAPS valueExpression // TODO: add later
-//        #overlaps
     | left=valueExpression IS NOT? DISTINCT FROM right=valueExpression #distinctFrom
-//    | valueExpression NOT? MEMBER OF? valueExpression // TODO add later
-//        #memberOf
-//    | valueExpression NOT? SUBMULTISET OF? valueExpression // TODO add later
-//        #submultiset
-//    | valueExpression IS NOT? A SET // TODO add later
-//        #setPredicate
     | primaryExpression #booleanPrimary
+//    | booleanExpression IS NOT? (TRUE | FALSE | UNKNOWN) #truth // TODO: add later
+//    | valueExpression comparisonOperator (ALL | SOME | ANY) '(' query ')' #quantifiedComparison // TODO: add later
+//    | UNIQUE '(' query ')' #unique // TODO: add later
+//    | valueExpression MATCH UNIQUE? (SIMPLE | PARTIAL | FULL) '(' query ')' #match// TODO: add later
+//    | valueExpression OVERLAPS valueExpression #overlaps // TODO: add later
+//    | valueExpression NOT? MEMBER OF? valueExpression #memberOf // TODO add later
+//    | valueExpression NOT? SUBMULTISET OF? valueExpression #submultiset// TODO add later
+//    | valueExpression IS NOT? A SET #setPredicate// TODO add later
     ;
 
 valueExpression
     : primaryExpression #valuePrimary
-//    | valueExpression intervalField (TO intervalField)? #intervalConversion
     | MINUS valueExpression #arithmeticNegation
     | valueExpression AT timeZoneSpecifier #atTimeZone
-//    | valueExpression COLLATE (identifier '.')? identifier #collated
     | left=valueExpression operator=(ASTERISK | SLASH | PERCENT) right=valueExpression #arithmeticBinary
     | left=valueExpression operator=(PLUS | MINUS) right=valueExpression #arithmeticBinary
     | left=valueExpression CONCAT right=valueExpression #concatenation
+//    | valueExpression intervalField (TO intervalField)? #intervalConversion
+//    | valueExpression COLLATE (identifier '.')? identifier #collated
     ;
 
 primaryExpression
