@@ -31,6 +31,7 @@ import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
 import com.facebook.presto.sql.tree.Except;
+import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.ExplainFormat;
 import com.facebook.presto.sql.tree.ExplainOption;
@@ -713,9 +714,15 @@ public class AstBuilder
     @Override
     public Node visitInList(@NotNull SqlParser.InListContext ctx)
     {
-        return new InPredicate(
+        Expression result = new InPredicate(
                 (Expression) visit(ctx.valueExpression()),
                 new InListExpression(visitExpressions(ctx.expression())));
+
+        if (ctx.NOT() != null) {
+            result = new NotExpression(result);
+        }
+
+        return result;
     }
 
     @Override
@@ -730,6 +737,12 @@ public class AstBuilder
         }
 
         return result;
+    }
+
+    @Override
+    public Node visitExists(@NotNull SqlParser.ExistsContext ctx)
+    {
+        return new ExistsPredicate((Query) visit(ctx.query()));
     }
 
 // ************** value expressions **************
@@ -783,6 +796,26 @@ public class AstBuilder
         return new FunctionCall(new QualifiedName("concat"), ImmutableList.of(
                 (Expression) visit(ctx.left),
                 (Expression) visit(ctx.right)));
+    }
+
+    @Override
+    public Node visitAtTimeZone(@NotNull SqlParser.AtTimeZoneContext ctx)
+    {
+        return new FunctionCall(QualifiedName.of("at_timezone"), ImmutableList.of(
+                (Expression) visit(ctx.valueExpression()),
+                (Expression) visit(ctx.timeZoneSpecifier())));
+    }
+
+    @Override
+    public Node visitTimeZoneInterval(@NotNull SqlParser.TimeZoneIntervalContext ctx)
+    {
+        return visit(ctx.interval());
+    }
+
+    @Override
+    public Node visitTimeZoneString(@NotNull SqlParser.TimeZoneStringContext ctx)
+    {
+        return new StringLiteral(unquote(ctx.STRING().getText()));
     }
 
     // primary expressions
@@ -899,7 +932,7 @@ public class AstBuilder
     @Override
     public Node visitWhenClause(@NotNull SqlParser.WhenClauseContext ctx)
     {
-        return new WhenClause((Expression) visit(ctx.booleanExpression()), (Expression) visit(ctx.expression()));
+        return new WhenClause((Expression) visit(ctx.condition), (Expression) visit(ctx.result));
     }
 
     @Override

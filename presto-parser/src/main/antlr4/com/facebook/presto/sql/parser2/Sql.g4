@@ -212,17 +212,13 @@ primaryExpression
     | qualifiedName '(' (setQuantifier? expression (',' expression)*)? ')' over #functionCall
     | qualifiedName '(' (setQuantifier expression (',' expression)*)? ')' #functionCall
     | qualifiedName '(' (expression (',' expression)*)? ')' #scalarFunctionCall
-//    | '(' expression ',' expression (',' expression)* ')'  #rowConstructor
-//    | ROW '(' expression (',' expression)* ')' #rowConstuctor
     | '(' query ')' #subqueryExpression
     | CASE valueExpression whenClause+ (ELSE elseExpression=expression)? END #simpleCase
     | CASE whenClause+ (ELSE elseExpression=expression)? END #searchedCase
-//    | primaryExpression '.' identifier #fieldReference TODO: later
     | CAST '(' expression AS type ')' #cast
     | TRY_CAST '(' expression AS type ')' #cast
     | ARRAY '[' (expression (',' expression)*)? ']' #arrayConstructor
     | value=primaryExpression '[' index=valueExpression ']' #subscript // TODO: valueExpression '[' ... ']' ?
-//    | ELEMENT '(' valueExpression ')'  #element // TODO: add later
     | name=CURRENT_DATE #specialDateTimeFunction
     | name=CURRENT_TIME ('(' precision=INTEGER_VALUE ')')? #specialDateTimeFunction
     | name=CURRENT_TIMESTAMP ('(' precision=INTEGER_VALUE ')')? #specialDateTimeFunction
@@ -231,10 +227,15 @@ primaryExpression
     | SUBSTRING '(' valueExpression FROM valueExpression (FOR valueExpression)? ')' #substring
     | EXTRACT '(' identifier FROM valueExpression ')' #extract
     | '(' expression ')' #subExpression
+    //    | '(' expression ',' expression (',' expression)* ')'  #rowConstructor
+    //    | ROW '(' expression (',' expression)* ')' #rowConstuctor
+    //    | primaryExpression '.' identifier #fieldReference TODO: later
+    //    | ELEMENT '(' valueExpression ')'  #element // TODO: add later
     ;
 
 timeZoneSpecifier
-    : TIME ZONE STRING // (interval | STRING)
+    : TIME ZONE interval #timeZoneInterval
+    | TIME ZONE STRING   #timeZoneString
 //    | LOCAL
     ;
 
@@ -266,9 +267,11 @@ type
 // CASE x
 //   WHEN > 3 THEN ...
 //   WHEN DISTINCT FROM 4 THEN ...
+//
+// also, "WHEN" condition for simple case has a different shape (e.g., it supports a list of "expression" vs a booleanExpression)
 
 whenClause
-    : WHEN booleanExpression THEN expression
+    : WHEN condition=expression THEN result=expression
     ;
 
 over
