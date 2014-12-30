@@ -44,6 +44,9 @@ statement
     | DESC qualifiedName #showColumns
     | SHOW PARTITIONS (FROM | IN) qualifiedName (WHERE booleanExpression)? (ORDER BY sortItem (',' sortItem)*)? (LIMIT limit=INTEGER_VALUE)? #showPartitions
     | SHOW FUNCTIONS #showFunctions
+    | SHOW SESSION #showSession
+    | SET SESSION qualifiedName EQ STRING #setSession
+    | RESET SESSION qualifiedName #resetSession
     ;
 
 query
@@ -70,8 +73,13 @@ queryTerm
 queryPrimary
     : querySpecification #queryPrimarySpecification
     | TABLE qualifiedName #table
-    | VALUES primaryExpression (',' primaryExpression)* #inlineTable
+//    | VALUES primaryExpression (',' primaryExpression)* #inlineTable // TODO
+    | VALUES rowValue (',' rowValue)* #inlineTable
     | '(' queryNoWith  ')' #subquery
+    ;
+
+rowValue
+    : '(' expression (',' expression )* ')'
     ;
 
 sortItem
@@ -164,7 +172,7 @@ booleanExpression
     | left=valueExpression comparisonOperator right=valueExpression #comparison
     | value=valueExpression NOT? BETWEEN lower=valueExpression AND upper=valueExpression #between // TODO: SYMMETRIC/ASYMETRIC
         // TODO: valueExpression NOT? IN valueExpression ?
-    | valueExpression NOT? IN '(' primaryExpression (',' primaryExpression)* ')' #inList
+    | valueExpression NOT? IN '(' expression (',' expression)* ')' #inList
     | valueExpression NOT? IN '(' query ')' #inSubquery
     | value=valueExpression NOT? LIKE pattern=valueExpression (ESCAPE escape=valueExpression)? #like
     | value=valueExpression IS NOT? NULL #nullPredicate
@@ -316,13 +324,14 @@ number
     ;
 
 nonReserved
-    : SHOW | TABLES | COLUMNS | PARTITIONS | FUNCTIONS | SCHEMAS | CATALOGS
+    : SHOW | TABLES | COLUMNS | PARTITIONS | FUNCTIONS | SCHEMAS | CATALOGS | SESSION
     | OVER | PARTITION | RANGE | ROWS | PRECEDING | FOLLOWING | CURRENT | ROW
     | DATE | TIME | TIMESTAMP | INTERVAL
     | YEAR | MONTH | DAY | HOUR | MINUTE | SECOND
     | EXPLAIN | FORMAT | TYPE | TEXT | GRAPHVIZ | LOGICAL | DISTRIBUTED
     | TABLESAMPLE | SYSTEM | BERNOULLI | POISSONIZED | USE | JSON | TO
     | RESCALED | APPROXIMATE | AT | CONFIDENCE
+    | SET | RESET
     | VIEW | REPLACE
 //    | A
     | IF | NULLIF | COALESCE
@@ -448,6 +457,9 @@ ALTER: 'ALTER';
 RENAME: 'RENAME';
 UNNEST: 'UNNEST';
 ARRAY: 'ARRAY';
+SET: 'SET';
+RESET: 'RESET';
+SESSION: 'SESSION';
 // UNIQUE: 'UNIQUE';
 // MATCH: 'MATCH';
 // SIMPLE: 'SIMPLE';

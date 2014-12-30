@@ -41,6 +41,7 @@ import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.IfExpression;
+import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.Intersect;
@@ -67,16 +68,19 @@ import com.facebook.presto.sql.tree.QueryBody;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.RenameTable;
+import com.facebook.presto.sql.tree.ResetSession;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
+import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.ShowCatalogs;
 import com.facebook.presto.sql.tree.ShowColumns;
 import com.facebook.presto.sql.tree.ShowFunctions;
 import com.facebook.presto.sql.tree.ShowPartitions;
 import com.facebook.presto.sql.tree.ShowSchemas;
+import com.facebook.presto.sql.tree.ShowSession;
 import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.SingleColumn;
@@ -87,6 +91,8 @@ import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableSubquery;
+import com.facebook.presto.sql.tree.TimeLiteral;
+import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.Union;
 import com.facebook.presto.sql.tree.Unnest;
 import com.facebook.presto.sql.tree.Use;
@@ -333,13 +339,18 @@ public class AstBuilder
     @Override
     public Node visitInlineTable(@NotNull SqlParser.InlineTableContext ctx)
     {
-        List<Row> rows = ctx.primaryExpression().stream()
+        List<Row> rows = ctx.rowValue().stream()
                 .map(this::visit)
                 .map(Row.class::cast)
                 .collect(Collectors.toList());
 
-        // TODO: handle simple expressions
         return new Values(rows);
+    }
+
+    @Override
+    public Node visitRowValue(@NotNull SqlParser.RowValueContext ctx)
+    {
+        return new Row(visitExpressions(ctx.expression()));
     }
 
     @Override
@@ -443,6 +454,24 @@ public class AstBuilder
     public Node visitShowFunctions(@NotNull SqlParser.ShowFunctionsContext ctx)
     {
         return new ShowFunctions();
+    }
+
+    @Override
+    public Node visitShowSession(@NotNull SqlParser.ShowSessionContext ctx)
+    {
+        return new ShowSession();
+    }
+
+    @Override
+    public Node visitSetSession(@NotNull SqlParser.SetSessionContext ctx)
+    {
+        return new SetSession(getQualifiedName(ctx.qualifiedName()), unquote(ctx.STRING().getText()));
+    }
+
+    @Override
+    public Node visitResetSession(@NotNull SqlParser.ResetSessionContext ctx)
+    {
+        return new ResetSession(getQualifiedName(ctx.qualifiedName()));
     }
 
     // boolean expressions
@@ -685,6 +714,14 @@ public class AstBuilder
     }
 
     @Override
+    public Node visitInList(@NotNull SqlParser.InListContext ctx)
+    {
+        return new InPredicate(
+                (Expression) visit(ctx.valueExpression()),
+                new InListExpression(visitExpressions(ctx.expression())));
+    }
+
+    @Override
     public Node visitInSubquery(@NotNull SqlParser.InSubqueryContext ctx)
     {
         Expression result = new InPredicate(
@@ -886,7 +923,7 @@ public class AstBuilder
     {
         QualifiedName name = getQualifiedName(ctx.qualifiedName());
 
-        if (name.toString().equals("if")) {
+        if (name.toString().equalsIgnoreCase("if")) {
             if (ctx.expression().size() != 2 && ctx.expression().size() != 3) {
                 throw new ParsingException("Invalid number of arguments for 'if' function", null, ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine());
             }
@@ -901,7 +938,7 @@ public class AstBuilder
                     (Expression) visit(ctx.expression(1)),
                     elseExpression);
         }
-        else if (name.toString().equals("nullif")) {
+        else if (name.toString().equalsIgnoreCase("nullif")) {
             if (ctx.expression().size() != 2) {
                 throw new ParsingException("Invalid number of arguments for 'nullif' function", null, ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine());
             }
@@ -909,10 +946,9 @@ public class AstBuilder
                     (Expression) visit(ctx.expression(0)),
                     (Expression) visit(ctx.expression(1)));
         }
-        else if (name.toString().equals("coalesce")) {
+        else if (name.toString().equalsIgnoreCase("coalesce")) {
             return new CoalesceExpression(visitExpressions(ctx.expression()));
         }
-
 
         return new FunctionCall(name, null, false, visitExpressions(ctx.expression()));
     }
@@ -1045,7 +1081,17 @@ public class AstBuilder
     @Override
     public Node visitTypeConstructor(@NotNull SqlParser.TypeConstructorContext ctx)
     {
-        return new GenericLiteral(ctx.identifier().getText(), unquote(ctx.STRING().getText()));
+        String type = ctx.identifier().getText();
+        String value = unquote(ctx.STRING().getText());
+
+        if (type.equalsIgnoreCase("time")) {
+            return new TimeLiteral(value);
+        }
+        else if (type.equalsIgnoreCase("timestamp")) {
+            return new TimestampLiteral(value);
+        }
+
+        return new GenericLiteral(type, value);
     }
 
     @Override

@@ -42,6 +42,8 @@ import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.TableSubquery;
+import com.facebook.presto.sql.tree.TimeLiteral;
+import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.Union;
 import com.facebook.presto.sql.tree.Values;
 import com.google.common.base.Joiner;
@@ -92,8 +94,8 @@ public class TestSqlParser
     public void testLiterals()
             throws Exception
     {
-        assertExpression("TIME" + " 'abc'", new GenericLiteral("TIME", "abc"));
-        assertExpression("TIMESTAMP" + " 'abc'", new GenericLiteral("TIMESTAMP", "abc"));
+        assertExpression("TIME" + " 'abc'", new TimeLiteral("abc"));
+        assertExpression("TIMESTAMP" + " 'abc'", new TimestampLiteral("abc"));
         assertExpression("INTERVAL '33' day", new IntervalLiteral("33", Sign.POSITIVE, IntervalField.DAY, null));
         assertExpression("INTERVAL '33' day to second", new IntervalLiteral("33", Sign.POSITIVE, IntervalField.DAY, IntervalField.SECOND));
     }
@@ -371,7 +373,7 @@ public class TestSqlParser
         SQL_PARSER.createStatement("select * from 'oops");
     }
 
-    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "\\Qline 3:1: extraneous input 'from' expecting {<EOF>, ',', '.', 'AS', 'WHERE', 'GROUP', 'ORDER', 'HAVING', 'LIMIT', 'APPROXIMATE', 'AT', 'CONFIDENCE', 'DATE', 'TIME', 'TIMESTAMP', 'INTERVAL', 'YEAR', 'MONTH', 'DAY', 'HOUR', 'MINUTE', 'SECOND', 'JOIN', 'CROSS', 'INNER', 'LEFT', 'RIGHT', 'FULL', 'NATURAL', 'OVER', 'PARTITION', 'RANGE', 'ROWS', 'PRECEDING', 'FOLLOWING', 'CURRENT', 'ROW', 'VIEW', 'REPLACE', 'EXPLAIN', 'FORMAT', 'TYPE', 'TEXT', 'GRAPHVIZ', 'JSON', 'LOGICAL', 'DISTRIBUTED', 'SHOW', 'TABLES', 'SCHEMAS', 'CATALOGS', 'COLUMNS', 'USE', 'PARTITIONS', 'FUNCTIONS', 'UNION', 'EXCEPT', 'INTERSECT', 'TO', 'SYSTEM', 'BERNOULLI', 'POISSONIZED', 'TABLESAMPLE', 'RESCALED', 'A', IDENTIFIER, DIGIT_IDENTIFIER, QUOTED_IDENTIFIER, BACKQUOTED_IDENTIFIER}\\E")
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "\\Qline 3:1: extraneous input 'from' expecting\\E.*")
     public void testParseErrorStartOfLine()
     {
         SQL_PARSER.createStatement("select *\nfrom x\nfrom");
@@ -516,7 +518,7 @@ public class TestSqlParser
     public void testTime()
             throws Exception
     {
-        assertExpression("TIME '03:04:05'", new GenericLiteral("TIME", "03:04:05"));
+        assertExpression("TIME '03:04:05'", new TimeLiteral("03:04:05"));
     }
 
     @Test
