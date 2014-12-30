@@ -207,6 +207,19 @@ public class SqlParser
             @Override
             public void syntaxError(@NotNull Recognizer<?, ?> recognizer, Object offendingSymbol, int line, int charPositionInLine, @NotNull String msg, org.antlr.v4.runtime.RecognitionException e)
             {
+//                RuleStartState ruleStartState = recognizer.getATN().ruleToStartState[com.facebook.presto.sql.parser2.SqlParser.RULE_nonReserved];
+//                IntervalSet nonReserved = recognizer.getATN().getExpectedTokens(ruleStartState.stateNumber, null);
+//
+//                Parser parser = (Parser) recognizer;
+//                Token token = parser.getCurrentToken();
+//                IntervalSet expecting = parser.getExpectedTokens();
+//
+//                IntervalSet result = IntervalSet.subtract(expecting, nonReserved);
+//
+//                System.out.println(result.toString(recognizer.getTokenNames()));
+
+//                IntervalSet x = e.getRecognizer().getATN().getExpectedTokens(e.getOffendingState(), e.getCtx());
+//                System.out.println(x);
                 throw new ParsingException(msg, e, line, charPositionInLine);
             }
 
