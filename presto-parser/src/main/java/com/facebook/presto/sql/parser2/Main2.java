@@ -33,9 +33,7 @@ public class Main2
             throws ExecutionException, InterruptedException, IOException
     {
 //        String query = "SELECT a";
-        String query = "SELECT orderstatus, cardinality(approx_set(IF(custkey % 2 <> 0, custkey))) \n" +
-                "FROM orders \n" +
-                "GROUP BY orderstatus";
+        String query = "(SELECT * FROM orders ORDER BY orderkey)";
 //        String query = "SELECT * FROM (TABLE a UNION TABLE b)";
 //        String query = "WITH a AS (SELECT * FROM orders) VALUES (1),(2)";
 //        String query = "SELECT COALESCE(orderkey, custkey), count(*) FROM orders GROUP BY COALESCE(orderkey, custkey)";

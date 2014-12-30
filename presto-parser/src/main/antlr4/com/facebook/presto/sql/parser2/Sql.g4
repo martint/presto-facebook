@@ -226,8 +226,8 @@ primaryExpression
     ;
 
 timeZoneSpecifier
-    : LOCAL
-    | TIME ZONE (interval | STRING)
+    : TIME ZONE STRING // (interval | STRING)
+//    | LOCAL
     ;
 
 comparisonOperator
@@ -287,11 +287,8 @@ frameBound
 
 
 explainOption
-    : FORMAT TEXT
-    | FORMAT GRAPHVIZ
-    | FORMAT JSON
-    | TYPE LOGICAL
-    | TYPE DISTRIBUTED
+    : FORMAT value=(TEXT | GRAPHVIZ | JSON) #explainFormat
+    | TYPE value=(LOGICAL | DISTRIBUTED) #explainType
     ;
 
 qualifiedName
@@ -327,7 +324,7 @@ nonReserved
     | TABLESAMPLE | SYSTEM | BERNOULLI | POISSONIZED | USE | JSON | TO
     | RESCALED | APPROXIMATE | AT | CONFIDENCE
     | VIEW | REPLACE
-    | A
+//    | A
     | IF | NULLIF | COALESCE
     ;
 
@@ -451,20 +448,20 @@ ALTER: 'ALTER';
 RENAME: 'RENAME';
 UNNEST: 'UNNEST';
 ARRAY: 'ARRAY';
-UNIQUE: 'UNIQUE';
-MATCH: 'MATCH';
-SIMPLE: 'SIMPLE';
-PARTIAL: 'PARTIAL';
-OVERLAPS: 'OVERLAPS';
-MEMBER: 'MEMBER';
-OF: 'OF';
-SUBMULTISET: 'SUBMULTISET';
-A: 'A';
-SET: 'SET';
-UNKNOWN: 'UNKNOWN';
-COLLATE: 'COLLATE';
-LOCAL: 'LOCAL';
-ELEMENT: 'ELEMENT';
+// UNIQUE: 'UNIQUE';
+// MATCH: 'MATCH';
+// SIMPLE: 'SIMPLE';
+// PARTIAL: 'PARTIAL';
+// OVERLAPS: 'OVERLAPS';
+// MEMBER: 'MEMBER';
+// OF: 'OF';
+// SUBMULTISET: 'SUBMULTISET';
+// A: 'A';
+// SET: 'SET';
+// UNKNOWN: 'UNKNOWN';
+// COLLATE: 'COLLATE';
+// LOCAL: 'LOCAL';
+// ELEMENT: 'ELEMENT';
 
 IF: 'IF';
 NULLIF: 'NULLIF';

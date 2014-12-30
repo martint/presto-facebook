@@ -32,7 +32,9 @@ import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
 import com.facebook.presto.sql.tree.Except;
 import com.facebook.presto.sql.tree.Explain;
+import com.facebook.presto.sql.tree.ExplainFormat;
 import com.facebook.presto.sql.tree.ExplainOption;
+import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Extract;
 import com.facebook.presto.sql.tree.FrameBound;
@@ -284,7 +286,7 @@ public class AstBuilder
         QueryBody left = (QueryBody) visit(ctx.left);
         QueryBody right = (QueryBody) visit(ctx.right);
 
-        boolean distinct = isDistinct(ctx.setQuantifier());
+        boolean distinct = ctx.setQuantifier() == null || ctx.setQuantifier().DISTINCT() != null;
 
         switch (ctx.operator.getType()) {
             case SqlLexer.UNION:
@@ -323,6 +325,12 @@ public class AstBuilder
     }
 
     @Override
+    public Node visitSubquery(@NotNull SqlParser.SubqueryContext ctx)
+    {
+        return new TableSubquery((Query) visit(ctx.queryNoWith()));
+    }
+
+    @Override
     public Node visitInlineTable(@NotNull SqlParser.InlineTableContext ctx)
     {
         List<Row> rows = ctx.primaryExpression().stream()
@@ -346,6 +354,45 @@ public class AstBuilder
     }
 
     @Override
+    public Node visitExplainFormat(@NotNull SqlParser.ExplainFormatContext ctx)
+    {
+        ExplainFormat.Type type;
+        switch (ctx.value.getType()) {
+            case SqlLexer.GRAPHVIZ:
+                type = ExplainFormat.Type.GRAPHVIZ;
+                break;
+            case SqlLexer.TEXT:
+                type = ExplainFormat.Type.TEXT;
+                break;
+            case SqlLexer.JSON:
+                type = ExplainFormat.Type.JSON;
+                break;
+            default:
+                throw new UnsupportedOperationException("Unsupported EXPLAIN format: " + ctx.value.getText());
+        }
+
+        return new ExplainFormat(type);
+    }
+
+    @Override
+    public Node visitExplainType(@NotNull SqlParser.ExplainTypeContext ctx)
+    {
+        ExplainType.Type type;
+        switch (ctx.value.getType()) {
+            case SqlLexer.LOGICAL:
+                type = ExplainType.Type.LOGICAL;
+                break;
+            case SqlLexer.DISTRIBUTED:
+                type = ExplainType.Type.DISTRIBUTED;
+                break;
+            default:
+                throw new UnsupportedOperationException("Unsupported EXPLAIN type: " + ctx.value.getText());
+        }
+
+        return new ExplainType(type);
+    }
+
+    @Override
     public Node visitShowTables(@NotNull SqlParser.ShowTablesContext ctx)
     {
         QualifiedName schema = Optional.ofNullable(ctx.qualifiedName())
@@ -353,6 +400,7 @@ public class AstBuilder
                 .orElse(null);
 
         String pattern = getTextIfPresent(ctx.pattern)
+                .map(AstBuilder::unquote)
                 .orElse(null);
 
         return new ShowTables(schema, pattern);
@@ -485,7 +533,7 @@ public class AstBuilder
         }
 
         SampledRelation.Type type;
-        Token token = (Token) ctx.sampleType().getPayload();
+        Token token = (Token) ctx.sampleType().getChild(0).getPayload();
         switch (token.getType()) {
             case SqlLexer.BERNOULLI:
                 type = SampledRelation.Type.BERNOULLI;
