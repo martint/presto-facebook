@@ -160,8 +160,9 @@ columnAliases
     ;
 
 expression
-    : valueExpression
-    | booleanExpression
+    :
+     //valueExpression
+     booleanExpression
     ;
 
 // TODO: precedence
@@ -169,16 +170,26 @@ booleanExpression
     : NOT booleanExpression #logicalNot
     | left=booleanExpression operator=AND right=booleanExpression #logicalBinary
     | left=booleanExpression operator=OR right=booleanExpression #logicalBinary
-    | left=valueExpression comparisonOperator right=valueExpression #comparison
-    | value=valueExpression NOT? BETWEEN lower=valueExpression AND upper=valueExpression #between // TODO: SYMMETRIC/ASYMETRIC
-        // TODO: valueExpression NOT? IN valueExpression ?
-    | valueExpression NOT? IN '(' expression (',' expression)* ')' #inList
-    | valueExpression NOT? IN '(' query ')' #inSubquery
-    | value=valueExpression NOT? LIKE pattern=valueExpression (ESCAPE escape=valueExpression)? #like
-    | value=valueExpression IS NOT? NULL #nullPredicate
+    | predicated #booleanPrimary
     | EXISTS '(' query ')' #exists
-    | left=valueExpression IS NOT? DISTINCT FROM right=valueExpression #distinctFrom
-    | primaryExpression #booleanPrimary
+    ;
+
+// workaround for https://github.com/antlr/antlr4/issues/780
+predicated
+    : valueExpression predicate[$valueExpression.ctx]?
+    ;
+
+predicate[ParserRuleContext value]
+    : comparisonOperator right=valueExpression #comparison
+    | NOT? BETWEEN lower=valueExpression AND upper=valueExpression #between // TODO: SYMMETRIC/ASYMETRIC
+        // TODO: valueExpression NOT? IN valueExpression ?
+    | NOT? IN '(' expression (',' expression)* ')' #inList
+    | NOT? IN '(' query ')' #inSubquery
+    | NOT? LIKE pattern=valueExpression (ESCAPE escape=valueExpression)? #like
+    | IS NOT? NULL #nullPredicate
+    | IS NOT? DISTINCT FROM right=valueExpression #distinctFrom
+    ;
+
 //    | booleanExpression IS NOT? (TRUE | FALSE | UNKNOWN) #truth // TODO: add later
 //    | valueExpression comparisonOperator (ALL | SOME | ANY) '(' query ')' #quantifiedComparison // TODO: add later
 //    | UNIQUE '(' query ')' #unique // TODO: add later
@@ -187,7 +198,6 @@ booleanExpression
 //    | valueExpression NOT? MEMBER OF? valueExpression #memberOf // TODO add later
 //    | valueExpression NOT? SUBMULTISET OF? valueExpression #submultiset// TODO add later
 //    | valueExpression IS NOT? A SET #setPredicate// TODO add later
-    ;
 
 valueExpression
     : primaryExpression #valuePrimary
@@ -196,6 +206,7 @@ valueExpression
     | left=valueExpression operator=(ASTERISK | SLASH | PERCENT) right=valueExpression #arithmeticBinary
     | left=valueExpression operator=(PLUS | MINUS) right=valueExpression #arithmeticBinary
     | left=valueExpression CONCAT right=valueExpression #concatenation
+
 //    | valueExpression intervalField (TO intervalField)? #intervalConversion
 //    | valueExpression COLLATE (identifier '.')? identifier #collated
     ;
@@ -209,9 +220,7 @@ primaryExpression
     | STRING #stringLiteral
     | qualifiedName #columnReference
     | qualifiedName '(' ASTERISK ')' over? #functionCall
-    | qualifiedName '(' (setQuantifier? expression (',' expression)*)? ')' over #functionCall
-    | qualifiedName '(' (setQuantifier expression (',' expression)*)? ')' #functionCall
-    | qualifiedName '(' (expression (',' expression)*)? ')' #scalarFunctionCall
+    | qualifiedName '(' (setQuantifier? expression (',' expression)*)? ')' over? #functionCall
     | '(' query ')' #subqueryExpression
     | CASE valueExpression whenClause+ (ELSE elseExpression=expression)? END #simpleCase
     | CASE whenClause+ (ELSE elseExpression=expression)? END #searchedCase
@@ -555,5 +564,5 @@ COMMENT
     ;
 
 WS
-    : [ \r\n\t]+ -> skip
+    : [ \r\n\t]+ -> channel(HIDDEN)
     ;

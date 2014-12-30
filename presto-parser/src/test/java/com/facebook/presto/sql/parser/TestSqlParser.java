@@ -349,7 +349,7 @@ public class TestSqlParser
         SQL_PARSER.createStatement("");
     }
 
-    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "\\Qline 1:7: extraneous input 'x' expecting {<EOF>, '[', 'AT', '+', '-', '*', '/', '%', '||'}\\E")
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "\\Qline 1:7: extraneous input 'x' expecting\\E.*")
     public void testExpressionWithTrailingJunk()
     {
         SQL_PARSER.createExpression("1 + 1 x");
@@ -367,7 +367,7 @@ public class TestSqlParser
         SQL_PARSER.createStatement("select * from foo where @what");
     }
 
-    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:15: token recognition error at: ''oops'")
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:20: no viable alternative at input.*")
     public void testTokenizeErrorIncompleteToken()
     {
         SQL_PARSER.createStatement("select * from 'oops");
@@ -427,7 +427,7 @@ public class TestSqlParser
         SQL_PARSER.createStatement("select * from foo:bar");
     }
 
-    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:35: no viable alternative at input 'fuu order'")
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:35: mismatched input 'order' expecting .*")
     public void testParseErrorDualOrderBy()
     {
         SQL_PARSER.createStatement("select fuu from dual order by fuu order by fuu");
@@ -473,19 +473,19 @@ public class TestSqlParser
         sqlParser.createStatement("select * from foo:bar");
     }
 
-    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "\\Qline 1:12: no viable alternative at input 'foo(,'\\E")
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "\\Qline 1:12: no viable alternative at input\\E.*")
     public void testInvalidArguments()
     {
         SQL_PARSER.createStatement("select foo(,1)");
     }
 
-    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "\\Qline 1:20: no viable alternative at input 'foo(DISTINCT)'\\E")
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "\\Qline 1:20: no viable alternative at input\\E.*")
     public void testInvalidArguments2()
     {
         SQL_PARSER.createStatement("select foo(DISTINCT)");
     }
 
-    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "\\Qline 1:21: no viable alternative at input 'foo(DISTINCT ,'\\E")
+    @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "\\Qline 1:21: no viable alternative at input ','\\E.*")
     public void testInvalidArguments3()
     {
         SQL_PARSER.createStatement("select foo(DISTINCT ,1)");

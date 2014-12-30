@@ -627,6 +627,16 @@ public class AstBuilder
 // predicates
 
     @Override
+    public Node visitPredicated(@NotNull SqlParser.PredicatedContext ctx)
+    {
+        if (ctx.predicate() != null) {
+            return visit(ctx.predicate());
+        }
+
+        return visit(ctx.valueExpression);
+    }
+
+    @Override
     public Node visitComparison(@NotNull SqlParser.ComparisonContext ctx)
     {
         ComparisonExpression.Type type;
@@ -655,7 +665,7 @@ public class AstBuilder
                 throw new IllegalArgumentException("Unsupported operator: " + operator.getSymbol().getText());
         }
 
-        return new ComparisonExpression(type, (Expression) visit(ctx.left), (Expression) visit(ctx.right));
+        return new ComparisonExpression(type, (Expression) visit(ctx.value), (Expression) visit(ctx.right));
     }
 
     @Override
@@ -663,7 +673,7 @@ public class AstBuilder
     {
         Expression expression = new ComparisonExpression(
                 ComparisonExpression.Type.IS_DISTINCT_FROM,
-                (Expression) visit(ctx.left),
+                (Expression) visit(ctx.value),
                 (Expression) visit(ctx.right));
 
         if (ctx.NOT() != null) {
@@ -715,7 +725,7 @@ public class AstBuilder
     public Node visitInList(@NotNull SqlParser.InListContext ctx)
     {
         Expression result = new InPredicate(
-                (Expression) visit(ctx.valueExpression()),
+                (Expression) visit(ctx.value),
                 new InListExpression(visitExpressions(ctx.expression())));
 
         if (ctx.NOT() != null) {
@@ -729,7 +739,7 @@ public class AstBuilder
     public Node visitInSubquery(@NotNull SqlParser.InSubqueryContext ctx)
     {
         Expression result = new InPredicate(
-                (Expression) visit(ctx.valueExpression()),
+                (Expression) visit(ctx.value),
                 new SubqueryExpression((Query) visit(ctx.query())));
 
         if (ctx.NOT() != null) {
@@ -938,24 +948,26 @@ public class AstBuilder
     @Override
     public Node visitFunctionCall(@NotNull SqlParser.FunctionCallContext ctx)
     {
-        boolean distinct = isDistinct(ctx.setQuantifier());
-
         Window window = Optional.ofNullable(ctx.over())
                 .map(this::visit)
                 .map(Window.class::cast)
                 .orElse(null);
 
-        return new FunctionCall(getQualifiedName(ctx.qualifiedName()), window, distinct, visitExpressions(ctx.expression()));
-    }
-
-    @Override
-    public Node visitScalarFunctionCall(@NotNull SqlParser.ScalarFunctionCallContext ctx)
-    {
         QualifiedName name = getQualifiedName(ctx.qualifiedName());
+
+        boolean distinct = isDistinct(ctx.setQuantifier());
 
         if (name.toString().equalsIgnoreCase("if")) {
             if (ctx.expression().size() != 2 && ctx.expression().size() != 3) {
                 throw new ParsingException("Invalid number of arguments for 'if' function", null, ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine());
+            }
+
+            if (window != null) {
+                throw new ParsingException("OVER clause not valid for 'if' function", null, ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine());
+            }
+
+            if (distinct) {
+                throw new ParsingException("DISTINCT not valid for 'if' function", null, ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine());
             }
 
             Expression elseExpression = null;
@@ -972,6 +984,15 @@ public class AstBuilder
             if (ctx.expression().size() != 2) {
                 throw new ParsingException("Invalid number of arguments for 'nullif' function", null, ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine());
             }
+
+            if (window != null) {
+                throw new ParsingException("OVER clause not valid for 'nullif' function", null, ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine());
+            }
+
+            if (distinct) {
+                throw new ParsingException("DISTINCT not valid for 'nullif' function", null, ctx.getStart().getLine(), ctx.getStart().getCharPositionInLine());
+            }
+
             return new NullIfExpression(
                     (Expression) visit(ctx.expression(0)),
                     (Expression) visit(ctx.expression(1)));
@@ -980,7 +1001,7 @@ public class AstBuilder
             return new CoalesceExpression(visitExpressions(ctx.expression()));
         }
 
-        return new FunctionCall(name, null, false, visitExpressions(ctx.expression()));
+        return new FunctionCall(getQualifiedName(ctx.qualifiedName()), window, distinct, visitExpressions(ctx.expression()));
     }
 
     @Override
@@ -1205,7 +1226,8 @@ public class AstBuilder
 
     private static String unquote(String string)
     {
-        return string.substring(1, string.length() - 1);
+        return string.substring(1, string.length() - 1)
+                .replace("''", "'");
     }
 
     private static QualifiedName getQualifiedName(SqlParser.QualifiedNameContext context)

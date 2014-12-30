@@ -32,15 +32,13 @@ import org.antlr.runtime.tree.TreeNodeStream;
 import org.antlr.v4.runtime.ANTLRErrorListener;
 import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.CommonToken;
-import org.antlr.v4.runtime.DefaultErrorStrategy;
-import org.antlr.v4.runtime.NoViableAltException;
 import org.antlr.v4.runtime.Parser;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.Recognizer;
 import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.atn.ATNConfigSet;
+import org.antlr.v4.runtime.atn.PredictionMode;
 import org.antlr.v4.runtime.dfa.DFA;
-import org.antlr.v4.runtime.misc.Interval;
 import org.antlr.v4.runtime.misc.NotNull;
 import org.antlr.v4.runtime.misc.Pair;
 
@@ -50,6 +48,12 @@ import java.util.BitSet;
 import java.util.EnumSet;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+
+//import org.antlr.v4.runtime.CommonTokenStream;
+
+//import org.antlr.runtime.CommonTokenStream;
+
+//import org.antlr.v4.runtime.misc.Pair;
 
 public class SqlParser
 {
@@ -72,8 +76,20 @@ public class SqlParser
         try {
 //            return createStatement(parseStatement(sql));
             com.facebook.presto.sql.parser2.SqlParser parser = createNewParser(sql);
+            parser.getInterpreter().setPredictionMode(PredictionMode.SLL);
 
-            ParserRuleContext tree = parser.singleStatement();
+            ParserRuleContext tree;
+            try {
+                tree = parser.singleStatement();
+            }
+            catch (Exception ex) {
+//                ex.printStackTrace();
+                ((org.antlr.v4.runtime.CommonTokenStream) parser.getInputStream()).reset(); // rewind input stream
+                parser.reset();
+                parser.getInterpreter().setPredictionMode(PredictionMode.LL);
+                tree = parser.singleStatement();
+                // if we parse ok, it's LL not SLL
+            }
 
             AstBuilder builder = new AstBuilder();
             Node ast = builder.visit(tree);
@@ -179,29 +195,29 @@ public class SqlParser
         lexer.removeErrorListeners();
         parser.removeErrorListeners();
 
-        parser.setErrorHandler(new DefaultErrorStrategy()
-        {
-            @Override
-            protected void reportNoViableAlternative(@NotNull Parser recognizer, @NotNull NoViableAltException e)
-            {
-                org.antlr.v4.runtime.TokenStream tokens = recognizer.getInputStream();
-                String input;
-                if (tokens != null) {
-                    if (e.getStartToken().getType() == Token.EOF) {
-                        input = "<EOF>";
-                    }
-                    else {
-                        // fix ANTLR issue that would result in WS tokens being ignored
-                        input = recognizer.getTokenStream().getTokenSource().getInputStream().getText(new Interval(e.getStartToken().getStartIndex(), e.getOffendingToken().getStopIndex()));
-                    }
-                }
-                else {
-                    input = "<unknown input>";
-                }
-                String msg = "no viable alternative at input " + escapeWSAndQuote(input);
-                recognizer.notifyErrorListeners(e.getOffendingToken(), msg, e);
-            }
-        });
+//        parser.setErrorHandler(new DefaultErrorStrategy()
+//        {
+//            @Override
+//            protected void reportNoViableAlternative(@NotNull Parser recognizer, @NotNull NoViableAltException e)
+//            {
+//                org.antlr.v4.runtime.TokenStream tokens = recognizer.getInputStream();
+//                String input;
+//                if (tokens != null) {
+//                    if (e.getStartToken().getType() == Token.EOF) {
+//                        input = "<EOF>";
+//                    }
+//                    else {
+//                        // fix ANTLR issue that would result in WS tokens being ignored
+//                        input = recognizer.getTokenStream().getTokenSource().getInputStream().getText(new Interval(e.getStartToken().getStartIndex(), e.getOffendingToken().getStopIndex()));
+//                    }
+//                }
+//                else {
+//                    input = "<unknown input>";
+//                }
+//                String msg = "no viable alternative at input " + escapeWSAndQuote(input);
+//                recognizer.notifyErrorListeners(e.getOffendingToken(), msg, e);
+//            }
+//        });
         parser.addErrorListener(new ANTLRErrorListener()
         {
             @Override
