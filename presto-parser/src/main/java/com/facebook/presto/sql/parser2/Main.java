@@ -27,6 +27,8 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class Main
 {
+    private Main() {}
+
     public static void main(String[] args)
             throws ExecutionException, InterruptedException, IOException
     {

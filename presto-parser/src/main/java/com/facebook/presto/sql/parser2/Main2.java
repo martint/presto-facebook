@@ -29,6 +29,8 @@ import java.util.concurrent.ExecutionException;
 
 public class Main2
 {
+    private Main2() {}
+
     public static void main(String[] args)
             throws ExecutionException, InterruptedException, IOException
     {

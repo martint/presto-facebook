@@ -545,7 +545,7 @@ public class TreePrinter
             @Override
             protected Void visitWithQuery(WithQuery node, Integer context)
             {
-                String aliases = node.getColumnNames() == null? "" : "(" + Joiner.on(",").join(node.getColumnNames()) + ")";
+                String aliases = node.getColumnNames() == null ? "" : "(" + Joiner.on(",").join(node.getColumnNames()) + ")";
 
                 print(context, "NamedQuery[" + node.getName() + aliases + "]");
 

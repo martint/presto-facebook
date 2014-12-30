@@ -953,7 +953,6 @@ public class AstBuilder
     @Override
     public Node visitOver(@NotNull SqlParser.OverContext ctx)
     {
-
         List<SortItem> orderBy = ctx.sortItem().stream()
                 .map(this::visit)
                 .map(SortItem.class::cast)

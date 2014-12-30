@@ -13,23 +13,19 @@
  */
 package com.facebook.presto.sql.parser;
 
-import org.antlr.runtime.ANTLRStringStream;
-import org.antlr.runtime.CommonTokenStream;
-import org.antlr.runtime.RecognitionException;
-import org.antlr.runtime.tree.CommonTree;
-
 public class OldParser
 {
-    public static void main(String[] args)
-            throws RecognitionException
-    {
-        String sql = "1 = 2 is null";
-        StatementLexer lexer = new StatementLexer(new CaseInsensitiveStream(new ANTLRStringStream(sql)));
-        StatementParser parser = new StatementParser(new CommonTokenStream(lexer));
-
-        CommonTree tree = (CommonTree) parser.expr().getTree();
-//        CommonTree tree = (CommonTree) parser.statement().getTree();
-
-        System.out.println(tree.toStringTree());
-    }
+    private OldParser() {}
+//    public static void main(String[] args)
+//            throws RecognitionException
+//    {
+//        String sql = "1 = 2 is null";
+//        StatementLexer lexer = new StatementLexer(new CaseInsensitiveStream(new ANTLRStringStream(sql)));
+//        StatementParser parser = new StatementParser(new CommonTokenStream(lexer));
+//
+//        CommonTree tree = (CommonTree) parser.expr().getTree();
+////        CommonTree tree = (CommonTree) parser.statement().getTree();
+//
+//        System.out.println(tree.toStringTree());
+//    }
 }
