@@ -114,9 +114,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-// TODO: VALUES
-// TODO: in list
-// TODO: in subquery
 // TODO: TestSqlParser.testParseErrorStartOfLine should report "expected {AS, identifier, WHERE}"
 // TODO: improve error message for TestSqlParser.testTokenizeErrorIncompleteToken
 // TODO: preserve + in unary arithmetic expression
