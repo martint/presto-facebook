@@ -31,7 +31,7 @@ import java.util.Set;
 /**
  * Defines a set of valid tuples according to the constraints on each of its constituent columns
  */
-public final class TupleDomain<T>
+public final class TupleDomain<T extends ColumnHandle>
 {
     /**
      * TupleDomain is internally represented as a normalized map of each column to its
@@ -58,17 +58,17 @@ public final class TupleDomain<T>
         }
     }
 
-    public static <T> TupleDomain<T> withColumnDomains(Map<T, Domain> domains)
+    public static <T extends ColumnHandle> TupleDomain<T> withColumnDomains(Map<T, Domain> domains)
     {
         return new TupleDomain<>(Objects.requireNonNull(domains, "domains is null"));
     }
 
-    public static <T> TupleDomain<T> none()
+    public static <T extends ColumnHandle> TupleDomain<T> none()
     {
         return new TupleDomain<>(null);
     }
 
-    public static <T> TupleDomain<T> all()
+    public static <T extends ColumnHandle> TupleDomain<T> all()
     {
         return new TupleDomain<>(Collections.<T, Domain>emptyMap());
     }
@@ -77,7 +77,7 @@ public final class TupleDomain<T>
      * Convert a map of columns to values into the TupleDomain which requires
      * those columns to be fixed to those values.
      */
-    public static <T> TupleDomain<T> withFixedValues(Map<T, Comparable<?>> fixedValues)
+    public static <T extends ColumnHandle> TupleDomain<T> withFixedValues(Map<T, Comparable<?>> fixedValues)
     {
         Map<T, Domain> domains = new HashMap<>();
         for (Map.Entry<T, Comparable<?>> entry : fixedValues.entrySet()) {
@@ -90,7 +90,7 @@ public final class TupleDomain<T>
      * Convert a map of columns to values into the TupleDomain which requires
      * those columns to be fixed to those values. Null is allowed as a fixed value.
      */
-    public static <T> TupleDomain<T> withNullableFixedValues(Map<T, SerializableNativeValue> fixedValues)
+    public static <T extends ColumnHandle> TupleDomain<T> withNullableFixedValues(Map<T, SerializableNativeValue> fixedValues)
     {
         Map<T, Domain> domains = new HashMap<>();
         for (Map.Entry<T, SerializableNativeValue> entry : fixedValues.entrySet()) {
@@ -106,7 +106,7 @@ public final class TupleDomain<T>
 
     @JsonCreator
     // Available for Jackson deserialization only!
-    public static <T> TupleDomain<T> fromNullableColumnDomains(@JsonProperty("nullableColumnDomains") List<ColumnDomain<T>> nullableColumnDomains)
+    public static <T extends ColumnHandle> TupleDomain<T> fromNullableColumnDomains(@JsonProperty("nullableColumnDomains") List<ColumnDomain<T>> nullableColumnDomains)
     {
         if (nullableColumnDomains == null) {
             return none();
@@ -260,7 +260,7 @@ public final class TupleDomain<T>
     }
 
     @SafeVarargs
-    public static <T> TupleDomain<T> columnWiseUnion(TupleDomain<T> first, TupleDomain<T> second, TupleDomain<T>... rest)
+    public static <T extends ColumnHandle> TupleDomain<T> columnWiseUnion(TupleDomain<T> first, TupleDomain<T> second, TupleDomain<T>... rest)
     {
         List<TupleDomain<T>> domains = new ArrayList<>();
         domains.add(first);
@@ -283,7 +283,7 @@ public final class TupleDomain<T>
      * not be valid for either TupleDomain X or TupleDomain Y.
      * However, this result is guaranteed to be a superset of the strict union.
      */
-    public static <T> TupleDomain<T> columnWiseUnion(List<TupleDomain<T>> tupleDomains)
+    public static <T extends ColumnHandle> TupleDomain<T> columnWiseUnion(List<TupleDomain<T>> tupleDomains)
     {
         if (tupleDomains.isEmpty()) {
             throw new IllegalArgumentException("tupleDomains must have at least one element");
@@ -406,7 +406,7 @@ public final class TupleDomain<T>
         return builder.toString();
     }
 
-    public <U> TupleDomain<U> transform(Function<T, U> function)
+    public <U extends ColumnHandle> TupleDomain<U> transform(Function<T, U> function)
     {
         if (domains == null) {
             return new TupleDomain<>(null);
