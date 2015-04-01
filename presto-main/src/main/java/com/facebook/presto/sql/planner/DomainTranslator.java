@@ -14,7 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.metadata.ColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Domain;
@@ -91,7 +91,7 @@ public final class DomainTranslator
         ImmutableList.Builder<Expression> conjunctBuilder = ImmutableList.builder();
         for (Map.Entry<ColumnHandle, Domain> entry : tupleDomain.getDomains().entrySet()) {
             ColumnHandle columnHandle = entry.getKey();
-            checkArgument(symbolTranslationMap.containsKey(columnHandle), "Unable to convert TupleDomain to Expression b/c don't know Symbol for ColumnHandle %s", columnHandle);
+            checkArgument(symbolTranslationMap.containsKey(columnHandle), "Unable to convert TupleDomain to Expression b/c don't know Symbol for ConnectorColumnHandle %s", columnHandle);
             Symbol symbol = symbolTranslationMap.get(columnHandle);
             QualifiedNameReference reference = new QualifiedNameReference(symbol.toQualifiedName());
             Type type = symbolTypes.get(symbol);
