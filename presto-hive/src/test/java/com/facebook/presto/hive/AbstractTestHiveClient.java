@@ -549,7 +549,7 @@ public abstract class AbstractTestHiveClient
         assertNotNull(dsColumn);
 
         Domain domain = Domain.singleValue(utf8Slice("2012-12-30"));
-        TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(dsColumn, domain));
+        TupleDomain tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(dsColumn, domain));
         ConnectorPartitionResult partitionResult = splitManager.getPartitions(tableHandle, tupleDomain);
         for (ConnectorPartition partition : partitionResult.getPartitions()) {
             if (domain.equals(partition.getTupleDomain().getDomains().get(dsColumn))) {

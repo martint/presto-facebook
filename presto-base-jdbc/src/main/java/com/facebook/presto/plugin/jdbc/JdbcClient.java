@@ -40,7 +40,7 @@ public interface JdbcClient
 
     List<JdbcColumnHandle> getColumns(JdbcTableHandle tableHandle);
 
-    ConnectorPartitionResult getPartitions(JdbcTableHandle jdbcTableHandle, TupleDomain<ColumnHandle> tupleDomain);
+    ConnectorPartitionResult getPartitions(JdbcTableHandle jdbcTableHandle, TupleDomain tupleDomain);
 
     ConnectorSplitSource getPartitionSplits(JdbcPartition jdbcPartition);
 

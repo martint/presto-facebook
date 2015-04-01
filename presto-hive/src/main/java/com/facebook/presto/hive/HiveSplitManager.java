@@ -180,7 +180,7 @@ public class HiveSplitManager
     }
 
     @Override
-    public ConnectorPartitionResult getPartitions(ConnectorTableHandle tableHandle, TupleDomain<ColumnHandle> effectivePredicate)
+    public ConnectorPartitionResult getPartitions(ConnectorTableHandle tableHandle, TupleDomain effectivePredicate)
     {
         checkNotNull(tableHandle, "tableHandle is null");
         checkNotNull(effectivePredicate, "effectivePredicate is null");
@@ -193,7 +193,7 @@ public class HiveSplitManager
         Table table = getTable(tableName);
         Optional<HiveBucketing.HiveBucket> bucket = getHiveBucket(table, effectivePredicate.extractFixedValues());
 
-        TupleDomain<HiveColumnHandle> compactEffectivePredicate = toCompactTupleDomain(effectivePredicate);
+        TupleDomain compactEffectivePredicate = toCompactTupleDomain(effectivePredicate);
 
         if (table.getPartitionKeys().isEmpty()) {
             return new ConnectorPartitionResult(ImmutableList.of(new HivePartition(tableName, compactEffectivePredicate, bucket)), effectivePredicate);
@@ -213,13 +213,13 @@ public class HiveSplitManager
         }
 
         // All partition key domains will be fully evaluated, so we don't need to include those
-        TupleDomain<ColumnHandle> remainingTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(effectivePredicate.getDomains(), not(Predicates.<ColumnHandle>in(partitionColumns))));
+        TupleDomain remainingTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(effectivePredicate.getDomains(), not(Predicates.<ColumnHandle>in(partitionColumns))));
         return new ConnectorPartitionResult(partitions.build(), remainingTupleDomain);
     }
 
-    private static TupleDomain<HiveColumnHandle> toCompactTupleDomain(TupleDomain<ColumnHandle> effectivePredicate)
+    private static TupleDomain toCompactTupleDomain(TupleDomain effectivePredicate)
     {
-        ImmutableMap.Builder<HiveColumnHandle, Domain> builder = ImmutableMap.builder();
+        ImmutableMap.Builder<ColumnHandle, Domain> builder = ImmutableMap.builder();
         for (Map.Entry<ColumnHandle, Domain> entry : effectivePredicate.getDomains().entrySet()) {
             HiveColumnHandle hiveColumnHandle = checkType(entry.getKey(), HiveColumnHandle.class, "ConnectorColumnHandle");
 
@@ -234,7 +234,7 @@ public class HiveSplitManager
         return TupleDomain.withColumnDomains(builder.build());
     }
 
-    private Optional<Map<ColumnHandle, SerializableNativeValue>> parseValuesAndFilterPartition(String partitionName, List<HiveColumnHandle> partitionColumns, TupleDomain<ColumnHandle> predicate)
+    private Optional<Map<ColumnHandle, SerializableNativeValue>> parseValuesAndFilterPartition(String partitionName, List<HiveColumnHandle> partitionColumns, TupleDomain predicate)
     {
         List<String> partitionValues = extractPartitionKeyValues(partitionName);
 
@@ -275,7 +275,7 @@ public class HiveSplitManager
         }
     }
 
-    private List<String> getFilteredPartitionNames(SchemaTableName tableName, List<HiveColumnHandle> partitionKeys, TupleDomain<ColumnHandle> effectivePredicate)
+    private List<String> getFilteredPartitionNames(SchemaTableName tableName, List<HiveColumnHandle> partitionKeys, TupleDomain effectivePredicate)
     {
         List<String> filter = new ArrayList<>();
         for (HiveColumnHandle partitionKey : partitionKeys) {

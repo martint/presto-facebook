@@ -49,7 +49,7 @@ public class JmxSplitManager
     }
 
     @Override
-    public ConnectorPartitionResult getPartitions(ConnectorTableHandle table, TupleDomain<ColumnHandle> tupleDomain)
+    public ConnectorPartitionResult getPartitions(ConnectorTableHandle table, TupleDomain tupleDomain)
     {
         checkNotNull(tupleDomain, "tupleDomain is null");
         JmxTableHandle jmxTableHandle = checkType(table, JmxTableHandle.class, "table");
@@ -98,7 +98,7 @@ public class JmxSplitManager
         }
 
         @Override
-        public TupleDomain<ColumnHandle> getTupleDomain()
+        public TupleDomain getTupleDomain()
         {
             return TupleDomain.all();
         }

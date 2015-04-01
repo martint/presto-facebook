@@ -26,6 +26,7 @@ import com.facebook.presto.raptor.metadata.ColumnStats;
 import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.raptor.util.CurrentNodeId;
 import com.facebook.presto.raptor.util.PageBuffer;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
@@ -116,7 +117,7 @@ public class OrcStorageManager
     }
 
     @Override
-    public ConnectorPageSource getPageSource(UUID shardUuid, List<Long> columnIds, List<Type> columnTypes, TupleDomain<RaptorColumnHandle> effectivePredicate)
+    public ConnectorPageSource getPageSource(UUID shardUuid, List<Long> columnIds, List<Type> columnTypes, TupleDomain effectivePredicate)
     {
         OrcDataSource dataSource = openShard(shardUuid);
 
@@ -244,16 +245,17 @@ public class OrcStorageManager
         }
     }
 
-    private static OrcPredicate getPredicate(TupleDomain<RaptorColumnHandle> effectivePredicate, Map<Long, Integer> indexMap)
+    private static OrcPredicate getPredicate(TupleDomain effectivePredicate, Map<Long, Integer> indexMap)
     {
-        ImmutableList.Builder<ColumnReference<RaptorColumnHandle>> columns = ImmutableList.builder();
-        for (RaptorColumnHandle column : effectivePredicate.getDomains().keySet()) {
-            Integer index = indexMap.get(column.getColumnId());
+        ImmutableList.Builder<ColumnReference> columns = ImmutableList.builder();
+        for (ColumnHandle column : effectivePredicate.getDomains().keySet()) {
+            RaptorColumnHandle raptorColumn = (RaptorColumnHandle) column;
+            Integer index = indexMap.get(raptorColumn.getColumnId());
             if (index != null) {
-                columns.add(new ColumnReference<>(column, index, column.getColumnType()));
+                columns.add(new ColumnReference(column, index, raptorColumn.getColumnType()));
             }
         }
-        return new TupleDomainOrcPredicate<>(effectivePredicate, columns.build());
+        return new TupleDomainOrcPredicate(effectivePredicate, columns.build());
     }
 
     private static Map<Long, Integer> columnIdIndex(List<String> columnNames)

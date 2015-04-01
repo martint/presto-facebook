@@ -152,7 +152,7 @@ public class DatabaseShardManager
     }
 
     @Override
-    public CloseableIterator<ShardNodes> getShardNodes(long tableId, TupleDomain<RaptorColumnHandle> effectivePredicate)
+    public CloseableIterator<ShardNodes> getShardNodes(long tableId, TupleDomain effectivePredicate)
     {
         return new ShardIterator(tableId, effectivePredicate, dbi);
     }

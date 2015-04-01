@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.raptor.metadata;
 
-import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.raptor.util.CloseableIterator;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TupleDomain;
@@ -52,7 +51,7 @@ final class ShardIterator
     private final PreparedStatement statement;
     private final ResultSet resultSet;
 
-    public ShardIterator(long tableId, TupleDomain<RaptorColumnHandle> effectivePredicate, IDBI dbi)
+    public ShardIterator(long tableId, TupleDomain effectivePredicate, IDBI dbi)
     {
         ShardPredicate predicate = ShardPredicate.create(effectivePredicate);
 

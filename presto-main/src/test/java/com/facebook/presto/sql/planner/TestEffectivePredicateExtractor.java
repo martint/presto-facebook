@@ -415,7 +415,7 @@ public class TestEffectivePredicateExtractor
         Assert.assertEquals(normalizeConjuncts(effectivePredicate), normalizeConjuncts(equals(number(1L), AE)));
     }
 
-    private static Partition tupleDomainPartition(String connectorId, final TupleDomain<ColumnHandle> tupleDomain)
+    private static Partition tupleDomainPartition(String connectorId, final TupleDomain tupleDomain)
     {
         return new Partition(connectorId, new ConnectorPartition()
         {
@@ -426,7 +426,7 @@ public class TestEffectivePredicateExtractor
             }
 
             @Override
-            public TupleDomain<ColumnHandle> getTupleDomain()
+            public TupleDomain getTupleDomain()
             {
                 return tupleDomain;
             }

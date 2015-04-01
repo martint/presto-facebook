@@ -83,7 +83,7 @@ public final class DomainTranslator
     {
     }
 
-    public static Expression toPredicate(TupleDomain<ColumnHandle> tupleDomain, Map<ColumnHandle, Symbol> symbolTranslationMap, Map<Symbol, Type> symbolTypes)
+    public static Expression toPredicate(TupleDomain tupleDomain, Map<ColumnHandle, Symbol> symbolTranslationMap, Map<Symbol, Type> symbolTypes)
     {
         if (tupleDomain.isNone()) {
             return FALSE_LITERAL;
@@ -263,7 +263,7 @@ public final class DomainTranslator
                             combineConjuncts(leftResult.getRemainingExpression(), rightResult.getRemainingExpression()));
 
                 case OR:
-                    TupleDomain<ColumnHandle> columnUnionedTupleDomain = TupleDomain.columnWiseUnion(leftResult.getTupleDomain(), rightResult.getTupleDomain());
+                    TupleDomain columnUnionedTupleDomain = TupleDomain.columnWiseUnion(leftResult.getTupleDomain(), rightResult.getTupleDomain());
 
                     // In most cases, the columnUnionedTupleDomain is only a superset of the actual strict union
                     // and so we can return the current node as the remainingExpression so that all bounds will be double checked again at execution time.
@@ -574,16 +574,16 @@ public final class DomainTranslator
 
     public static class ExtractionResult
     {
-        private final TupleDomain<ColumnHandle> tupleDomain;
+        private final TupleDomain tupleDomain;
         private final Expression remainingExpression;
 
-        public ExtractionResult(TupleDomain<ColumnHandle> tupleDomain, Expression remainingExpression)
+        public ExtractionResult(TupleDomain tupleDomain, Expression remainingExpression)
         {
             this.tupleDomain = checkNotNull(tupleDomain, "tupleDomain is null");
             this.remainingExpression = checkNotNull(remainingExpression, "remainingExpression is null");
         }
 
-        public TupleDomain<ColumnHandle> getTupleDomain()
+        public TupleDomain getTupleDomain()
         {
             return tupleDomain;
         }

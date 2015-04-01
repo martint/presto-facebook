@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.kafka;
 
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.TupleDomain;
@@ -73,7 +72,7 @@ public class KafkaPartition
     }
 
     @Override
-    public TupleDomain<ColumnHandle> getTupleDomain()
+    public TupleDomain getTupleDomain()
     {
         return TupleDomain.all();
     }

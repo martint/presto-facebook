@@ -17,6 +17,7 @@ import com.facebook.presto.hive.$internal.com.google.common.annotations.VisibleF
 import com.facebook.presto.orc.metadata.BooleanStatistics;
 import com.facebook.presto.orc.metadata.ColumnStatistics;
 import com.facebook.presto.orc.metadata.RangeStatistics;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.Range;
 import com.facebook.presto.spi.SortedRangeSet;
@@ -37,13 +38,13 @@ import java.util.function.Function;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-public class TupleDomainOrcPredicate<C>
+public class TupleDomainOrcPredicate
         implements OrcPredicate
 {
-    private final TupleDomain<C> effectivePredicate;
-    private final List<ColumnReference<C>> columnReferences;
+    private final TupleDomain effectivePredicate;
+    private final List<ColumnReference> columnReferences;
 
-    public TupleDomainOrcPredicate(TupleDomain<C> effectivePredicate, List<ColumnReference<C>> columnReferences)
+    public TupleDomainOrcPredicate(TupleDomain effectivePredicate, List<ColumnReference> columnReferences)
     {
         this.effectivePredicate = checkNotNull(effectivePredicate, "effectivePredicate is null");
         this.columnReferences = ImmutableList.copyOf(checkNotNull(columnReferences, "columnReferences is null"));
@@ -52,9 +53,9 @@ public class TupleDomainOrcPredicate<C>
     @Override
     public boolean matches(long numberOfRows, Map<Integer, ColumnStatistics> statisticsByColumnIndex)
     {
-        ImmutableMap.Builder<C, Domain> domains = ImmutableMap.builder();
+        ImmutableMap.Builder<ColumnHandle, Domain> domains = ImmutableMap.builder();
 
-        for (ColumnReference<C> columnReference : columnReferences) {
+        for (ColumnReference columnReference : columnReferences) {
             ColumnStatistics columnStatistics = statisticsByColumnIndex.get(columnReference.getOrdinal());
 
             Domain domain;
@@ -67,7 +68,7 @@ public class TupleDomainOrcPredicate<C>
             }
             domains.put(columnReference.getColumn(), domain);
         }
-        TupleDomain<C> stripeDomain = TupleDomain.withColumnDomains(domains.build());
+        TupleDomain stripeDomain = TupleDomain.withColumnDomains(domains.build());
 
         return effectivePredicate.overlaps(stripeDomain);
     }
@@ -142,13 +143,13 @@ public class TupleDomainOrcPredicate<C>
         return Domain.create(SortedRangeSet.all(boxedJavaType), hasNullValue);
     }
 
-    public static class ColumnReference<C>
+    public static class ColumnReference
     {
-        private final C column;
+        private final ColumnHandle column;
         private final int ordinal;
         private final Type type;
 
-        public ColumnReference(C column, int ordinal, Type type)
+        public ColumnReference(ColumnHandle column, int ordinal, Type type)
         {
             this.column = checkNotNull(column, "column is null");
             checkArgument(ordinal >= 0, "ordinal is negative");
@@ -156,7 +157,7 @@ public class TupleDomainOrcPredicate<C>
             this.type = checkNotNull(type, "type is null");
         }
 
-        public C getColumn()
+        public ColumnHandle getColumn()
         {
             return column;
         }

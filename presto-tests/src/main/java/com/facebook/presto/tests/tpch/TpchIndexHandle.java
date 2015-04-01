@@ -31,7 +31,7 @@ public class TpchIndexHandle
     private final String tableName;
     private final double scaleFactor;
     private final Set<String> indexColumnNames;
-    private final TupleDomain<ColumnHandle> fixedValues;
+    private final TupleDomain fixedValues;
 
     @JsonCreator
     public TpchIndexHandle(
@@ -39,7 +39,7 @@ public class TpchIndexHandle
             @JsonProperty("tableName") String tableName,
             @JsonProperty("scaleFactor") double scaleFactor,
             @JsonProperty("indexColumnNames") Set<String> indexColumnNames,
-            @JsonProperty("fixedValues") TupleDomain<ColumnHandle> fixedValues)
+            @JsonProperty("fixedValues") TupleDomain fixedValues)
     {
         this.connectorId = checkNotNull(connectorId, "connectorId is null");
         this.tableName = checkNotNull(tableName, "tableName is null");
@@ -73,7 +73,7 @@ public class TpchIndexHandle
     }
 
     @JsonProperty
-    public TupleDomain<ColumnHandle> getFixedValues()
+    public TupleDomain getFixedValues()
     {
         return fixedValues;
     }

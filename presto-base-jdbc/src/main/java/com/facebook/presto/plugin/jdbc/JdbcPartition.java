@@ -24,9 +24,9 @@ public class JdbcPartition
         implements ConnectorPartition
 {
     private final JdbcTableHandle jdbcTableHandle;
-    private final TupleDomain<ColumnHandle> domain;
+    private final TupleDomain domain;
 
-    public JdbcPartition(JdbcTableHandle jdbcTableHandle, TupleDomain<ColumnHandle> domain)
+    public JdbcPartition(JdbcTableHandle jdbcTableHandle, TupleDomain domain)
     {
         this.jdbcTableHandle = checkNotNull(jdbcTableHandle, "jdbcTableHandle is null");
         this.domain = checkNotNull(domain, "domain is null");
@@ -44,7 +44,7 @@ public class JdbcPartition
     }
 
     @Override
-    public TupleDomain<ColumnHandle> getTupleDomain()
+    public TupleDomain getTupleDomain()
     {
         return domain;
     }

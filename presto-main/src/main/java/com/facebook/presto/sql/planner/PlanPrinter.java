@@ -357,7 +357,7 @@ public class PlanPrinter
         @Override
         public Void visitTableScan(TableScanNode node, Integer indent)
         {
-            TupleDomain<ColumnHandle> partitionsDomainSummary = node.getPartitionsDomainSummary();
+            TupleDomain partitionsDomainSummary = node.getPartitionsDomainSummary();
             print(indent, "- TableScan[%s, original constraint=%s] => [%s]", node.getTable(), node.getOriginalConstraint(), formatOutputs(node.getOutputSymbols()));
 
             Set<Symbol> outputs = ImmutableSet.copyOf(node.getOutputSymbols());

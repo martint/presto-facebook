@@ -153,7 +153,7 @@ public final class JsonPlanPrinter
         @Override
         public Void visitTableScan(TableScanNode node, Void context)
         {
-            TupleDomain<ColumnHandle> partitionsDomainSummary = node.getPartitionsDomainSummary();
+            TupleDomain partitionsDomainSummary = node.getPartitionsDomainSummary();
             TableMetadata tableMetadata = metadata.getTableMetadata(node.getTable());
 
             ImmutableList.Builder<Column> columnBuilder = ImmutableList.builder();

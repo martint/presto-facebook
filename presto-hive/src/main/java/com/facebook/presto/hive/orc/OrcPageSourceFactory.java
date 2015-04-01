@@ -101,7 +101,7 @@ public class OrcPageSourceFactory
             Properties schema,
             List<HiveColumnHandle> columns,
             List<HivePartitionKey> partitionKeys,
-            TupleDomain<HiveColumnHandle> effectivePredicate,
+            TupleDomain effectivePredicate,
             DateTimeZone hiveStorageTimeZone)
     {
         if (!isOptimizedReaderEnabled(session, enabled)) {
@@ -135,7 +135,7 @@ public class OrcPageSourceFactory
             long length,
             List<HiveColumnHandle> columns,
             List<HivePartitionKey> partitionKeys,
-            TupleDomain<HiveColumnHandle> effectivePredicate,
+            TupleDomain effectivePredicate,
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
             DataSize maxMergeDistance,
@@ -158,16 +158,16 @@ public class OrcPageSourceFactory
         }
 
         ImmutableSet.Builder<Integer> includedColumns = ImmutableSet.builder();
-        ImmutableList.Builder<ColumnReference<HiveColumnHandle>> columnReferences = ImmutableList.builder();
+        ImmutableList.Builder<ColumnReference> columnReferences = ImmutableList.builder();
         for (HiveColumnHandle column : columns) {
             if (!column.isPartitionKey()) {
                 includedColumns.add(column.getHiveColumnIndex());
                 Type type = typeManager.getType(column.getTypeSignature());
-                columnReferences.add(new ColumnReference<>(column, column.getHiveColumnIndex(), type));
+                columnReferences.add(new ColumnReference(column, column.getHiveColumnIndex(), type));
             }
         }
 
-        OrcPredicate predicate = new TupleDomainOrcPredicate<>(effectivePredicate, columnReferences.build());
+        OrcPredicate predicate = new TupleDomainOrcPredicate(effectivePredicate, columnReferences.build());
 
         try {
             OrcReader reader = new OrcReader(orcDataSource, metadataReader);

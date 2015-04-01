@@ -38,7 +38,7 @@ public class JdbcSplit
     private final String tableName;
     private final String connectionUrl;
     private final Map<String, String> connectionProperties;
-    private final TupleDomain<ColumnHandle> tupleDomain;
+    private final TupleDomain tupleDomain;
 
     @JsonCreator
     public JdbcSplit(
@@ -48,7 +48,7 @@ public class JdbcSplit
             @JsonProperty("tableName") String tableName,
             @JsonProperty("connectionUrl") String connectionUrl,
             @JsonProperty("connectionProperties") Map<String, String> connectionProperties,
-            @JsonProperty("tupleDomain") TupleDomain<ColumnHandle> tupleDomain)
+            @JsonProperty("tupleDomain") TupleDomain tupleDomain)
     {
         this.connectorId = checkNotNull(connectorId, "connector id is null");
         this.catalogName = catalogName;
@@ -98,7 +98,7 @@ public class JdbcSplit
     }
 
     @JsonProperty
-    public TupleDomain<ColumnHandle> getTupleDomain()
+    public TupleDomain getTupleDomain()
     {
         return tupleDomain;
     }

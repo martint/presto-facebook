@@ -27,7 +27,7 @@ public class TestingPartition
     }
 
     @Override
-    public TupleDomain<ColumnHandle> getTupleDomain()
+    public TupleDomain getTupleDomain()
     {
         return TupleDomain.all();
     }

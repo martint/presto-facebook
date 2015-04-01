@@ -23,7 +23,7 @@ public class Partition
 {
     private final String connectorId;
     private final ConnectorPartition connectorPartition;
-    private final TupleDomain<ColumnHandle> columnHandleTupleDomain;
+    private final TupleDomain columnHandleTupleDomain;
 
     public Partition(String connectorId, ConnectorPartition connectorPartition)
     {
@@ -37,7 +37,7 @@ public class Partition
         return connectorPartition;
     }
 
-    public TupleDomain<ColumnHandle> getTupleDomain()
+    public TupleDomain getTupleDomain()
     {
         return columnHandleTupleDomain;
     }

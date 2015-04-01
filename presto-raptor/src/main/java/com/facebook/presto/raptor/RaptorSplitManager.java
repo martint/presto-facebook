@@ -17,7 +17,6 @@ import com.facebook.presto.raptor.metadata.ShardManager;
 import com.facebook.presto.raptor.metadata.ShardNodes;
 import com.facebook.presto.raptor.storage.StorageManager;
 import com.facebook.presto.raptor.util.CloseableIterator;
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.ConnectorPartitionResult;
 import com.facebook.presto.spi.ConnectorSplit;
@@ -69,7 +68,7 @@ public class RaptorSplitManager
     }
 
     @Override
-    public ConnectorPartitionResult getPartitions(ConnectorTableHandle tableHandle, TupleDomain<ColumnHandle> tupleDomain)
+    public ConnectorPartitionResult getPartitions(ConnectorTableHandle tableHandle, TupleDomain tupleDomain)
     {
         RaptorTableHandle handle = checkType(tableHandle, RaptorTableHandle.class, "table");
         ConnectorPartition partition = new RaptorPartition(handle.getTableId(), tupleDomain);
@@ -83,9 +82,8 @@ public class RaptorSplitManager
 
         checkArgument(partitions.size() == 1, "expected exactly one partition");
         RaptorPartition partition = checkType(getOnlyElement(partitions), RaptorPartition.class, "partition");
-        TupleDomain<RaptorColumnHandle> effectivePredicate = toRaptorTupleDomain(partition.getEffectivePredicate());
 
-        return new RaptorSplitSource(raptorTableHandle.getTableId(), effectivePredicate);
+        return new RaptorSplitSource(raptorTableHandle.getTableId(), partition.getEffectivePredicate());
     }
 
     private static List<HostAddress> getAddressesForNodes(Map<String, Node> nodeMap, Iterable<String> nodeIdentifiers)
@@ -100,19 +98,6 @@ public class RaptorSplitManager
         return nodes.build();
     }
 
-    @SuppressWarnings("unchecked")
-    private static TupleDomain<RaptorColumnHandle> toRaptorTupleDomain(TupleDomain<ColumnHandle> tupleDomain)
-    {
-        return tupleDomain.transform(new TupleDomain.Function<ColumnHandle, RaptorColumnHandle>()
-        {
-            @Override
-            public RaptorColumnHandle apply(ColumnHandle handle)
-            {
-                return checkType(handle, RaptorColumnHandle.class, "columnHandle");
-            }
-        });
-    }
-
     private static <T> T selectRandom(Iterable<T> elements)
     {
         List<T> list = ImmutableList.copyOf(elements);
@@ -124,10 +109,10 @@ public class RaptorSplitManager
     {
         private final Map<String, Node> nodesById = uniqueIndex(nodeManager.getActiveNodes(), Node::getNodeIdentifier);
         private final long tableId;
-        private final TupleDomain<RaptorColumnHandle> effectivePredicate;
+        private final TupleDomain effectivePredicate;
         private final CloseableIterator<ShardNodes> iterator;
 
-        public RaptorSplitSource(long tableId, TupleDomain<RaptorColumnHandle> effectivePredicate)
+        public RaptorSplitSource(long tableId, TupleDomain effectivePredicate)
         {
             this.tableId = tableId;
             this.effectivePredicate = checkNotNull(effectivePredicate, "effectivePredicate is null");

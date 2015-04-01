@@ -79,7 +79,7 @@ public class HivePageSourceProvider
 
         Configuration configuration = hdfsEnvironment.getConfiguration(path);
 
-        TupleDomain<HiveColumnHandle> effectivePredicate = hiveSplit.getEffectivePredicate();
+        TupleDomain effectivePredicate = hiveSplit.getEffectivePredicate();
 
         Properties schema = hiveSplit.getSchema();
 
@@ -121,7 +121,7 @@ public class HivePageSourceProvider
             long start,
             long length,
             Properties schema,
-            TupleDomain<HiveColumnHandle> effectivePredicate,
+            TupleDomain effectivePredicate,
             List<HivePartitionKey> partitionKeys,
             List<HiveColumnHandle> hiveColumns)
     {

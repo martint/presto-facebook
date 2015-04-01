@@ -51,7 +51,7 @@ public class InformationSchemaSplitManager
     }
 
     @Override
-    public ConnectorPartitionResult getPartitions(ConnectorTableHandle table, TupleDomain<ColumnHandle> tupleDomain)
+    public ConnectorPartitionResult getPartitions(ConnectorTableHandle table, TupleDomain tupleDomain)
     {
         checkNotNull(tupleDomain, "tupleDomain is null");
         InformationSchemaTableHandle informationSchemaTableHandle = checkType(table, InformationSchemaTableHandle.class, "table");
@@ -112,7 +112,7 @@ public class InformationSchemaSplitManager
         }
 
         @Override
-        public TupleDomain<ColumnHandle> getTupleDomain()
+        public TupleDomain getTupleDomain()
         {
             return TupleDomain.withNullableFixedValues(filters);
         }

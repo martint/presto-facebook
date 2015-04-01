@@ -223,7 +223,7 @@ public class BaseJdbcClient
     }
 
     @Override
-    public ConnectorPartitionResult getPartitions(JdbcTableHandle jdbcTableHandle, TupleDomain<ColumnHandle> tupleDomain)
+    public ConnectorPartitionResult getPartitions(JdbcTableHandle jdbcTableHandle, TupleDomain tupleDomain)
     {
         // currently we don't support partitions
         return new ConnectorPartitionResult(

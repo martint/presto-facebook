@@ -21,7 +21,7 @@ import com.google.common.base.Preconditions;
 public final class ResolvedIndex
 {
     private final IndexHandle indexHandle;
-    private final TupleDomain<ColumnHandle> undeterminedTupleDomain;
+    private final TupleDomain undeterminedTupleDomain;
 
     public ResolvedIndex(String connectorId, ConnectorResolvedIndex index)
     {
@@ -37,7 +37,7 @@ public final class ResolvedIndex
         return indexHandle;
     }
 
-    public TupleDomain<ColumnHandle> getUnresolvedTupleDomain()
+    public TupleDomain getUnresolvedTupleDomain()
     {
         return undeterminedTupleDomain;
     }

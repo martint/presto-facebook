@@ -89,7 +89,7 @@ public class CassandraSplitManager
     }
 
     @Override
-    public ConnectorPartitionResult getPartitions(ConnectorTableHandle tableHandle, TupleDomain<ColumnHandle> tupleDomain)
+    public ConnectorPartitionResult getPartitions(ConnectorTableHandle tableHandle, TupleDomain tupleDomain)
     {
         CassandraTableHandle cassandraTableHandle = checkType(tableHandle, CassandraTableHandle.class, "tableHandle");
         checkNotNull(tupleDomain, "tupleDomain is null");
@@ -107,7 +107,7 @@ public class CassandraSplitManager
                 .toList();
 
         // All partition key domains will be fully evaluated, so we don't need to include those
-        TupleDomain<ColumnHandle> remainingTupleDomain = TupleDomain.none();
+        TupleDomain remainingTupleDomain = TupleDomain.none();
         if (!tupleDomain.isNone()) {
             if (partitions.size() == 1 && ((CassandraPartition) partitions.get(0)).isUnpartitioned()) {
                 remainingTupleDomain = tupleDomain;
@@ -139,7 +139,7 @@ public class CassandraSplitManager
             }
             if (sb.length() > 0) {
                 CassandraPartition partition = (CassandraPartition) partitions.get(0);
-                TupleDomain<ColumnHandle> filterIndexedColumn = TupleDomain.withColumnDomains(Maps.filterKeys(remainingTupleDomain.getDomains(), not(in(indexedColumns))));
+                TupleDomain filterIndexedColumn = TupleDomain.withColumnDomains(Maps.filterKeys(remainingTupleDomain.getDomains(), not(in(indexedColumns))));
                 partitions = Lists.newArrayList();
                 partitions.add(new CassandraPartition(partition.getKey(), sb.toString(), filterIndexedColumn, true));
                 return new ConnectorPartitionResult(partitions, filterIndexedColumn);
@@ -148,7 +148,7 @@ public class CassandraSplitManager
         return new ConnectorPartitionResult(partitions, remainingTupleDomain);
     }
 
-    private List<CassandraPartition> getCassandraPartitions(final CassandraTable table, TupleDomain<ColumnHandle> tupleDomain)
+    private List<CassandraPartition> getCassandraPartitions(final CassandraTable table, TupleDomain tupleDomain)
     {
         if (tupleDomain.isNone()) {
             return ImmutableList.of();
@@ -190,7 +190,7 @@ public class CassandraSplitManager
         return partitions.build();
     }
 
-    private static Set<List<Comparable<?>>> getPartitionKeysSet(CassandraTable table, TupleDomain<ColumnHandle> tupleDomain)
+    private static Set<List<Comparable<?>>> getPartitionKeysSet(CassandraTable table, TupleDomain tupleDomain)
     {
         ImmutableList.Builder<Set<Comparable<?>>> partitionColumnValues = ImmutableList.builder();
         for (CassandraColumnHandle columnHandle : table.getPartitionKeyColumns()) {
@@ -364,7 +364,7 @@ public class CassandraSplitManager
                 .toString();
     }
 
-    public static Predicate<CassandraPartition> partitionMatches(final TupleDomain<ColumnHandle> tupleDomain)
+    public static Predicate<CassandraPartition> partitionMatches(final TupleDomain tupleDomain)
     {
         return new Predicate<CassandraPartition>()
         {

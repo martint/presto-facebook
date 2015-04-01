@@ -18,9 +18,9 @@ import java.util.Objects;
 public class ConnectorResolvedIndex
 {
     private final ConnectorIndexHandle indexHandle;
-    private final TupleDomain<ColumnHandle> unresolvedTupleDomain;
+    private final TupleDomain unresolvedTupleDomain;
 
-    public ConnectorResolvedIndex(ConnectorIndexHandle indexHandle, TupleDomain<ColumnHandle> unresolvedTupleDomain)
+    public ConnectorResolvedIndex(ConnectorIndexHandle indexHandle, TupleDomain unresolvedTupleDomain)
     {
         this.indexHandle = Objects.requireNonNull(indexHandle, "indexHandle is null");
         this.unresolvedTupleDomain = Objects.requireNonNull(unresolvedTupleDomain, "unresolvedTupleDomain is null");
@@ -31,7 +31,7 @@ public class ConnectorResolvedIndex
         return indexHandle;
     }
 
-    public TupleDomain<ColumnHandle> getUnresolvedTupleDomain()
+    public TupleDomain getUnresolvedTupleDomain()
     {
         return unresolvedTupleDomain;
     }

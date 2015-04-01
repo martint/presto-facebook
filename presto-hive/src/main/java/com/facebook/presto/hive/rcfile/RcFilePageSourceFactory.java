@@ -79,7 +79,7 @@ public class RcFilePageSourceFactory
             Properties schema,
             List<HiveColumnHandle> columns,
             List<HivePartitionKey> partitionKeys,
-            TupleDomain<HiveColumnHandle> effectivePredicate,
+            TupleDomain effectivePredicate,
             DateTimeZone hiveStorageTimeZone)
     {
         // todo remove this when GC issues are resolved

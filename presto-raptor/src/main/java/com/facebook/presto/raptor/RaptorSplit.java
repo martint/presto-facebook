@@ -31,13 +31,13 @@ public class RaptorSplit
 {
     private final UUID shardUuid;
     private final List<HostAddress> addresses;
-    private final TupleDomain<RaptorColumnHandle> effectivePredicate;
+    private final TupleDomain effectivePredicate;
 
     @JsonCreator
     public RaptorSplit(
             @JsonProperty("shardUuid") UUID shardUuid,
             @JsonProperty("addresses") List<HostAddress> addresses,
-            @JsonProperty("effectivePredicate") TupleDomain<RaptorColumnHandle> effectivePredicate)
+            @JsonProperty("effectivePredicate") TupleDomain effectivePredicate)
     {
         this.shardUuid = checkNotNull(shardUuid, "shardUuid is null");
         this.addresses = ImmutableList.copyOf(checkNotNull(addresses, "addresses is null"));
@@ -65,7 +65,7 @@ public class RaptorSplit
     }
 
     @JsonProperty
-    public TupleDomain<RaptorColumnHandle> getEffectivePredicate()
+    public TupleDomain getEffectivePredicate()
     {
         return effectivePredicate;
     }

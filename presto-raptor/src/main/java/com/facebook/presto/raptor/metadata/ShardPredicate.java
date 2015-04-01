@@ -14,6 +14,7 @@
 package com.facebook.presto.raptor.metadata;
 
 import com.facebook.presto.raptor.RaptorColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.Range;
@@ -83,18 +84,18 @@ class ShardPredicate
                 .toString();
     }
 
-    public static ShardPredicate create(TupleDomain<RaptorColumnHandle> tupleDomain)
+    public static ShardPredicate create(TupleDomain tupleDomain)
     {
         StringJoiner predicate = new StringJoiner(" AND ").setEmptyValue("true");
         ImmutableList.Builder<JDBCType> types = ImmutableList.builder();
         ImmutableList.Builder<Object> values = ImmutableList.builder();
 
-        for (Entry<RaptorColumnHandle, Domain> entry : tupleDomain.getDomains().entrySet()) {
+        for (Entry<ColumnHandle, Domain> entry : tupleDomain.getDomains().entrySet()) {
             Domain domain = entry.getValue();
             if (domain.isNullAllowed() || domain.isAll()) {
                 continue;
             }
-            RaptorColumnHandle handle = entry.getKey();
+            RaptorColumnHandle handle = (RaptorColumnHandle) entry.getKey();
             Type type = handle.getColumnType();
 
             JDBCType jdbcType = jdbcType(type);

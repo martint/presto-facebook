@@ -196,7 +196,7 @@ class HiveSplitSourceProvider
                 final String partitionName = partition.getHivePartition().getPartitionId();
                 final Properties schema = getPartitionSchema(table, partition.getPartition());
                 final List<HivePartitionKey> partitionKeys = getPartitionKeys(table, partition.getPartition());
-                final TupleDomain<HiveColumnHandle> effectivePredicate = partition.getHivePartition().getEffectivePredicate();
+                final TupleDomain effectivePredicate = partition.getHivePartition().getEffectivePredicate();
 
                 Path path = new Path(getPartitionLocation(table, partition.getPartition()));
                 Configuration configuration = hdfsEnvironment.getConfiguration(path);
@@ -381,7 +381,7 @@ class HiveSplitSourceProvider
             List<HivePartitionKey> partitionKeys,
             boolean splittable,
             ConnectorSession session,
-            TupleDomain<HiveColumnHandle> effectivePredicate)
+            TupleDomain effectivePredicate)
             throws IOException
     {
         ImmutableList.Builder<HiveSplit> builder = ImmutableList.builder();

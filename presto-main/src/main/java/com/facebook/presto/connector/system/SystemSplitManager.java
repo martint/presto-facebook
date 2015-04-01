@@ -53,7 +53,7 @@ public class SystemSplitManager
     }
 
     @Override
-    public ConnectorPartitionResult getPartitions(ConnectorTableHandle table, TupleDomain<ColumnHandle> tupleDomain)
+    public ConnectorPartitionResult getPartitions(ConnectorTableHandle table, TupleDomain tupleDomain)
     {
         checkNotNull(tupleDomain, "tupleDomain is null");
         SystemTableHandle systemTableHandle = checkType(table, SystemTableHandle.class, "table");
@@ -111,7 +111,7 @@ public class SystemSplitManager
         }
 
         @Override
-        public TupleDomain<ColumnHandle> getTupleDomain()
+        public TupleDomain getTupleDomain()
         {
             return TupleDomain.all();
         }

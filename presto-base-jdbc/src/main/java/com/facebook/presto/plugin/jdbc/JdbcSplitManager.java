@@ -46,7 +46,7 @@ public class JdbcSplitManager
     }
 
     @Override
-    public ConnectorPartitionResult getPartitions(ConnectorTableHandle tableHandle, TupleDomain<ColumnHandle> tupleDomain)
+    public ConnectorPartitionResult getPartitions(ConnectorTableHandle tableHandle, TupleDomain tupleDomain)
     {
         JdbcTableHandle handle = checkType(tableHandle, JdbcTableHandle.class, "tableHandle");
         return jdbcClient.getPartitions(handle, tupleDomain);

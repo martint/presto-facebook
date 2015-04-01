@@ -33,12 +33,12 @@ public class HivePartition
     public static final String UNPARTITIONED_ID = "<UNPARTITIONED>";
 
     private final SchemaTableName tableName;
-    private final TupleDomain<HiveColumnHandle> effectivePredicate;
+    private final TupleDomain effectivePredicate;
     private final String partitionId;
     private final Map<ColumnHandle, SerializableNativeValue> keys;
     private final Optional<HiveBucket> bucket;
 
-    public HivePartition(SchemaTableName tableName, TupleDomain<HiveColumnHandle> effectivePredicate)
+    public HivePartition(SchemaTableName tableName, TupleDomain effectivePredicate)
     {
         this.tableName = checkNotNull(tableName, "tableName is null");
         this.effectivePredicate = checkNotNull(effectivePredicate, "effectivePredicate is null");
@@ -47,13 +47,13 @@ public class HivePartition
         this.bucket = Optional.empty();
     }
 
-    public HivePartition(SchemaTableName tableName, TupleDomain<HiveColumnHandle> effectivePredicate, Optional<HiveBucket> bucket)
+    public HivePartition(SchemaTableName tableName, TupleDomain effectivePredicate, Optional<HiveBucket> bucket)
     {
         this(tableName, effectivePredicate, UNPARTITIONED_ID, ImmutableMap.of(), bucket);
     }
 
     public HivePartition(SchemaTableName tableName,
-            TupleDomain<HiveColumnHandle> effectivePredicate,
+            TupleDomain effectivePredicate,
             String partitionId,
             Map<ColumnHandle, SerializableNativeValue> keys,
             Optional<HiveBucket> bucket)
@@ -70,7 +70,7 @@ public class HivePartition
         return tableName;
     }
 
-    public TupleDomain<HiveColumnHandle> getEffectivePredicate()
+    public TupleDomain getEffectivePredicate()
     {
         return effectivePredicate;
     }
@@ -82,7 +82,7 @@ public class HivePartition
     }
 
     @Override
-    public TupleDomain<ColumnHandle> getTupleDomain()
+    public TupleDomain getTupleDomain()
     {
         return TupleDomain.withNullableFixedValues(keys);
     }

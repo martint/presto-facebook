@@ -14,7 +14,6 @@
 package com.facebook.presto.spi;
 
 import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -27,7 +26,6 @@ import java.io.IOException;
 import java.util.Map;
 
 import static com.facebook.presto.spi.TupleDomain.columnWiseUnion;
-import static org.testng.Assert.assertEquals;
 
 public class TestTupleDomain
 {
@@ -68,7 +66,7 @@ public class TestTupleDomain
     public void testIntersection()
             throws Exception
     {
-        TupleDomain<ColumnHandle> tupleDomain1 = TupleDomain.withColumnDomains(
+        TupleDomain tupleDomain1 = TupleDomain.withColumnDomains(
                 ImmutableMap.<ColumnHandle, Domain>builder()
                         .put(A, Domain.all(String.class))
                         .put(B, Domain.notNull(Double.class))
@@ -76,7 +74,7 @@ public class TestTupleDomain
                         .put(D, Domain.create(SortedRangeSet.of(Range.greaterThanOrEqual(0.0)), true))
                         .build());
 
-        TupleDomain<ColumnHandle> tupleDomain2 = TupleDomain.withColumnDomains(
+        TupleDomain tupleDomain2 = TupleDomain.withColumnDomains(
                 ImmutableMap.<ColumnHandle, Domain>builder()
                         .put(A, Domain.singleValue("value"))
                         .put(B, Domain.singleValue(0.0))
@@ -84,7 +82,7 @@ public class TestTupleDomain
                         .put(D, Domain.create(SortedRangeSet.of(Range.lessThan(10.0)), false))
                         .build());
 
-        TupleDomain<ColumnHandle> expectedTupleDomain = TupleDomain.withColumnDomains(
+        TupleDomain expectedTupleDomain = TupleDomain.withColumnDomains(
                 ImmutableMap.<ColumnHandle, Domain>builder()
                         .put(A, Domain.singleValue("value"))
                         .put(B, Domain.singleValue(0.0))
@@ -113,17 +111,17 @@ public class TestTupleDomain
     public void testMismatchedColumnIntersection()
             throws Exception
     {
-        TupleDomain<ColumnHandle> tupleDomain1 = TupleDomain.withColumnDomains(
+        TupleDomain tupleDomain1 = TupleDomain.withColumnDomains(
                 ImmutableMap.of(
                         A, Domain.all(Double.class),
                         B, Domain.singleValue("value")));
 
-        TupleDomain<ColumnHandle> tupleDomain2 = TupleDomain.withColumnDomains(
+        TupleDomain tupleDomain2 = TupleDomain.withColumnDomains(
                 ImmutableMap.of(
                         A, Domain.create(SortedRangeSet.of(Range.greaterThanOrEqual(0.0)), true),
                         C, Domain.singleValue(1L)));
 
-        TupleDomain<ColumnHandle> expectedTupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
+        TupleDomain expectedTupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
                 A, Domain.create(SortedRangeSet.of(Range.greaterThanOrEqual(0.0)), true),
                 B, Domain.singleValue("value"),
                 C, Domain.singleValue(1L)));
@@ -135,7 +133,7 @@ public class TestTupleDomain
     public void testColumnWiseUnion()
             throws Exception
     {
-        TupleDomain<ColumnHandle> tupleDomain1 = TupleDomain.withColumnDomains(
+        TupleDomain tupleDomain1 = TupleDomain.withColumnDomains(
                 ImmutableMap.<ColumnHandle, Domain>builder()
                         .put(A, Domain.all(String.class))
                         .put(B, Domain.notNull(Double.class))
@@ -144,7 +142,7 @@ public class TestTupleDomain
                         .put(E, Domain.create(SortedRangeSet.of(Range.greaterThanOrEqual(0.0)), true))
                         .build());
 
-        TupleDomain<ColumnHandle> tupleDomain2 = TupleDomain.withColumnDomains(
+        TupleDomain tupleDomain2 = TupleDomain.withColumnDomains(
                 ImmutableMap.<ColumnHandle, Domain>builder()
                         .put(A, Domain.singleValue("value"))
                         .put(B, Domain.singleValue(0.0))
@@ -153,7 +151,7 @@ public class TestTupleDomain
                         .put(E, Domain.create(SortedRangeSet.of(Range.lessThan(10.0)), false))
                         .build());
 
-        TupleDomain<ColumnHandle> expectedTupleDomain = TupleDomain.withColumnDomains(
+        TupleDomain expectedTupleDomain = TupleDomain.withColumnDomains(
                 ImmutableMap.<ColumnHandle, Domain>builder()
                         .put(A, Domain.all(String.class))
                         .put(B, Domain.notNull(Double.class))
@@ -173,8 +171,8 @@ public class TestTupleDomain
         Assert.assertEquals(columnWiseUnion(TupleDomain.all(), TupleDomain.none()), TupleDomain.all());
         Assert.assertEquals(columnWiseUnion(TupleDomain.none(), TupleDomain.none()), TupleDomain.none());
         Assert.assertEquals(columnWiseUnion(
-                TupleDomain.withColumnDomains(ImmutableMap.of(A, Domain.onlyNull(Long.class))),
-                TupleDomain.withColumnDomains(ImmutableMap.of(A, Domain.notNull(Long.class)))),
+                        TupleDomain.withColumnDomains(ImmutableMap.of(A, Domain.onlyNull(Long.class))),
+                        TupleDomain.withColumnDomains(ImmutableMap.of(A, Domain.notNull(Long.class)))),
                 TupleDomain.<ColumnHandle>all());
     }
 
@@ -182,17 +180,17 @@ public class TestTupleDomain
     public void testMismatchedColumnWiseUnion()
             throws Exception
     {
-        TupleDomain<ColumnHandle> tupleDomain1 = TupleDomain.withColumnDomains(
+        TupleDomain tupleDomain1 = TupleDomain.withColumnDomains(
                 ImmutableMap.of(
                         A, Domain.all(Double.class),
                         B, Domain.singleValue("value")));
 
-        TupleDomain<ColumnHandle> tupleDomain2 = TupleDomain.withColumnDomains(
+        TupleDomain tupleDomain2 = TupleDomain.withColumnDomains(
                 ImmutableMap.of(
                         A, Domain.create(SortedRangeSet.of(Range.greaterThanOrEqual(0.0)), true),
                         C, Domain.singleValue(1L)));
 
-        TupleDomain<ColumnHandle> expectedTupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(A, Domain.all(Double.class)));
+        TupleDomain expectedTupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(A, Domain.all(Double.class)));
 
         Assert.assertEquals(columnWiseUnion(tupleDomain1, tupleDomain2), expectedTupleDomain);
     }
@@ -583,85 +581,34 @@ public class TestTupleDomain
             }
         }));
 
-        TupleDomain<ColumnHandle> tupleDomain = TupleDomain.all();
-        Assert.assertEquals(tupleDomain, mapper.readValue(mapper.writeValueAsString(tupleDomain), new TypeReference<TupleDomain<ColumnHandle>>() {}));
+        TupleDomain tupleDomain = TupleDomain.all();
+        Assert.assertEquals(tupleDomain, mapper.readValue(mapper.writeValueAsString(tupleDomain), TupleDomain.class));
 
         tupleDomain = TupleDomain.none();
-        Assert.assertEquals(tupleDomain, mapper.readValue(mapper.writeValueAsString(tupleDomain), new TypeReference<TupleDomain<ColumnHandle>>() {}));
+        Assert.assertEquals(tupleDomain, mapper.readValue(mapper.writeValueAsString(tupleDomain), TupleDomain.class));
 
         tupleDomain = TupleDomain.withFixedValues(ImmutableMap.<ColumnHandle, Comparable<?>>of(A, 1L, B, "abc"));
-        Assert.assertEquals(tupleDomain, mapper.readValue(mapper.writeValueAsString(tupleDomain), new TypeReference<TupleDomain<ColumnHandle>>() {}));
-    }
-
-    @Test
-    public void testTransform()
-            throws Exception
-    {
-        Map<Integer, Domain> domains = ImmutableMap.<Integer, Domain>builder()
-                .put(1, Domain.singleValue(1))
-                .put(2, Domain.singleValue(2))
-                .put(3, Domain.singleValue(3))
-                .build();
-
-        TupleDomain<Integer> domain = TupleDomain.withColumnDomains(domains);
-        TupleDomain<String> transformed = domain.transform(new TupleDomain.Function<Integer, String>()
-        {
-            @Override
-            public String apply(Integer input)
-            {
-                return input.toString();
-            }
-        });
-
-        Map<String, Domain> expected = ImmutableMap.<String, Domain>builder()
-                .put("1", Domain.singleValue(1))
-                .put("2", Domain.singleValue(2))
-                .put("3", Domain.singleValue(3))
-                .build();
-
-        assertEquals(transformed.getDomains(), expected);
-    }
-
-    @Test(expectedExceptions = IllegalArgumentException.class)
-    public void testTransformFailsWithNonUniqueMapping()
-            throws Exception
-    {
-        Map<Integer, Domain> domains = ImmutableMap.<Integer, Domain>builder()
-                .put(1, Domain.singleValue(1))
-                .put(2, Domain.singleValue(2))
-                .put(3, Domain.singleValue(3))
-                .build();
-
-        TupleDomain<Integer> domain = TupleDomain.withColumnDomains(domains);
-
-        domain.transform(new TupleDomain.Function<Integer, String>()
-        {
-            @Override
-            public String apply(Integer input)
-            {
-                return "x";
-            }
-        });
+        Assert.assertEquals(tupleDomain, mapper.readValue(mapper.writeValueAsString(tupleDomain), TupleDomain.class));
     }
 
     private boolean overlaps(Map<ColumnHandle, Domain> domains1, Map<ColumnHandle, Domain> domains2)
     {
-        TupleDomain<ColumnHandle> tupleDomain1 = TupleDomain.withColumnDomains(domains1);
-        TupleDomain<ColumnHandle> tupleDOmain2 = TupleDomain.withColumnDomains(domains2);
+        TupleDomain tupleDomain1 = TupleDomain.withColumnDomains(domains1);
+        TupleDomain tupleDOmain2 = TupleDomain.withColumnDomains(domains2);
         return tupleDomain1.overlaps(tupleDOmain2);
     }
 
     private boolean contains(Map<ColumnHandle, Domain> superSet, Map<ColumnHandle, Domain> subSet)
     {
-        TupleDomain<ColumnHandle> superSetTupleDomain = TupleDomain.withColumnDomains(superSet);
-        TupleDomain<ColumnHandle> subSetTupleDomain = TupleDomain.withColumnDomains(subSet);
+        TupleDomain superSetTupleDomain = TupleDomain.withColumnDomains(superSet);
+        TupleDomain subSetTupleDomain = TupleDomain.withColumnDomains(subSet);
         return superSetTupleDomain.contains(subSetTupleDomain);
     }
 
     private boolean equals(Map<ColumnHandle, Domain> domains1, Map<ColumnHandle, Domain> domains2)
     {
-        TupleDomain<ColumnHandle> tupleDomain1 = TupleDomain.withColumnDomains(domains1);
-        TupleDomain<ColumnHandle> tupleDOmain2 = TupleDomain.withColumnDomains(domains2);
+        TupleDomain tupleDomain1 = TupleDomain.withColumnDomains(domains1);
+        TupleDomain tupleDOmain2 = TupleDomain.withColumnDomains(domains2);
         return tupleDomain1.equals(tupleDOmain2);
     }
 }

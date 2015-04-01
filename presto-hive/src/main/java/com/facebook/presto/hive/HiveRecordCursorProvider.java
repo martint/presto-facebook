@@ -36,7 +36,7 @@ public interface HiveRecordCursorProvider
             Properties schema,
             List<HiveColumnHandle> columns,
             List<HivePartitionKey> partitionKeys,
-            TupleDomain<HiveColumnHandle> effectivePredicate,
+            TupleDomain effectivePredicate,
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager);
 }

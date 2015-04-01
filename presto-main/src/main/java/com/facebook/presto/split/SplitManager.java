@@ -45,9 +45,9 @@ public class SplitManager
         checkState(splitManagers.putIfAbsent(connectorId, connectorSplitManager) == null, "SplitManager for connector '%s' is already registered", connectorId);
     }
 
-    public PartitionResult getPartitions(TableHandle table, Optional<TupleDomain<ColumnHandle>> tupleDomain)
+    public PartitionResult getPartitions(TableHandle table, Optional<TupleDomain> tupleDomain)
     {
-        TupleDomain<ColumnHandle> domain = tupleDomain.orElse(TupleDomain.all());
+        TupleDomain domain = tupleDomain.orElse(TupleDomain.all());
 
         ConnectorPartitionResult result;
         if (domain.isNone()) {

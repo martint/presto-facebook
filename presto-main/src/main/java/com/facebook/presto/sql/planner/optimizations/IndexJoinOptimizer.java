@@ -227,7 +227,7 @@ public class IndexJoinOptimizer
                     .toSet();
 
             checkState(node.getGeneratedPartitions().isPresent(), "Predicate should have generated partitions before this optimizer");
-            TupleDomain<ColumnHandle> tupleDomain = node.getGeneratedPartitions().get().getTupleDomainInput();
+            TupleDomain tupleDomain = node.getGeneratedPartitions().get().getTupleDomainInput();
             Optional<ResolvedIndex> optionalResolvedIndex = indexManager.resolveIndex(node.getTable(), lookupColumns, tupleDomain);
             if (!optionalResolvedIndex.isPresent()) {
                 // No index available, so give up by returning something

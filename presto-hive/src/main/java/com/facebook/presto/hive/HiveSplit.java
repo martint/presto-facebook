@@ -43,7 +43,7 @@ public class HiveSplit
     private final String table;
     private final String partitionName;
     private final ConnectorSession session;
-    private final TupleDomain<HiveColumnHandle> effectivePredicate;
+    private final TupleDomain effectivePredicate;
     private final boolean forceLocalScheduling;
 
     @JsonCreator
@@ -60,7 +60,7 @@ public class HiveSplit
             @JsonProperty("addresses") List<HostAddress> addresses,
             @JsonProperty("forceLocalScheduling") boolean forceLocalScheduling,
             @JsonProperty("session") ConnectorSession session,
-            @JsonProperty("effectivePredicate") TupleDomain<HiveColumnHandle> effectivePredicate)
+            @JsonProperty("effectivePredicate") TupleDomain effectivePredicate)
     {
         checkNotNull(clientId, "clientId is null");
         checkArgument(start >= 0, "start must be positive");
@@ -157,7 +157,7 @@ public class HiveSplit
     }
 
     @JsonProperty
-    public TupleDomain<HiveColumnHandle> getEffectivePredicate()
+    public TupleDomain getEffectivePredicate()
     {
         return effectivePredicate;
     }

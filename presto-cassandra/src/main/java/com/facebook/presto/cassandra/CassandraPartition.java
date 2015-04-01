@@ -27,7 +27,7 @@ public class CassandraPartition
 
     private final String partitionId;
     private final byte[] key;
-    private final TupleDomain<ColumnHandle> tupleDomain;
+    private final TupleDomain tupleDomain;
     private final boolean indexedColumnPredicatePushdown;
 
     private CassandraPartition()
@@ -38,7 +38,7 @@ public class CassandraPartition
         indexedColumnPredicatePushdown = false;
     }
 
-    public CassandraPartition(byte[] key, String partitionId, TupleDomain<ColumnHandle> tupleDomain, boolean indexedColumnPredicatePushdown)
+    public CassandraPartition(byte[] key, String partitionId, TupleDomain tupleDomain, boolean indexedColumnPredicatePushdown)
     {
         this.key = key;
         this.partitionId = partitionId;
@@ -57,7 +57,7 @@ public class CassandraPartition
     }
 
     @Override
-    public TupleDomain<ColumnHandle> getTupleDomain()
+    public TupleDomain getTupleDomain()
     {
         return tupleDomain;
     }

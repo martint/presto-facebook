@@ -24,7 +24,7 @@ import java.util.List;
 public class PartitionResult
 {
     private final List<Partition> partitions;
-    private final TupleDomain<ColumnHandle> undeterminedTupleDomain;
+    private final TupleDomain undeterminedTupleDomain;
 
     public PartitionResult(String connectorId, ConnectorPartitionResult connectorPartitionResult)
     {
@@ -40,7 +40,7 @@ public class PartitionResult
         return partitions;
     }
 
-    public TupleDomain<ColumnHandle> getUndeterminedTupleDomain()
+    public TupleDomain getUndeterminedTupleDomain()
     {
         return undeterminedTupleDomain;
     }

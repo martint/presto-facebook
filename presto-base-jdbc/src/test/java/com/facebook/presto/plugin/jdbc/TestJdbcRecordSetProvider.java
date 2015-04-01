@@ -175,7 +175,7 @@ public class TestJdbcRecordSetProvider
         ));
     }
 
-    private RecordCursor getCursor(JdbcTableHandle jdbcTableHandle, List<JdbcColumnHandle> columns, TupleDomain<ColumnHandle> domain)
+    private RecordCursor getCursor(JdbcTableHandle jdbcTableHandle, List<JdbcColumnHandle> columns, TupleDomain domain)
             throws InterruptedException
     {
         ConnectorPartitionResult partitions = jdbcClient.getPartitions(jdbcTableHandle, domain);

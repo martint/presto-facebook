@@ -15,6 +15,7 @@ package com.facebook.presto.raptor.metadata;
 
 import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.raptor.util.CloseableIterator;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Domain;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.Range;
@@ -335,7 +336,7 @@ public class TestDatabaseShardManager
         shardAssertion(tableId).equal(c1, 3).expected(shards);
     }
 
-    private Set<ShardNodes> getShardNodes(long tableId, TupleDomain<RaptorColumnHandle> predicate)
+    private Set<ShardNodes> getShardNodes(long tableId, TupleDomain predicate)
     {
         try (CloseableIterator<ShardNodes> iterator = shardManager.getShardNodes(tableId, predicate)) {
             return ImmutableSet.copyOf(iterator);
@@ -371,7 +372,7 @@ public class TestDatabaseShardManager
 
     private class ShardAssertion
     {
-        private final Map<RaptorColumnHandle, Domain> domains = new HashMap<>();
+        private final Map<ColumnHandle, Domain> domains = new HashMap<>();
         private final long tableId;
 
         public ShardAssertion(long tableId)
@@ -407,7 +408,7 @@ public class TestDatabaseShardManager
 
         public void expected(List<ShardInfo> shards)
         {
-            TupleDomain<RaptorColumnHandle> predicate = TupleDomain.withColumnDomains(domains);
+            TupleDomain predicate = TupleDomain.withColumnDomains(domains);
             Set<ShardNodes> actual = getShardNodes(tableId, predicate);
             assertEquals(actual, toShardNodes(shards));
         }

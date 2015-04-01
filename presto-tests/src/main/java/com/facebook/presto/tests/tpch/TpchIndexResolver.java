@@ -58,7 +58,7 @@ public class TpchIndexResolver
     }
 
     @Override
-    public ConnectorResolvedIndex resolveIndex(ConnectorTableHandle tableHandle, Set<ColumnHandle> indexableColumns, TupleDomain<ColumnHandle> tupleDomain)
+    public ConnectorResolvedIndex resolveIndex(ConnectorTableHandle tableHandle, Set<ColumnHandle> indexableColumns, TupleDomain tupleDomain)
     {
         TpchTableHandle tpchTableHandle = checkType(tableHandle, TpchTableHandle.class, "tableHandle");
 
@@ -77,7 +77,7 @@ public class TpchIndexResolver
             return null;
         }
 
-        TupleDomain<ColumnHandle> filteredTupleDomain = tupleDomain;
+        TupleDomain filteredTupleDomain = tupleDomain;
         if (!tupleDomain.isNone()) {
             filteredTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(tupleDomain.getDomains(), not(in(fixedValues.keySet()))));
         }

@@ -42,7 +42,7 @@ public class QueryBuilder
         this.quote = checkNotNull(quote, "quote is null");
     }
 
-    public String buildSql(String catalog, String schema, String table, List<JdbcColumnHandle> columns, TupleDomain<ColumnHandle> tupleDomain)
+    public String buildSql(String catalog, String schema, String table, List<JdbcColumnHandle> columns, TupleDomain tupleDomain)
     {
         StringBuilder sql = new StringBuilder();
 
@@ -70,7 +70,7 @@ public class QueryBuilder
         return sql.toString();
     }
 
-    private List<String> toConjuncts(List<JdbcColumnHandle> columns, TupleDomain<ColumnHandle> tupleDomain)
+    private List<String> toConjuncts(List<JdbcColumnHandle> columns, TupleDomain tupleDomain)
     {
         ImmutableList.Builder<String> builder = ImmutableList.builder();
         for (JdbcColumnHandle column : columns) {
