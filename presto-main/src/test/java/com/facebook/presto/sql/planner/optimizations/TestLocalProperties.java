@@ -13,182 +13,435 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
+import com.facebook.presto.spi.ConstantProperty;
 import com.facebook.presto.spi.GroupingProperty;
 import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.SortingProperty;
 import com.facebook.presto.spi.block.SortOrder;
-import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
+import java.util.Optional;
 
-import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.assertEquals;
 
 public class TestLocalProperties
 {
+    @SafeVarargs
+    private static <T> void assertMatch(List<LocalProperty<T>> actual, List<LocalProperty<T>> wanted, Optional<LocalProperty<T>>... match)
+    {
+        assertEquals(LocalProperty.match(actual, wanted), Arrays.asList(match));
+    }
+
     @Test
-    public void testGrouping()
+    public void test1()
             throws Exception
     {
-        builder()
+        List<LocalProperty<String>> actual = builder()
                 .grouped("a")
                 .grouped("b")
                 .grouped("c")
-                .assertMaxGroupingSubset(ImmutableSet.of("a", "b", "c", "d"), ImmutableSet.of("a", "b", "c"))
-                .assertMaxGroupingSubset(ImmutableSet.of("a", "b", "c"), ImmutableSet.of("a", "b", "c"))
-                .assertMaxGroupingSubset(ImmutableSet.of("a", "b"), ImmutableSet.of("a", "b"))
-                .assertMaxGroupingSubset(ImmutableSet.of("a"), ImmutableSet.of("a"))
-                .assertMaxGroupingSubset(ImmutableSet.of("b"), ImmutableSet.of())
-                .assertMaxGroupingSubset(ImmutableSet.of("b", "c"), ImmutableSet.of())
-                .assertMaxGroupingSubset(ImmutableSet.of("a", "c"), ImmutableSet.of("a"))
-                .assertMaxGroupingSubset(ImmutableSet.of("c"), ImmutableSet.of());
+                .build();
 
-        builder()
-                .grouped("a", "b", "c")
-                .assertMaxGroupingSubset(ImmutableSet.of("a", "b", "c", "d"), ImmutableSet.of("a", "b", "c"))
-                .assertMaxGroupingSubset(ImmutableSet.of("a", "b", "c"), ImmutableSet.of("a", "b", "c"))
-                .assertMaxGroupingSubset(ImmutableSet.of("a", "b"), ImmutableSet.of())
-                .assertMaxGroupingSubset(ImmutableSet.of("b", "c"), ImmutableSet.of())
-                .assertMaxGroupingSubset(ImmutableSet.of("a", "c"), ImmutableSet.of())
-                .assertMaxGroupingSubset(ImmutableSet.of("a"), ImmutableSet.of())
-                .assertMaxGroupingSubset(ImmutableSet.of("b"), ImmutableSet.of())
-                .assertMaxGroupingSubset(ImmutableSet.of("c"), ImmutableSet.of());
+        assertMatch(
+                actual,
+                builder().grouped("a", "b", "c", "d").build(),
+                Optional.of(grouped("d")));
 
-        builder()
-                .grouped("a", "b")
-                .grouped("c")
-                .assertMaxGroupingSubset(ImmutableSet.of("a", "b", "c", "d"), ImmutableSet.of("a", "b", "c"))
-                .assertMaxGroupingSubset(ImmutableSet.of("a", "b", "c"), ImmutableSet.of("a", "b", "c"))
-                .assertMaxGroupingSubset(ImmutableSet.of("a", "b"), ImmutableSet.of("a", "b"))
-                .assertMaxGroupingSubset(ImmutableSet.of("b", "c"), ImmutableSet.of())
-                .assertMaxGroupingSubset(ImmutableSet.of("a", "c"), ImmutableSet.of())
-                .assertMaxGroupingSubset(ImmutableSet.of("a"), ImmutableSet.of())
-                .assertMaxGroupingSubset(ImmutableSet.of("b"), ImmutableSet.of())
-                .assertMaxGroupingSubset(ImmutableSet.of("c"), ImmutableSet.of());
+        assertMatch(
+                actual,
+                builder().grouped("a", "b", "c").build(),
+                Optional.empty());
 
-        builder()
-                .grouped("a", "b")
-                .grouped("a", "c")
-                .assertMaxGroupingSubset(ImmutableSet.of("a", "b", "c", "d"), ImmutableSet.of("a", "b", "c"))
-                .assertMaxGroupingSubset(ImmutableSet.of("a", "b", "c"), ImmutableSet.of("a", "b", "c"))
-                .assertMaxGroupingSubset(ImmutableSet.of("a", "b"), ImmutableSet.of("a", "b"))
-                .assertMaxGroupingSubset(ImmutableSet.of("b", "c"), ImmutableSet.of())
-                .assertMaxGroupingSubset(ImmutableSet.of("a", "c"), ImmutableSet.of())
-                .assertMaxGroupingSubset(ImmutableSet.of("a"), ImmutableSet.of())
-                .assertMaxGroupingSubset(ImmutableSet.of("b"), ImmutableSet.of())
-                .assertMaxGroupingSubset(ImmutableSet.of("c"), ImmutableSet.of());
+        assertMatch(
+                actual,
+                builder().grouped("a", "b").build(),
+                Optional.empty());
 
-        builder()
-                .sorted("a", SortOrder.ASC_NULLS_FIRST)
-                .sorted("b", SortOrder.ASC_NULLS_FIRST)
-                .sorted("c", SortOrder.ASC_NULLS_FIRST)
-                .assertMaxGroupingSubset(ImmutableSet.of("a", "b", "c", "d"), ImmutableSet.of("a", "b", "c"))
-                .assertMaxGroupingSubset(ImmutableSet.of("a", "b", "c"), ImmutableSet.of("a", "b", "c"))
-                .assertMaxGroupingSubset(ImmutableSet.of("a", "b"), ImmutableSet.of("a", "b"))
-                .assertMaxGroupingSubset(ImmutableSet.of("a"), ImmutableSet.of("a"))
-                .assertMaxGroupingSubset(ImmutableSet.of("b", "c"), ImmutableSet.of())
-                .assertMaxGroupingSubset(ImmutableSet.of("a", "c"), ImmutableSet.of("a"))
-                .assertMaxGroupingSubset(ImmutableSet.of("b"), ImmutableSet.of())
-                .assertMaxGroupingSubset(ImmutableSet.of("c"), ImmutableSet.of());
+        assertMatch(
+                actual,
+                builder().grouped("a").build(),
+                Optional.empty());
 
-        builder()
-                .sorted("a", SortOrder.ASC_NULLS_FIRST)
-                .grouped("b", "c")
-                .sorted("d", SortOrder.ASC_NULLS_FIRST)
-                .assertMaxGroupingSubset(ImmutableSet.of("a", "b", "c", "d", "e"), ImmutableSet.of("a", "b", "c", "d"))
-                .assertMaxGroupingSubset(ImmutableSet.of("a", "b", "c", "d"), ImmutableSet.of("a", "b", "c", "d"))
-                .assertMaxGroupingSubset(ImmutableSet.of("a", "b", "c"), ImmutableSet.of("a", "b", "c"))
-                .assertMaxGroupingSubset(ImmutableSet.of("a", "b"), ImmutableSet.of("a"))
-                .assertMaxGroupingSubset(ImmutableSet.of("a"), ImmutableSet.of("a"))
-                .assertMaxGroupingSubset(ImmutableSet.of("b", "c"), ImmutableSet.of())
-                .assertMaxGroupingSubset(ImmutableSet.of("a", "c"), ImmutableSet.of("a"))
-                .assertMaxGroupingSubset(ImmutableSet.of("b"), ImmutableSet.of())
-                .assertMaxGroupingSubset(ImmutableSet.of("c"), ImmutableSet.of());
+        assertMatch(
+                actual,
+                builder().grouped("b").build(),
+                Optional.of(grouped("b")));
+
+        assertMatch(
+                actual,
+                builder().grouped("b", "c").build(),
+                Optional.of(grouped("b", "c")));
+
+        assertMatch(
+                actual,
+                builder().grouped("a", "c").build(),
+                Optional.of(grouped("c")));
+
+        assertMatch(
+                actual,
+                builder().grouped("c").build(),
+                Optional.of(grouped("c")));
     }
 
     @Test
-    public void testConstants()
+    public void test2()
             throws Exception
     {
-        builder()
-                .constants("a")
+        List<LocalProperty<String>> actual = builder()
+                .grouped("a", "b", "c")
+                .build();
+
+        assertMatch(
+                actual,
+                builder().grouped("a", "b", "c", "d").build(),
+                Optional.of(grouped("d")));
+
+        assertMatch(
+                actual,
+                builder().grouped("a", "b", "c").build(),
+                Optional.empty());
+
+        assertMatch(
+                actual,
+                builder().grouped("a", "b").build(),
+                Optional.of(grouped("a", "b")));
+
+        assertMatch(
+                actual,
+                builder().grouped("a").build(),
+                Optional.of(grouped("a")));
+    }
+
+    @Test
+    public void test3()
+            throws Exception
+    {
+        List<LocalProperty<String>> actual = builder()
                 .grouped("a", "b")
-                .assertMaxGroupingSubset(ImmutableSet.of("a", "b", "c"), ImmutableSet.of("a", "b"))
-                .assertMaxGroupingSubset(ImmutableSet.of("a", "b"), ImmutableSet.of("a", "b"))
-                .assertMaxGroupingSubset(ImmutableSet.of("a"), ImmutableSet.of("a"))
-                .assertMaxGroupingSubset(ImmutableSet.of("b"), ImmutableSet.of("b"));
+                .grouped("c")
+                .build();
 
-        builder()
-                .constants("a")
-                .grouped("b")
-                .assertMaxGroupingSubset(ImmutableSet.of("a", "b", "c"), ImmutableSet.of("a", "b"))
-                .assertMaxGroupingSubset(ImmutableSet.of("a", "b"), ImmutableSet.of("a", "b"))
-                .assertMaxGroupingSubset(ImmutableSet.of("a"), ImmutableSet.of("a"))
-                .assertMaxGroupingSubset(ImmutableSet.of("b"), ImmutableSet.of("b"));
+        assertMatch(
+                actual,
+                builder().grouped("a", "b", "c", "d").build(),
+                Optional.of(grouped("d")));
 
-        builder()
-                .constants("a")
+        assertMatch(
+                actual,
+                builder().grouped("a", "b", "c").build(),
+                Optional.empty());
+
+        assertMatch(
+                actual,
+                builder().grouped("a", "b").build(),
+                Optional.empty());
+
+        assertMatch(
+                actual,
+                builder().grouped("a", "c").build(),
+                Optional.of(grouped("a", "c")));
+
+        assertMatch(
+                actual,
+                builder().grouped("a").build(),
+                Optional.of(grouped("a")));
+
+        assertMatch(
+                actual,
+                builder().grouped("c").build(),
+                Optional.of(grouped("c")));
+    }
+
+    @Test
+    public void test4()
+            throws Exception
+    {
+        List<LocalProperty<String>> actual = builder()
                 .grouped("a", "b")
-                .grouped("a", "c")
-                .assertMaxGroupingSubset(ImmutableSet.of("a", "b", "c", "d"), ImmutableSet.of("a", "b", "c"))
-                .assertMaxGroupingSubset(ImmutableSet.of("a", "b", "c"), ImmutableSet.of("a", "b", "c"))
-                .assertMaxGroupingSubset(ImmutableSet.of("a", "b"), ImmutableSet.of("a", "b"))
-                .assertMaxGroupingSubset(ImmutableSet.of("a", "c"), ImmutableSet.of("a"))
-                .assertMaxGroupingSubset(ImmutableSet.of("b"), ImmutableSet.of("b"))
-                .assertMaxGroupingSubset(ImmutableSet.of("b", "c"), ImmutableSet.of("b", "c"));
+                .grouped("c")
+                .build();
 
-        builder()
-                .constants("b")
+        assertMatch(
+                actual,
+                builder().grouped("a", "b", "c", "d").build(),
+                Optional.of(grouped("d")));
+
+        assertMatch(
+                actual,
+                builder().grouped("a", "b", "c").build(),
+                Optional.empty());
+
+        assertMatch(
+                actual,
+                builder().grouped("a", "b").build(),
+                Optional.empty());
+
+        assertMatch(
+                actual,
+                builder().grouped("b", "c").build(),
+                Optional.of(grouped("b", "c")));
+
+        assertMatch(
+                actual,
+                builder().grouped("a").build(),
+                Optional.of(grouped("a")));
+
+        assertMatch(
+                actual,
+                builder().grouped("c").build(),
+                Optional.of(grouped("c")));
+    }
+
+    @Test
+    public void test5()
+            throws Exception
+    {
+        List<LocalProperty<String>> actual = builder()
                 .sorted("a", SortOrder.ASC_NULLS_FIRST)
                 .sorted("b", SortOrder.ASC_NULLS_FIRST)
                 .sorted("c", SortOrder.ASC_NULLS_FIRST)
-                .assertMaxGroupingSubset(ImmutableSet.of("a", "c", "d"), ImmutableSet.of("a", "c"))
-                .assertMaxGroupingSubset(ImmutableSet.of("a", "c"), ImmutableSet.of("a", "c"));
+                .build();
+
+        assertMatch(
+                actual,
+                builder().grouped("a", "b", "c", "d").build(),
+                Optional.of(grouped("d")));
+
+        assertMatch(
+                actual,
+                builder().grouped("a", "b", "c").build(),
+                Optional.empty());
+
+        assertMatch(
+                actual,
+                builder().grouped("a", "b").build(),
+                Optional.empty());
+
+        assertMatch(
+                actual,
+                builder().grouped("a").build(),
+                Optional.empty());
+
+        assertMatch(
+                actual,
+                builder().grouped("b", "c").build(),
+                Optional.of(grouped("b", "c")));
+
+        assertMatch(
+                actual,
+                builder().grouped("b").build(),
+                Optional.of(grouped("b")));
     }
 
-    public static Checker builder()
+    @Test
+    public void test6()
+            throws Exception
     {
-        return new Checker();
+        List<LocalProperty<String>> actual = builder()
+                .sorted("a", SortOrder.ASC_NULLS_FIRST)
+                .grouped("b", "c")
+                .sorted("d", SortOrder.ASC_NULLS_FIRST)
+                .build();
+
+        assertMatch(
+                actual,
+                builder().grouped("a", "b", "c", "d", "e").build(),
+                Optional.of(grouped("e")));
+
+        assertMatch(
+                actual,
+                builder().grouped("a", "b", "c", "d").build(),
+                Optional.empty());
+
+        assertMatch(
+                actual,
+                builder().grouped("a", "b", "c").build(),
+                Optional.empty());
+
+        assertMatch(
+                actual,
+                builder().grouped("a", "b").build(),
+                Optional.of(grouped("b")));
+
+        assertMatch(
+                actual,
+                builder().grouped("a").build(),
+                Optional.empty());
+
+        assertMatch(
+                actual,
+                builder().grouped("b").build(),
+                Optional.of(grouped("b")));
+
+        assertMatch(
+                actual,
+                builder().grouped("d").build(),
+                Optional.of(grouped("d")));
+
     }
 
-    public static class Checker
+    @Test
+    public void test7()
+            throws Exception
+    {
+        List<LocalProperty<String>> actual = builder()
+                .constant("a")
+                .grouped("a", "b")
+                .build();
+
+        assertMatch(
+                actual,
+                builder().grouped("a", "b", "c").build(),
+                Optional.of(grouped("c")));
+
+        assertMatch(
+                actual,
+                builder().grouped("a", "b").build(),
+                Optional.empty());
+
+        assertMatch(
+                actual,
+                builder().grouped("a").build(),
+                Optional.empty());
+
+        assertMatch(
+                actual,
+                builder().grouped("b").build(),
+                Optional.empty());
+    }
+
+    @Test
+    public void test9()
+            throws Exception
+    {
+        List<LocalProperty<String>> actual = builder()
+                .constant("a")
+                .grouped("b")
+                .build();
+
+        assertMatch(
+                actual,
+                builder().grouped("a", "b", "c").build(),
+                Optional.of(grouped("c")));
+
+        assertMatch(
+                actual,
+                builder().grouped("a", "b").build(),
+                Optional.empty());
+
+        assertMatch(
+                actual,
+                builder().grouped("a").build(),
+                Optional.empty());
+
+        assertMatch(
+                actual,
+                builder().grouped("b").build(),
+                Optional.empty());
+
+    }
+
+    @Test
+    public void test10()
+            throws Exception
+    {
+        List<LocalProperty<String>> actual = builder()
+                .constant("a")
+                .grouped("a", "b")
+                .grouped("a", "c")
+                .build();
+
+        assertMatch(
+                actual,
+                builder().grouped("a", "b", "c", "d").build(),
+                Optional.of(grouped("d")));
+
+        assertMatch(
+                actual,
+                builder().grouped("a", "b", "c").build(),
+                Optional.empty());
+
+        assertMatch(
+                actual,
+                builder().grouped("a", "b").build(),
+                Optional.empty());
+
+        assertMatch(
+                actual,
+                builder().grouped("a", "c").build(),
+                Optional.of(grouped("c")));
+
+        assertMatch(
+                actual,
+                builder().grouped("b").build(),
+                Optional.empty());
+
+        assertMatch(
+                actual,
+                builder().grouped("b", "c").build(),
+                Optional.empty());
+    }
+
+    @Test
+    public void test11()
+            throws Exception
+    {
+        List<LocalProperty<String>> actual = builder()
+                .constant("b")
+                .sorted("a", SortOrder.ASC_NULLS_FIRST)
+                .sorted("b", SortOrder.ASC_NULLS_FIRST)
+                .sorted("c", SortOrder.ASC_NULLS_FIRST)
+                .build();
+
+        assertMatch(
+                actual,
+                builder().grouped("a", "b", "d").build(),
+                Optional.of(grouped("d")));
+
+        assertMatch(
+                actual,
+                builder().grouped("a", "c").build(),
+                Optional.empty());
+    }
+
+    private static GroupingProperty<String> grouped(String... columns)
+    {
+        return new GroupingProperty<>(Arrays.asList(columns));
+    }
+
+    private static Builder builder()
+    {
+        return new Builder();
+    }
+
+    private static class Builder
     {
         private final List<LocalProperty<String>> properties = new ArrayList<>();
-        private final Set<String> constants = new HashSet<>();
 
-        public Checker grouped(String... columns)
+        public Builder grouped(String... columns)
         {
             properties.add(new GroupingProperty<>(Arrays.asList(columns)));
             return this;
         }
 
-        public Checker sorted(String column, SortOrder order)
+        public Builder sorted(String column, SortOrder order)
         {
             properties.add(new SortingProperty<>(column, order));
             return this;
         }
 
-        public Checker constants(String... columns)
+        public Builder constant(String column)
         {
-            constants.addAll(Arrays.asList(columns));
+            properties.add(new ConstantProperty<>(column));
             return this;
         }
 
-        public Checker assertMaxGroupingSubset(Set<String> candidates, Set<String> expected)
+        public List<LocalProperty<String>> build()
         {
-            Set<String> actual = LocalProperty.getMaxGroupingSubset(properties, constants, candidates);
-            assertTrue(actual.equals(expected), String.format(
-                    "Expected %s => %s given constants = %s, candidates = %s. However, found => %s",
-                    properties,
-                    new GroupingProperty<>(expected),
-                    constants,
-                    candidates,
-                    new GroupingProperty<>(actual)));
-            return this;
+            return new ArrayList<>(properties);
         }
     }
 }

@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
+import com.facebook.presto.spi.ConstantProperty;
+import com.facebook.presto.spi.GroupingProperty;
 import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.sql.planner.Symbol;
 import com.google.common.collect.ImmutableList;
@@ -22,6 +24,7 @@ import com.google.common.collect.ImmutableSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -152,7 +155,19 @@ class ActualProperties
 
     public Set<Symbol> getMaxGroupingSubset(List<Symbol> columns)
     {
-        return LocalProperty.getMaxGroupingSubset(localProperties, constants.keySet(), columns);
+        ImmutableList.Builder<LocalProperty<Symbol>> properties = ImmutableList.builder();
+        for (Symbol constant : constants.keySet()) {
+            properties.add(new ConstantProperty<>(constant));
+        }
+        properties.addAll(localProperties);
+
+        Set<Symbol> result = new HashSet<>(columns);
+        List<Optional<LocalProperty<Symbol>>> match = LocalProperty.match(properties.build(), ImmutableList.of(new GroupingProperty<>(columns)));
+        if (match.get(0).isPresent()) {
+            result.removeAll(match.get(0).get().getColumns());
+        }
+
+        return result;
     }
 
     public static class Builder
