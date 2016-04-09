@@ -20,8 +20,10 @@ import com.facebook.presto.sql.optimizer.tree.Reference;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.sql.optimizer.engine.Pattern.ANY_RECURSIVE;
@@ -32,6 +34,10 @@ public class Memo
     private int count;
     private final Map<String, Set<Expression>> equivalenceClasses;
     private final Map<Expression, String> expressionToClass = new HashMap<>();
+    private final VariableAllocator allocator = () -> {
+        ++count;
+        return "g" + count;
+    };
 
     public Memo()
     {
@@ -45,27 +51,56 @@ public class Memo
 
     public EquivalenceClass insert(Expression expression)
     {
-        Let let = new SSA(() -> {
-            ++count;
-            return "g" + count;
-        }).toSsa(expression);
+        Let let = new SSA(allocator).toSsa(expression);
 
         for (Map.Entry<String, Expression> assignment : let.getAssignments().entrySet()) {
             String name = assignment.getKey();
             Expression value = assignment.getValue();
 
-            equivalenceClasses.computeIfAbsent(name, k -> new HashSet<>())
-                    .add(value);
+            add(name, value);
         }
 
         return new EquivalenceClass(((Reference) let.getExpression()).getName());
     }
 
+    private void add(String name, Expression value)
+    {
+        equivalenceClasses.computeIfAbsent(name, n -> new HashSet<>()).add(value);
+        expressionToClass.put(value, name);
+    }
+
     public Expression addEquivalence(EquivalenceClass equivalenceClass, Expression expression)
     {
-        // TODO:
+        Expression rewritten = addRecursiveAndRewrite(expression);
 
-        return null;
+        String clazz = expressionToClass.get(rewritten);
+        if (!equivalenceClass.getName().equals(clazz)) {
+            System.out.println(String.format("Need to merge %s and %s", equivalenceClass.getName(), clazz));
+            // TODO: merge classes
+        }
+
+        return rewritten;
+    }
+
+    private Expression addRecursiveAndRewrite(Expression expression)
+    {
+        if (expression instanceof Reference) {
+            return expression;
+        }
+
+        List<Expression> arguments = expression.getArguments().stream()
+                .map(this::addRecursiveAndRewrite)
+                .map(e -> new Reference(getEquivalenceClass(e).getName()))
+                .collect(Collectors.toList());
+
+        Expression rewritten = expression.copyWithArguments(arguments);
+        String clazz = expressionToClass.get(rewritten);
+        if (clazz == null) {
+            clazz = allocator.newVariable();
+            add(clazz, rewritten);
+        }
+
+        return rewritten;
     }
 
     public boolean isOptimized(EquivalenceClass clazz, Requirements requirements)
@@ -81,9 +116,11 @@ public class Memo
 
     public EquivalenceClass getEquivalenceClass(Expression expression)
     {
-        checkArgument(expression instanceof Reference);
+        if (expression instanceof Reference) {
+            return new EquivalenceClass(((Reference) expression).getName());
+        }
 
-        return new EquivalenceClass(((Reference) expression).getName());
+        return new EquivalenceClass(expressionToClass.get(expression));
     }
 
     public Iterator<Expression> matchPattern(Pattern pattern, Expression expression)
