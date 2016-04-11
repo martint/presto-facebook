@@ -14,14 +14,12 @@
 package com.facebook.presto.sql.optimizer;
 
 import com.facebook.presto.sql.optimizer.engine.Engine;
-import com.facebook.presto.sql.optimizer.engine.Memo;
 import com.facebook.presto.sql.optimizer.engine.Rule;
 import com.facebook.presto.sql.optimizer.rule.PushFilterThroughProject;
 import com.facebook.presto.sql.optimizer.tree.Call;
 import com.facebook.presto.sql.optimizer.tree.Expression;
 import com.facebook.presto.sql.optimizer.tree.Reference;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
@@ -45,18 +43,18 @@ public class Main2
         Set<Expression> g4 = ImmutableSet.of(
                 new Call("e5"));
 
-        Memo memo = new Memo(
-                ImmutableMap.<String, Set<Expression>>builder()
-                        .put("g0", g0)
-                        .put("g1", g1)
-                        .put("g2", g2)
-                        .put("g3", g3)
-                        .put("g4", g4)
-                        .build());
-
-        System.out.println(memo.dump());
-        System.out.println();
-        memo.match(new Reference("g0")).forEach(System.out::println);
+//        Memo memo = new Memo(
+//                ImmutableMap.<String, Set<Expression>>builder()
+//                        .put("g0", g0)
+//                        .put("g1", g1)
+//                        .put("g2", g2)
+//                        .put("g3", g3)
+//                        .put("g4", g4)
+//                        .build());
+//
+//        System.out.println(memo.dump());
+//        System.out.println();
+//        memo.match(new Reference("g0")).forEach(System.out::println);
 
         List<Rule> rules = ImmutableList.of(
                 new PushFilterThroughProject()
