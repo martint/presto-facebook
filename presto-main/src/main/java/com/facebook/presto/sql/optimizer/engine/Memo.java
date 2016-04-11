@@ -32,22 +32,15 @@ import static com.google.common.base.Preconditions.checkArgument;
 public class Memo
 {
     private int count;
-    private final Map<String, Set<Expression>> equivalenceClasses;
+    private final VariableAllocator allocator = () -> "$" + (count++);
+
+    // for merging groups efficiently
+    private final DisjointSets<String> classes = new DisjointSets<>();
+    private final Map<Reference, String> referencesToClasses = new HashMap<>();
+
+    private final Map<String, Set<Expression>> equivalenceClasses = new HashMap<>();
     private final Map<Expression, String> expressionToClass = new HashMap<>();
-    private final VariableAllocator allocator = () -> {
-        ++count;
-        return "g" + count;
-    };
 
-    public Memo()
-    {
-        equivalenceClasses = new HashMap<>();
-    }
-
-    public Memo(Map<String, Set<Expression>> equivalenceClasses)
-    {
-        this.equivalenceClasses = equivalenceClasses;
-    }
 
     public EquivalenceClass insert(Expression expression)
     {

@@ -37,7 +37,7 @@ public class DisjointSets<T>
     private int[] ranks;
     private int[] next;
 
-    private int last = -1;
+    private int count;
 
     public DisjointSets()
     {
@@ -54,16 +54,18 @@ public class DisjointSets<T>
             return;
         }
 
-        ++last;
-        if (last >= nodes.length) {
+        if (count == nodes.length) {
             grow();
         }
 
-        indices.put(element, last);
-        nodes[last] = element;
-        parents[last] = -1;
-        ranks[last] = 0;
-        next[last] = -1;
+        int index = count;
+        count++;
+
+        indices.put(element, index);
+        nodes[index] = element;
+        parents[index] = -1;
+        next[index] = -1;
+        ranks[index] = 0;
     }
 
     public T find(T element)
@@ -131,11 +133,16 @@ public class DisjointSets<T>
     public Collection<Set<T>> sets()
     {
         Map<Integer, Set<T>> sets = new HashMap<>();
-        for (int i = 0; i <= last; i++) {
+        for (int i = 0; i < count; i++) {
             int root = findRoot(i);
             sets.computeIfAbsent(root, v -> new HashSet<>()).add(nodes[i]);
         }
         return sets.values();
+    }
+
+    public int size()
+    {
+        return count;
     }
 
     private int findRoot(int index)
