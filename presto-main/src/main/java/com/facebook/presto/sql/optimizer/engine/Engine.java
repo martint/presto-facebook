@@ -69,7 +69,7 @@ public class Engine
                                 System.out.println(String.format("Apply %s(%s)", rule, match));
                                 for (Expression transformed : rule.apply(match)) {
                                     System.out.println(String.format("-> %s", transformed));
-                                    transformed = memo.addEquivalence(equivalenceClass, transformed);
+                                    // TODO: transformed = memo.recordEquivalence(equivalenceClass, transformed);
                                     expressions.add(transformed);
                                 }
                             }
