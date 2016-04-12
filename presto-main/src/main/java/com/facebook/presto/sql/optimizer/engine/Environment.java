@@ -31,7 +31,7 @@ public class Environment
             private int count;
 
             @Override
-            public String newVariable()
+            public String newName()
             {
                 count++;
                 return "$" + count;
@@ -46,7 +46,7 @@ public class Environment
 
     public String newVariable()
     {
-        return allocator.newVariable();
+        return allocator.newName();
     }
 
     public void set(String variable, Expression expression)

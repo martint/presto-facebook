@@ -15,7 +15,7 @@ package com.facebook.presto.sql.optimizer.engine;
 
 public interface VariableAllocator
 {
-    String newVariable();
+    String newName();
 
     static VariableAllocator simpleAllocator()
     {
@@ -23,7 +23,7 @@ public interface VariableAllocator
             private int count;
 
             @Override
-            public String newVariable()
+            public String newName()
             {
                 ++count;
                 return "$" + count;

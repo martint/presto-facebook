@@ -40,7 +40,7 @@ public class SSA
 
     private Reference assignVariable(Expression expression)
     {
-        String name = allocator.newVariable();
+        String name = allocator.newName();
 
         List<Expression> arguments = expression.getArguments().stream()
                 .map(this::assignVariable)
