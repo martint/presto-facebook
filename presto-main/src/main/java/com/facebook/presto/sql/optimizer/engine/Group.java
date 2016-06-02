@@ -53,4 +53,9 @@ public class Group
     {
         this.expressions.addAll(expressions);
     }
+
+    public Set<Expression> getReferrers()
+    {
+        return referrers;
+    }
 }

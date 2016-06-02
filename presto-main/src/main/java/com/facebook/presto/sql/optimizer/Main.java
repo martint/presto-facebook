@@ -13,29 +13,35 @@
  */
 package com.facebook.presto.sql.optimizer;
 
-import com.facebook.presto.sql.optimizer.engine.Engine;
-import com.facebook.presto.sql.optimizer.engine.Rule;
-import com.facebook.presto.sql.optimizer.rule.PushFilterThroughProject;
+import com.facebook.presto.sql.optimizer.engine.EquivalenceClass;
+import com.facebook.presto.sql.optimizer.engine.Memo;
 import com.facebook.presto.sql.optimizer.tree.Expression;
 import com.facebook.presto.sql.optimizer.tree.Filter;
 import com.facebook.presto.sql.optimizer.tree.Get;
 import com.facebook.presto.sql.optimizer.tree.Project;
-import com.google.common.collect.ImmutableList;
-
-import java.util.List;
 
 public class Main
 {
+    private Main()
+    {
+    }
+
     public static void main(String[] args)
     {
-        Expression expression = new Filter(new Project(new Get("t")));
+        Expression expression1 = new Filter(new Project(new Get("t")));
+        Expression expression2 = new Filter(new Project(new Get("u")));
 
-        List<Rule> rules = ImmutableList.of(
-                new PushFilterThroughProject()
-        );
+        Expression expression3 = new Project(new Get("t"));
+        Expression expression4 = new Project(new Get("u"));
 
-        Engine engine = new Engine(rules);
+        Memo memo = new Memo();
+        System.out.println(memo.insert(expression1));
+        System.out.println(memo.insert(expression2));
 
-        engine.optimize(expression);
+        EquivalenceClass group1 = memo.insert(expression3);
+        memo.insert(group1, expression4);
+
+        System.out.println(memo.dump());
+//        engine.optimize(expression);
     }
 }
