@@ -22,6 +22,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -33,44 +34,66 @@ public class Memo
     private final Map<String, Group> groups = new HashMap<>();
     private final Map<Expression, String> expressionToGroup = new HashMap<>();
 
+    private Group root;
     private int count;
-    private final VariableAllocator allocator = () -> "$" + (count++);
+    private final VariableAllocator allocator = () -> "@" + (count++);
 
     public EquivalenceClass insert(Expression expression)
     {
-        Group group = insertInternal(expression);
-        return new EquivalenceClass(group.getId());
+        if (root == null) {
+            root = createNewGroup();
+        }
+
+        EquivalenceClass result = new EquivalenceClass(root.getId());
+        root = insert(result, expression);
+        return result;
     }
 
-//        Let let = new SSA(allocator).toSsa(expression);
+    private Group createNewGroup()
+    {
+        Group group = new Group(allocator.newName());
+        groups.put(group.getId(), group);
 
-//        for (Map.Entry<String, Expression> assignment : let.getAssignments().entrySet()) {
-//            String name = assignment.getKey();
-//            Expression value = assignment.getValue();
-//
-////            add(name, value);
-//        }
+        return group;
+    }
 
-//        return new EquivalenceClass(((Reference) let.getExpression()).getName());
-
-    // TODO: need to return rewritten expression so that explorer can queue it up for further exploration
-    public void insert(EquivalenceClass group, Expression expression)
+    //     TODO: need to return rewritten expression so that explorer can queue it up for further exploration
+    public Group insert(EquivalenceClass group, Expression expression)
     {
         Group targetGroup = insertInternal(expression);
 
         if (!targetGroup.getId().equals(group.getName())) {
-            mergeGroups(targetGroup.getId(), group.getName());
+            return mergeGroups(targetGroup.getId(), group.getName());
         }
+
+        return targetGroup;
     }
 
-    private void mergeGroups(String a, String b)
+    public Group mergeGroups(String a, String b)
     {
-        Group newGroup = new Group(allocator.newName());
+        Group newGroup = createNewGroup();
+
         Group group1 = groups.get(a);
         Group group2 = groups.get(b);
 
         newGroup.addExpressions(group1.getExpressions());
         newGroup.addExpressions(group2.getExpressions());
+
+
+        Map<Expression, Expression> mapping = new HashMap<>();
+        mapping.put(new Reference(group1.getId()), new Reference(newGroup.getId()));
+        mapping.put(new Reference(group2.getId()), new Reference(newGroup.getId()));
+
+        for (Expression expression : group1.getReferrers()) {
+            Expression rewritten = rewrite(expression, e -> mapping.getOrDefault(e, e));
+//            insert(new EquivalenceClass(group));
+            System.out.println(expression + " => " + rewritten);
+        }
+
+        for (Expression expression : group2.getReferrers()) {
+            Expression rewritten = rewrite(expression, e -> mapping.getOrDefault(e, e));
+            System.out.println(expression + " => " + rewritten);
+        }
 
         // TODO:
         //   - rewrite referrers with new group
@@ -78,28 +101,46 @@ public class Memo
         //   - drop old groups
         //       - remove all expressions from expression->group map
         //       - remove group from name->group map
+
+        return newGroup;
+    }
+
+    private Expression rewrite(Expression expression, Function<Expression, Expression> mapping)
+    {
+        List<Expression> arguments = expression.getArguments().stream()
+                .map(e -> rewrite(e, mapping))
+                .collect(Collectors.toList());
+
+        return mapping.apply(expression.copyWithArguments(arguments));
     }
 
     private Group insertInternal(Expression expression)
     {
         Expression rewritten = expression;
         if (!expression.getArguments().isEmpty()) {
-            List<Expression> rewrittenChildren = expression.getArguments().stream()
+            List<Group> children = expression.getArguments().stream()
                     .map(argument -> insertInternal(argument))
+                    .collect(Collectors.toList());
+
+            List<Expression> arguments = children.stream()
                     .map(Group::getId)
                     .map(Reference::new)
                     .collect(Collectors.toList());
 
-            rewritten = expression.copyWithArguments(rewrittenChildren);
+            rewritten = expression.copyWithArguments(arguments);
+
+            for (Group child : children) {
+                child.addReferrer(rewritten);
+            }
         }
 
         String name = expressionToGroup.get(rewritten);
+        Group group = groups.get(name);
         if (name == null) {
-            name = allocator.newName();
-            groups.put(name, new Group(name));
+            group = createNewGroup();
+            expressionToGroup.put(rewritten, group.getId());
         }
 
-        Group group = groups.get(name);
         group.add(rewritten);
 
         return group;
@@ -213,8 +254,14 @@ public class Memo
     {
         StringBuilder builder = new StringBuilder();
 
+        builder.append("== Groups ==\n");
         for (Map.Entry<String, Group> entry : groups.entrySet()) {
             builder.append(entry.getKey() + ": " + entry.getValue().getExpressions() + "\n");
+        }
+
+        builder.append("== Expressions ==\n");
+        for (Map.Entry<Expression, String> entry : expressionToGroup.entrySet()) {
+            builder.append(entry.getKey() + " -> " + entry.getValue() + "\n");
         }
 
         return builder.toString();
