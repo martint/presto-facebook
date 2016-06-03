@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.optimizer;
 
-import com.facebook.presto.sql.optimizer.engine.EquivalenceClass;
 import com.facebook.presto.sql.optimizer.engine.Memo;
 import com.facebook.presto.sql.optimizer.tree.Expression;
 import com.facebook.presto.sql.optimizer.tree.Filter;
@@ -27,19 +26,20 @@ public class Main
     }
 
     public static void main(String[] args)
+            throws InterruptedException
     {
         Expression expression1 = new Filter(new Project(new Get("t")));
-        Expression expression2 = new Filter(new Project(new Get("u")));
+//        Expression expression2 = new Filter(new Project(new Get("u")));
 
-        Expression expression3 = new Project(new Get("t"));
-        Expression expression4 = new Project(new Get("u"));
+//        Expression expression3 = new Project(new Get("t"));
+//        Expression expression4 = new Project(new Get("u"));
 
         Memo memo = new Memo();
         System.out.println(memo.insert(expression1));
-        System.out.println(memo.insert(expression2));
+//        System.out.println(memo.insert(expression2));
 
-        EquivalenceClass group1 = memo.insert(expression3);
-        memo.insert(group1, expression4);
+//        EquivalenceClass group1 = memo.insert(expression3);
+//        memo.insert(group1, expression4);
 
         System.out.println(memo.dump());
 //        engine.optimize(expression);
