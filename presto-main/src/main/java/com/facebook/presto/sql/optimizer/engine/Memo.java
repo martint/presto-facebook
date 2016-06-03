@@ -18,6 +18,7 @@ import com.facebook.presto.sql.optimizer.tree.Let;
 import com.facebook.presto.sql.optimizer.tree.Reference;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -33,6 +34,7 @@ public class Memo
 {
     private final Map<String, Group> groups = new HashMap<>();
     private final Map<Expression, String> expressionToGroup = new HashMap<>();
+    private final Set<String> invalidatedGroups = new HashSet<>();
 
     private Group root;
     private int count;
@@ -113,6 +115,73 @@ public class Memo
 
         return mapping.apply(expression.copyWithArguments(arguments));
     }
+
+    /**
+     * @return the id of the new group
+     */
+    public String merge(String... groupIds)
+    {
+        Group newGroup = createNewGroup();
+
+        Map<Expression, Expression> rewriteMap = new HashMap<>();
+
+        Set<String> referrers = new HashSet<>();
+        for (String groupId : groupIds) {
+            Group group = groups.get(groupId);
+
+            for (Expression expression : group.getExpressions()) {
+                newGroup.add(expression);
+                expressionToGroup.put(expression, newGroup.getId());
+            }
+
+            for (Expression expression : group.getReferrers()) {
+                referrers.add(expressionToGroup.get(expression));
+            }
+
+            invalidatedGroups.add(groupId);
+
+            rewriteMap.put(new Reference(groupId), new Reference(newGroup.getId()));
+
+
+        }
+
+        return newGroup.getId();
+    }
+
+
+//    public String rewriteGroup(String groupId, Function<String, String> mapping)
+//    {
+//        Group group = groups.get(groupId);
+//        Group newGroup = createNewGroup();
+//
+//        for (Expression expression : group.getExpressions()) {
+//            // All args are expected to be ReferencExpression
+//
+//            List<Expression> arguments = expression.getArguments().stream()
+//                    .map(Reference.class::cast)
+//                    .map(name -> new Reference(mapping.apply(name)))
+//                    .collect(Collectors.toList());
+//
+//
+//            newGroup.add(expression);
+//            expressionToGroup.put(rewritten, newGroup.getId());
+//            // TODO: need to update references from rewritten expression
+//        }
+//
+//        Map<Expression, Expression> rewriteMap = new HashMap<>();
+//        rewriteMap.put(new Reference(groupId), new Reference(newGroup.getId()));
+//
+//        Set<String> referrers = new HashSet<>();
+//        for (Expression expression : group.getReferrers()) {
+//            referrers.add(expressionToGroup.get(expression));
+//        }
+//
+//        for (String referrer : referrers) {
+//            rewriteGroup(referrer, rewriteMap::get);
+//        }
+//
+//        return newGroup.getId();
+//    }
 
     private Group insertInternal(Expression expression)
     {
@@ -261,9 +330,15 @@ public class Memo
 
         builder.append("== Expressions ==\n");
         for (Map.Entry<Expression, String> entry : expressionToGroup.entrySet()) {
-            builder.append(entry.getKey() + " -> " + entry.getValue() + "\n");
+            builder.append(entry.getKey() + " ∈ " + entry.getValue() + "\n");
         }
 
+        builder.append("== References ==\n");
+        for (Group group : groups.values()) {
+            for (Expression expression : group.getReferrers()) {
+                builder.append(expression + " -> " + group.getId() + "\n");
+            }
+        }
         return builder.toString();
     }
 }
