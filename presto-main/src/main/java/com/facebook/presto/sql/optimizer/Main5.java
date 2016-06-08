@@ -38,6 +38,8 @@ public class Main5
                 new Filter("p2",
                         new Project("f2",
                                 new Get("t"))));
+
+        System.out.println(memo.dump());
     }
 
     public static void addEquivalentExpressions(Memo2 memo, Expression first, Expression... rest)

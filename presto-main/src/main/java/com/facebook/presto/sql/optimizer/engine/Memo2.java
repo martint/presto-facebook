@@ -27,7 +27,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 
 public class Memo2
 {
@@ -147,7 +146,6 @@ public class Memo2
             expressionsByGroup.get(targetGroup).put(expression, version);
             expressionMembership.put(expression, targetGroup);
         }
-//        expressionsByGroup.get(group).clear();
 
         Map<String, List<Expression>> referrerGroups = incomingReferences.get(group).keySet().stream()
                 .collect(Collectors.groupingBy(expressionMembership::get));
@@ -156,12 +154,6 @@ public class Memo2
         for (Map.Entry<String, List<Expression>> entry : referrerGroups.entrySet()) {
             for (Expression referrerExpression : entry.getValue()) {
                 String referrerGroup = entry.getKey();
-
-//                expressionsByGroup.get(referrerGroup).remove(referrerExpression);
-//                if (expressionMembership.get(referrerExpression).equals(referrerGroup)) {
-//                    expressionMembership.remove(referrerExpression);
-//                }
-//                incomingReferences.get(group).remove(referrerExpression);
 
                 List<Expression> newArguments = referrerExpression.getArguments().stream()
                         .map(Reference.class::cast)
@@ -316,30 +308,36 @@ public class Memo2
         DisjointSets<Integer> ranks = new DisjointSets<>();
 
         for (Map.Entry<String, Long> entry : groups.entrySet()) {
-            String group = entry.getKey();
+            String group =  entry.getKey();
+            int id = ids.get(group);
 
-            clusters.add(ids.get(group));
-            ranks.add(ids.get(group));
+            clusters.add(id);
+            ranks.add(id);
 
             boolean active = !merges.containsKey(group);
-            graph.addNode(ids.get(group), new Node(Node.Type.GROUP, group, active, entry.getValue()));
+            graph.addNode(id, new Node(Node.Type.GROUP, group, active, entry.getValue()));
         }
 
         for (Map.Entry<Expression, Long> entry : expressions.entrySet()) {
             Expression expression = entry.getKey();
-            clusters.add(ids.get(expression));
-            ranks.add(ids.get(expression));
+            int id = ids.get(expression);
+
+            clusters.add(id);
+            ranks.add(id);
 
             boolean active = !rewrites.containsKey(expression);
-            graph.addNode(ids.get(expression), new Node(Node.Type.EXPRESSION, expression, active, entry.getValue()));
+            graph.addNode(id, new Node(Node.Type.EXPRESSION, expression, active, entry.getValue()));
         }
 
         // membership
         for (Map.Entry<String, Map<Expression, Long>> entry : expressionsByGroup.entrySet()) {
             String group = entry.getKey();
+            int groupId = ids.get(group);
             for (Map.Entry<Expression, Long> versioned : entry.getValue().entrySet()) {
-                clusters.union(ids.get(group), ids.get(versioned.getKey()));
-                graph.addEdge(ids.get(group), ids.get(versioned.getKey()), new Edge(Edge.Type.CONTAINS, versioned.getValue()));
+                int expressionId = ids.get(versioned.getKey());
+
+                clusters.union(groupId, expressionId);
+                graph.addEdge(groupId, ids.get(versioned.getKey()), new Edge(Edge.Type.CONTAINS, versioned.getValue()));
             }
         }
 
@@ -356,10 +354,13 @@ public class Memo2
             String source = entry.getKey();
             String target = entry.getValue().getItem();
 
-            clusters.union(ids.get(source), ids.get(target));
-            ranks.union(ids.get(source), ids.get(target));
+            int sourceId = ids.get(source);
+            int targetId = ids.get(target);
 
-            graph.addEdge(ids.get(source), ids.get(target), new Edge(Edge.Type.MERGED_WITH, entry.getValue().getVersion()));
+            clusters.union(sourceId, targetId);
+            ranks.union(sourceId, targetId);
+
+            graph.addEdge(sourceId, targetId, new Edge(Edge.Type.MERGED_WITH, entry.getValue().getVersion()));
         }
 
         // rewrites
@@ -367,10 +368,13 @@ public class Memo2
             Expression from = entry.getKey();
             Expression to = entry.getValue().getItem();
 
-            clusters.union(ids.get(from), ids.get(to));
-            ranks.union(ids.get(from), ids.get(to));
+            int fromId = ids.get(from);
+            int toId = ids.get(to);
 
-            graph.addEdge(ids.get(from), ids.get(to), new Edge(Edge.Type.REWRITTEN_TO, entry.getValue().getVersion()));
+            clusters.union(fromId, toId);
+            ranks.union(fromId, toId);
+
+            graph.addEdge(fromId, toId, new Edge(Edge.Type.REWRITTEN_TO, entry.getValue().getVersion()));
         }
 
         int i = 0;
