@@ -45,15 +45,15 @@ public class Main4
         System.out.println(memo.toGraphviz());
         System.out.println();
 
-        memo.mergeInto("G0", "G6");
+        memo.mergeInto("$0", "$6");
 //        memo.verify();
         System.out.println(memo.toGraphviz());
 
-        memo.mergeInto("G1", "G4");
+        memo.mergeInto("$1", "$4");
 //        memo.verify();
         System.out.println(memo.toGraphviz());
 
-        memo.mergeInto("G3", "G0");
+        memo.mergeInto("$3", "$0");
 //        memo.verify();
         System.out.println(memo.toGraphviz());
 

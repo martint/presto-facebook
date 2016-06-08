@@ -29,7 +29,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 public class DisjointSets<T>
 {
-    private final static int INITIAL_SIZE = 10;
+    private static final int INITIAL_SIZE = 10;
 
     private final Object2IntMap<T> indices = new Object2IntLinkedOpenHashMap<>(INITIAL_SIZE);
     private T[] nodes;
@@ -106,7 +106,8 @@ public class DisjointSets<T>
         int aIndex = indices.getInt(a);
         int bIndex = indices.getInt(b);
 
-        checkArgument(aIndex != -1 && bIndex != -1);
+        checkArgument(aIndex != -1, "Element not found: %s", a);
+        checkArgument(bIndex != -1, "Element not found: %s", b);
 
         int aRoot = findRoot(aIndex);
         int bRoot = findRoot(bIndex);

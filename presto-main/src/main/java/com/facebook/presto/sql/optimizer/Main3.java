@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.optimizer;
 
 import com.facebook.presto.sql.optimizer.engine.Memo2;
+import com.facebook.presto.sql.optimizer.tree.Expression;
 import com.facebook.presto.sql.optimizer.tree.Filter;
 import com.facebook.presto.sql.optimizer.tree.Get;
 
@@ -27,34 +28,47 @@ public class Main3
             throws InterruptedException
     {
         Memo2 memo = new Memo2();
-        String root = memo.insert(
+
+        addEquivalentExpressions(
+                memo,
                 new Filter("a1",
                         new Filter("a2",
                                 new Filter("a3",
-                                        new Get("t")))));
-
-        memo.insert(root,
+                                        new Get("t")))),
                 new Filter("a1",
                         new Filter("a2",
                                 new Filter("a3",
-                                        new Get("u")))));
-
-        memo.insert(root,
+                                        new Get("u")))),
                 new Filter("b1",
                         new Filter("b2",
                                 new Filter("b3",
                                         new Get("v")))));
 
-        System.out.println(memo.toGraphviz());
-        System.out.println();
+        addEquivalentExpressions(
+                memo,
+                new Get("t"),
+                new Get("u")
+        );
 
-        memo.mergeInto("G1", "G9");
+        addEquivalentExpressions(
+                memo,
+                new Filter("a2",
+                        new Filter("a3",
+                                new Get("u"))),
+                new Filter("b2",
+                        new Filter("b3",
+                                new Get("v"))));
+
+    }
+
+    public static void addEquivalentExpressions(Memo2 memo, Expression first, Expression... rest)
+    {
+        String group = memo.insert(first);
         System.out.println(memo.toGraphviz());
 
-        memo.mergeInto("G2", "G6");
-        System.out.println(memo.toGraphviz());
-
-        memo.mergeInto("G0", "G4");
-        System.out.println(memo.toGraphviz());
+        for (Expression expression : rest) {
+            memo.insert(group, expression);
+            System.out.println(memo.toGraphviz());
+        }
     }
 }
