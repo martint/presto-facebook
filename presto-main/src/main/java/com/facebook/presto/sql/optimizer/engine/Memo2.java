@@ -18,11 +18,9 @@ import com.facebook.presto.sql.optimizer.tree.Reference;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 
-import java.util.ArrayDeque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Queue;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -49,6 +47,13 @@ public class Memo2
         return insertInternal(expression);
     }
 
+    public void insert(String group, Expression expression)
+    {
+        version++;
+        insertInternal(group, expression);
+    }
+
+
     private String insertInternal(Expression expression)
     {
         if (expression instanceof Reference) {
@@ -67,13 +72,6 @@ public class Memo2
         return group;
     }
 
-
-    public void insert(String group, Expression expression)
-    {
-        version++;
-        insertInternal(group, expression);
-    }
-
     private void insertInternal(String group, Expression expression)
     {
         if (expression instanceof Reference) {
@@ -88,7 +86,7 @@ public class Memo2
             addToGroup(rewritten, group);
         }
         else if (!previousGroup.equals(group)) {
-            mergeInto(previousGroup, group);
+            mergeInto(group, previousGroup);
         }
     }
 
@@ -137,8 +135,6 @@ public class Memo2
         checkArgument(groups.containsKey(targetGroup), "Group doesn't exist: %s", targetGroup);
         checkArgument(groups.containsKey(group), "Group doesn't exist: %s", group);
 
-        verifyNoCycle(targetGroup, group);
-
         merges.put(group, new VersionedItem<>(targetGroup, version));
 
         // move all expressions to the target group
@@ -170,23 +166,6 @@ public class Memo2
                     rewrites.put(referrerExpression, new VersionedItem<>(rewritten, version));
                 }
             }
-        }
-
-//        removeGroup(group);
-    }
-
-    private void verifyNoCycle(String group1, String group2)
-    {
-        Queue<String> pending = new ArrayDeque<>();
-        pending.add(group1);
-
-        while (!pending.isEmpty()) {
-            String current = pending.poll();
-            checkArgument(!current.equals(group2), "Cycle detected");
-
-            incomingReferences.get(current).keySet().stream()
-                    .map(expressionMembership::get)
-                    .forEach(pending::add);
         }
     }
 
