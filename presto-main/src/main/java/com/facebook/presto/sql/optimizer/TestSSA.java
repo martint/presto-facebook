@@ -23,10 +23,10 @@ public class TestSSA
 {
     public static void main(String[] args)
     {
-        System.out.println(
-                new SSA(VariableAllocator.simpleAllocator())
-                        .toSsa(
-                                new Filter(new Project(new Get("t")))
-                        ));
+//        System.out.println(
+//                new SSA(VariableAllocator.simpleAllocator())
+//                        .toSsa(
+//                                new Filter(new Project(new Get("t")))
+//                        ));
     }
 }

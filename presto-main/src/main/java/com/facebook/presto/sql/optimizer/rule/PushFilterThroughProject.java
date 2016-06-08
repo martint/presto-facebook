@@ -49,7 +49,7 @@ public class PushFilterThroughProject
         Expression argument = resolver.resolve(root.getArguments().get(0));
 
         if (root instanceof Filter && argument instanceof Project) {
-            return ImmutableList.of(new Project(new Filter(argument.getArguments().get(0))));
+            return ImmutableList.of(new Project(new Filter(((Filter) root).getCriteria(), argument.getArguments().get(0))));
         }
 
         return ImmutableList.of();

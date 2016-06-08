@@ -23,9 +23,17 @@ import static com.google.common.base.Preconditions.checkArgument;
 public class Filter
     extends Expression
 {
-    public Filter(Expression argument)
+    private String criteria;
+
+    public Filter(String criteria, Expression argument)
     {
         super(ImmutableList.of(argument));
+        this.criteria = criteria;
+    }
+
+    public String getCriteria()
+    {
+        return criteria;
     }
 
     @Override
@@ -44,15 +52,14 @@ public class Filter
     public Expression copyWithArguments(List<Expression> arguments)
     {
         checkArgument(arguments.size() == 1);
-        return new Filter(arguments.get(0));
+        return new Filter(criteria, arguments.get(0));
     }
 
     @Override
     public String toString()
     {
-        return String.format("(filter %s)", getArguments().get(0));
+        return String.format("(filter %s %s)", criteria, getArguments().get(0));
     }
-
 
     @Override
     public boolean equals(Object o)
@@ -63,13 +70,14 @@ public class Filter
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        Expression other = (Expression) o;
-        return Objects.equals(getArguments(), other.getArguments());
+        Filter filter = (Filter) o;
+        return Objects.equals(criteria, filter.criteria) &&
+                Objects.equals(criteria, filter.criteria);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(getArguments());
+        return Objects.hash(criteria, getArguments());
     }
 }
