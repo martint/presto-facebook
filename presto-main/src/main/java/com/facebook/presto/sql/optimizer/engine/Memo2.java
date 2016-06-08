@@ -15,6 +15,8 @@ package com.facebook.presto.sql.optimizer.engine;
 
 import com.facebook.presto.sql.optimizer.tree.Expression;
 import com.facebook.presto.sql.optimizer.tree.Reference;
+import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableMap;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -32,6 +34,9 @@ import static com.google.common.base.Preconditions.checkState;
 public class Memo2
 {
     private long groupCounter;
+
+    private final Set<String> groups = new HashSet<>();
+    private final Set<Expression> expressions = new HashSet<>();
 
     private final Map<String, Set<Expression>> expressionsByGroup = new HashMap<>();
     private final Map<Expression, String> expressionMembership = new HashMap<>();
@@ -67,6 +72,7 @@ public class Memo2
             expressionMembership.put(rewritten, group);
         }
 
+        expressions.add(rewritten);
         expressionsByGroup.get(group).add(rewritten);
 
         for (String child : childGroups) {
@@ -88,17 +94,21 @@ public class Memo2
 
     private String createNewGroup()
     {
-        String result = "G" + groupCounter;
+        String name = "$" + groupCounter;
         groupCounter++;
 
-        incomingReferences.put(result, new HashSet<>());
-        expressionsByGroup.put(result, new HashSet<>());
+        incomingReferences.put(name, new HashSet<>());
+        expressionsByGroup.put(name, new HashSet<>());
+        groups.add(name);
 
-        return result;
+        return name;
     }
 
     public void mergeInto(String targetGroup, String group)
     {
+        checkArgument(groups.contains(targetGroup), "Group doesn't exist: %s", targetGroup);
+        checkArgument(groups.contains(group), "Group doesn't exist: %s", group);
+
         verifyNoCycle(targetGroup, group);
 
         merges.put(group, targetGroup);
@@ -232,83 +242,159 @@ public class Memo2
         return builder.toString();
     }
 
+    private static class Node
+    {
+        public enum Type
+        {
+            GROUP, EXPRESSION
+        }
+
+        private final Type type;
+        private final Object payload;
+        private final boolean active;
+
+        public Node(Type type, Object payload, boolean active)
+        {
+            this.active = active;
+            this.type = type;
+            this.payload = payload;
+        }
+    }
+
+    private static class Edge
+    {
+        private final Type type;
+
+        public enum Type
+        {
+            CONTAINS, REFERENCES, MERGED_WITH, REWRITTEN_TO
+        }
+
+        public Edge(Type type)
+        {
+            this.type = type;
+        }
+    }
+
     public String toGraphviz()
     {
-        StringBuilder builder = new StringBuilder();
-
-        Set<String> activeGroups = expressionMembership.values().stream()
-                .collect(Collectors.toSet());
-
-        builder.append("digraph memo {\n");
-
-        for (String group : activeGroups) {
-            builder.append("\t");
-            builder.append(String.format("group_%s[label=\"%s\", shape=rect];\n", group, group));
+        Map<Object, Integer> ids = new HashMap<>();
+        for (String group : groups) {
+            ids.put(group, ids.size());
+        }
+        for (Expression expression : expressions) {
+            ids.put(expression, ids.size());
         }
 
-        for (String group : merges.keySet()) {
-            builder.append("\t");
-            builder.append(String.format("group_%s[label=\"%s\", shape=rect, fillcolor=lightgrey, style=filled];\n", group, group));
+        Graph<Integer, String, Node, Edge, Void> graph = new Graph<>();
+        DisjointSets<Integer> clusters = new DisjointSets<>();
+        DisjointSets<Integer> ranks = new DisjointSets<>();
+
+        for (String group : groups) {
+            clusters.add(ids.get(group));
+            ranks.add(ids.get(group));
+
+            boolean active = !merges.containsKey(group);
+            graph.addNode(ids.get(group), new Node(Node.Type.GROUP, group, active));
         }
 
+        for (Expression expression : expressions) {
+            clusters.add(ids.get(expression));
+            ranks.add(ids.get(expression));
+
+            boolean active = !rewrites.containsKey(expression);
+            graph.addNode(ids.get(expression), new Node(Node.Type.EXPRESSION, expression, active));
+        }
+
+        // membership
         for (Map.Entry<String, Set<Expression>> entry : expressionsByGroup.entrySet()) {
             String group = entry.getKey();
-            if (!activeGroups.contains(group)) {
-                for (Expression expression : entry.getValue()) {
-                    // TODO: dotted line?
-                    builder.append("\t");
-                    builder.append(String.format("group_%s -> expression_%s;\n", group, expression.hashCode()));
-                }
-            }
-        }
-
-        for (Map.Entry<Expression, String> entry : expressionMembership.entrySet()) {
-            Expression expression = entry.getKey();
-            String group = entry.getValue();
-
-            builder.append("\t");
-            if (rewrites.containsKey(expression)) {
-                builder.append(String.format("expression_%s[label=\"%s\", style=filled, fillcolor=lightgrey];\n", expression.hashCode(), expression.toString()));
-            }
-            else {
-                builder.append(String.format("expression_%s[label=\"%s\"];\n", expression.hashCode(), expression.toString()));
-            }
-
-            builder.append("\t");
-            builder.append(String.format("group_%s -> expression_%s;\n", group, expression.hashCode()));
-        }
-
-        for (Map.Entry<String, Set<Expression>> entry : incomingReferences.entrySet()) {
             for (Expression expression : entry.getValue()) {
-                builder.append("\t");
-                builder.append(String.format("expression_%s -> group_%s;\n", expression.hashCode(), entry.getKey()));
+                clusters.union(ids.get(group), ids.get(expression));
+                graph.addEdge(ids.get(group), ids.get(expression), new Edge(Edge.Type.CONTAINS));
             }
         }
 
+        // references
+        for (Map.Entry<String, Set<Expression>> entry : incomingReferences.entrySet()) {
+            String group = entry.getKey();
+            for (Expression expression : entry.getValue()) {
+                graph.addEdge(ids.get(expression), ids.get(group), new Edge(Edge.Type.REFERENCES));
+            }
+        }
+
+        // merges
+        for (Map.Entry<String, String> entry : merges.entrySet()) {
+            String source = entry.getKey();
+            String target = entry.getValue();
+
+            clusters.union(ids.get(source), ids.get(target));
+            ranks.union(ids.get(source), ids.get(target));
+
+            graph.addEdge(ids.get(source), ids.get(target), new Edge(Edge.Type.MERGED_WITH));
+        }
+
+        // rewrites
         for (Map.Entry<Expression, Expression> entry : rewrites.entrySet()) {
             Expression from = entry.getKey();
             Expression to = entry.getValue();
 
-            builder.append("\t");
-            builder.append(String.format("expression_%s[label=\"%s\"];\n", from.hashCode(), from.toString()));
+            clusters.union(ids.get(from), ids.get(to));
+            ranks.union(ids.get(from), ids.get(to));
 
-            builder.append("\t");
-            builder.append(String.format("expression_%s -> expression_%s [style=dotted];\n", from.hashCode(), to.hashCode()));
+            graph.addEdge(ids.get(from), ids.get(to), new Edge(Edge.Type.REWRITTEN_TO));
         }
 
-        for (Map.Entry<String, String> entry : merges.entrySet()) {
-            String from = entry.getKey();
-            String to = entry.getValue();
+        int i = 0;
+        for (Set<Integer> set : clusters.sets()) {
+            String clusterId = Integer.toString(i++);
 
-            builder.append("\t");
-            builder.append(String.format("group_%s[label=\"%s\", shape=rect];\n", from, from));
-
-            builder.append("\t");
-            builder.append(String.format("group_%s -> group_%s [style=dotted];\n", from, to));
+            graph.addCluster(clusterId, null);
+            for (Integer value : set) {
+                graph.addNodeToCluster(value, clusterId);
+            }
         }
 
-        builder.append("}\n");
+        return graph.toGraphviz(
+                () -> ImmutableMap.of("nodesep", "0.5"),
+                (nodeId, node) -> {
+                    Map<String, String> attributes = new HashMap<>();
+                    attributes.put("label", node.payload.toString());
 
-        return builder.toString();
+                    if (node.type == Node.Type.GROUP) {
+                        attributes.put("shape", "circle");
+                    }
+                    else {
+                        attributes.put("shape", "rectangle");
+                    }
+
+                    if (!node.active) {
+                        attributes.put("fillcolor", "lightgrey");
+                        attributes.put("style", "filled");
+                    }
+
+                    return attributes;
+                },
+                (from, to, edge) -> {
+                    Map<String, String> attributes = new HashMap<>();
+
+                    if (!graph.getNode(from).get().active || !graph.getNode(to).get().active) {
+                        attributes.put("color", "lightgrey");
+                    }
+                    switch (edge.type) {
+                        case MERGED_WITH:
+                        case REWRITTEN_TO:
+                            attributes.put("style", "dotted");
+                            break;
+                    }
+
+                    return attributes;
+                },
+                (clusterId, cluster) -> graph.getNodesInCluster(clusterId).stream()
+                        .map(ranks::find)
+                        .distinct()
+                        .map(ranks::findAll)
+                        .map(set -> "{rank=same;" + Joiner.on(";").join(set) + "}")
+                        .collect(Collectors.joining("\n")) + "style=dotted;");
     }
 }
