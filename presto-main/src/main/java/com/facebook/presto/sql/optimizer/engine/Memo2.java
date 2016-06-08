@@ -37,6 +37,9 @@ public class Memo2
     private final Map<Expression, String> expressionMembership = new HashMap<>();
     private final Map<String, Set<Expression>> incomingReferences = new HashMap<>();
 
+    private final Map<Expression, Expression> rewrites = new HashMap<>();
+    private final Map<String, String> merges = new HashMap<>();
+
     public String insert(Expression expression)
     {
         if (expression instanceof Reference) {
@@ -78,6 +81,7 @@ public class Memo2
         String actualGroup = insert(expression);
 
         if (!actualGroup.equals(group)) {
+            // TODO: avoid creating group for root if we're going to end up merging it anyway
             mergeInto(group, actualGroup);
         }
     }
@@ -97,38 +101,47 @@ public class Memo2
     {
         verifyNoCycle(targetGroup, group);
 
+        merges.put(group, targetGroup);
+
         // move all expressions to the target group
         for (Expression expression : expressionsByGroup.get(group)) {
             expressionsByGroup.get(targetGroup).add(expression);
             expressionMembership.put(expression, targetGroup);
         }
-        expressionsByGroup.get(group).clear();
+//        expressionsByGroup.get(group).clear();
 
-        Map<String, List<Expression>> referrersByGroup = incomingReferences.get(group).stream()
+        Map<String, List<Expression>> referrerGroups = incomingReferences.get(group).stream()
                 .collect(Collectors.groupingBy(expressionMembership::get));
 
-        for (Map.Entry<String, List<Expression>> entry : referrersByGroup.entrySet()) {
-            for (Expression expression : entry.getValue()) {
-                String referrer = entry.getKey();
+        // rewrite expressions that reference the merged group
+        for (Map.Entry<String, List<Expression>> entry : referrerGroups.entrySet()) {
+            for (Expression referrerExpression : entry.getValue()) {
+                String referrerGroup = entry.getKey();
 
-                expressionsByGroup.get(referrer).remove(expression);
-                if (expressionMembership.get(expression).equals(referrer)) {
-                    expressionMembership.remove(expression);
-                }
-                incomingReferences.get(group).remove(expression);
+//                expressionsByGroup.get(referrerGroup).remove(referrerExpression);
+//                if (expressionMembership.get(referrerExpression).equals(referrerGroup)) {
+//                    expressionMembership.remove(referrerExpression);
+//                }
+//                incomingReferences.get(group).remove(referrerExpression);
 
-                List<Expression> newArguments = expression.getArguments().stream()
+                List<Expression> newArguments = referrerExpression.getArguments().stream()
                         .map(Reference.class::cast)
                         .map(Reference::getName)
                         .map(name -> name.equals(group) ? targetGroup : group)
                         .map(Reference::new)
                         .collect(Collectors.toList());
 
-                insert(referrer, expression.copyWithArguments(newArguments));
+                Expression rewritten = referrerExpression.copyWithArguments(newArguments);
+
+                insert(referrerGroup, rewritten);
+
+                if (!rewritten.equals(referrerExpression)) {
+                    rewrites.put(referrerExpression, rewritten);
+                }
             }
         }
 
-        removeGroup(group);
+//        removeGroup(group);
     }
 
     private void verifyNoCycle(String group1, String group2)
@@ -209,6 +222,13 @@ public class Memo2
                 builder.append(expression + " -> " + entry.getKey() + "\n");
             }
         }
+        builder.append('\n');
+
+        builder.append("== Rewrites ==\n");
+        for (Map.Entry<Expression, Expression> entry : rewrites.entrySet()) {
+            builder.append(entry.getKey() + " -> " + entry.getValue() + "\n");
+        }
+
         return builder.toString();
     }
 
@@ -221,12 +241,18 @@ public class Memo2
 
         builder.append("digraph memo {\n");
 
-        for (Map.Entry<String, Set<Expression>> entry : expressionsByGroup.entrySet()) {
+        for (String group : activeGroups) {
             builder.append("\t");
-
-            String group = entry.getKey();
             builder.append(String.format("group_%s[label=\"%s\", shape=rect];\n", group, group));
+        }
 
+        for (String group : merges.keySet()) {
+            builder.append("\t");
+            builder.append(String.format("group_%s[label=\"%s\", shape=rect, fillcolor=lightgrey, style=filled];\n", group, group));
+        }
+
+        for (Map.Entry<String, Set<Expression>> entry : expressionsByGroup.entrySet()) {
+            String group = entry.getKey();
             if (!activeGroups.contains(group)) {
                 for (Expression expression : entry.getValue()) {
                     // TODO: dotted line?
@@ -241,16 +267,15 @@ public class Memo2
             String group = entry.getValue();
 
             builder.append("\t");
-            builder.append(String.format("expression_%s[label=\"%s\"];\n", expression.hashCode(), expression.toString()));
+            if (rewrites.containsKey(expression)) {
+                builder.append(String.format("expression_%s[label=\"%s\", style=filled, fillcolor=lightgrey];\n", expression.hashCode(), expression.toString()));
+            }
+            else {
+                builder.append(String.format("expression_%s[label=\"%s\"];\n", expression.hashCode(), expression.toString()));
+            }
 
             builder.append("\t");
             builder.append(String.format("group_%s -> expression_%s;\n", group, expression.hashCode()));
-
-//            for (Expression argument : expression.getArguments()) {
-//                Reference reference = (Reference) argument;
-//                builder.append("\t");
-//                builder.append(String.format("expression_%s -> group_%s;\n", expression.hashCode(), reference.getName()));
-//            }
         }
 
         for (Map.Entry<String, Set<Expression>> entry : incomingReferences.entrySet()) {
@@ -259,6 +284,29 @@ public class Memo2
                 builder.append(String.format("expression_%s -> group_%s;\n", expression.hashCode(), entry.getKey()));
             }
         }
+
+        for (Map.Entry<Expression, Expression> entry : rewrites.entrySet()) {
+            Expression from = entry.getKey();
+            Expression to = entry.getValue();
+
+            builder.append("\t");
+            builder.append(String.format("expression_%s[label=\"%s\"];\n", from.hashCode(), from.toString()));
+
+            builder.append("\t");
+            builder.append(String.format("expression_%s -> expression_%s [style=dotted];\n", from.hashCode(), to.hashCode()));
+        }
+
+        for (Map.Entry<String, String> entry : merges.entrySet()) {
+            String from = entry.getKey();
+            String to = entry.getValue();
+
+            builder.append("\t");
+            builder.append(String.format("group_%s[label=\"%s\", shape=rect];\n", from, from));
+
+            builder.append("\t");
+            builder.append(String.format("group_%s -> group_%s [style=dotted];\n", from, to));
+        }
+
         builder.append("}\n");
 
         return builder.toString();
