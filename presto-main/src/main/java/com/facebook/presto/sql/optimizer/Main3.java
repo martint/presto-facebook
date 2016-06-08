@@ -49,18 +49,12 @@ public class Main3
         System.out.println();
 
         memo.mergeInto("G1", "G9");
-        memo.verify();
         System.out.println(memo.toGraphviz());
 
         memo.mergeInto("G2", "G6");
-        memo.verify();
         System.out.println(memo.toGraphviz());
 
         memo.mergeInto("G0", "G4");
-        memo.verify();
-        System.out.println(memo.toGraphviz());
-
-        memo.verify();
         System.out.println(memo.toGraphviz());
     }
 }

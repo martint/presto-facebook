@@ -46,15 +46,18 @@ public class Main4
         System.out.println();
 
         memo.mergeInto("G0", "G6");
-        memo.verify();
+//        memo.verify();
         System.out.println(memo.toGraphviz());
 
         memo.mergeInto("G1", "G4");
-        memo.verify();
+//        memo.verify();
         System.out.println(memo.toGraphviz());
 
         memo.mergeInto("G3", "G0");
-        memo.verify();
+//        memo.verify();
         System.out.println(memo.toGraphviz());
+
+        System.out.println();
+        System.out.println(memo.dump());
     }
 }

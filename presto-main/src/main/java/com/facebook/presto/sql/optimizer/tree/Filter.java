@@ -72,7 +72,7 @@ public class Filter
         }
         Filter filter = (Filter) o;
         return Objects.equals(criteria, filter.criteria) &&
-                Objects.equals(criteria, filter.criteria);
+                Objects.equals(getArguments(), filter.getArguments());
     }
 
     @Override
