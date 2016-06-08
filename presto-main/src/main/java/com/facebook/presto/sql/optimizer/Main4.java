@@ -17,9 +17,9 @@ import com.facebook.presto.sql.optimizer.engine.Memo2;
 import com.facebook.presto.sql.optimizer.tree.Filter;
 import com.facebook.presto.sql.optimizer.tree.Get;
 
-public class Main
+public class Main4
 {
-    private Main()
+    private Main4()
     {
     }
 
@@ -28,35 +28,33 @@ public class Main
     {
         Memo2 memo = new Memo2();
         String root = memo.insert(
-                new Filter("a",
-                        new Filter("b",
-                                new Get("t"))));
-        System.out.println(memo.toGraphviz());
+                        new Filter("a2",
+                                new Filter("a3",
+                                        new Get("t"))));
 
         memo.insert(root,
-                new Filter("c",
-                        new Get("u")));
-
-        System.out.println(memo.toGraphviz());
+                        new Filter("a2",
+                                new Filter("a3",
+                                        new Get("u"))));
 
         memo.insert(root,
-                new Filter("d",
-                        new Filter("e",
-                                new Get("v"))));
+                        new Filter("b2",
+                                new Filter("b3",
+                                        new Get("v"))));
+
+        System.out.println(memo.toGraphviz());
+        System.out.println();
+
+        memo.mergeInto("G0", "G6");
+        memo.verify();
         System.out.println(memo.toGraphviz());
 
-        String x = memo.insert(
-                new Filter("b",
-                        new Get("t")));
+        memo.mergeInto("G1", "G4");
+        memo.verify();
+        System.out.println(memo.toGraphviz());
 
-        String y = memo.insert(
-                new Filter("e",
-                        new Get("v")));
-
-        System.out.println("Merging " + x + " with " + y);
-        memo.mergeInto(x, y);
-//        System.out.println(memo.dump());
-
+        memo.mergeInto("G3", "G0");
+        memo.verify();
         System.out.println(memo.toGraphviz());
     }
 }
