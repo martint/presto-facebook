@@ -19,7 +19,6 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -52,44 +51,62 @@ public class Memo2
             return group;
         }
 
-        Expression rewritten = expression;
-        List<String> childGroups = new ArrayList<>();
-        if (!expression.getArguments().isEmpty()) {
-            childGroups = expression.getArguments().stream()
-                    .map(argument -> insert(argument))
-                    .collect(Collectors.toList());
-
-            List<Expression> arguments = childGroups.stream()
-                    .map(Reference::new)
-                    .collect(Collectors.toList());
-
-            rewritten = expression.copyWithArguments(arguments);
-        }
+        Expression rewritten = insertChildrenAndRewrite(expression);
 
         String group = expressionMembership.get(rewritten);
         if (group == null) {
             group = createNewGroup();
-            expressionMembership.put(rewritten, group);
         }
 
-        expressions.add(rewritten);
-        expressionsByGroup.get(group).add(rewritten);
-
-        for (String child : childGroups) {
-            incomingReferences.get(child).add(rewritten);
-        }
+        addToGroup(rewritten, group);
 
         return group;
     }
 
     public void insert(String group, Expression expression)
     {
-        String actualGroup = insert(expression);
-
-        if (!actualGroup.equals(group)) {
-            // TODO: avoid creating group for root if we're going to end up merging it anyway
-            mergeInto(group, actualGroup);
+        if (expression instanceof Reference) {
+            mergeInto(group, ((Reference) expression).getName());
+            return;
         }
+
+        Expression rewritten = insertChildrenAndRewrite(expression);
+
+        String previousGroup = expressionMembership.get(rewritten);
+        if (previousGroup == null) {
+            addToGroup(rewritten, group);
+        }
+        else if (!previousGroup.equals(group)) {
+            mergeInto(previousGroup, group);
+        }
+    }
+
+    private void addToGroup(Expression rewritten, String group)
+    {
+        expressionMembership.put(rewritten, group);
+        expressions.add(rewritten);
+        expressionsByGroup.get(group).add(rewritten);
+
+        rewritten.getArguments().stream()
+                .map(Reference.class::cast)
+                .map(Reference::getName)
+                .forEach(child -> incomingReferences.get(child).add(rewritten));
+    }
+
+    private Expression insertChildrenAndRewrite(Expression expression)
+    {
+        Expression rewritten = expression;
+
+        if (!expression.getArguments().isEmpty()) {
+            List<Expression> arguments = expression.getArguments().stream()
+                    .map(this::insert)
+                    .map(Reference::new)
+                    .collect(Collectors.toList());
+
+            rewritten = expression.copyWithArguments(arguments);
+        }
+
+        return rewritten;
     }
 
     private String createNewGroup()
