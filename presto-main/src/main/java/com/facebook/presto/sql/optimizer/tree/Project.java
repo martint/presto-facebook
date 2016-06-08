@@ -23,9 +23,17 @@ import static com.google.common.base.Preconditions.checkArgument;
 public class Project
     extends Expression
 {
-    public Project(Expression argument)
+    private final String expression;
+
+    public Project(String expression, Expression argument)
     {
         super(ImmutableList.of(argument));
+        this.expression = expression;
+    }
+
+    public String getExpression()
+    {
+        return expression;
     }
 
     @Override
@@ -44,13 +52,13 @@ public class Project
     public Expression copyWithArguments(List<Expression> arguments)
     {
         checkArgument(arguments.size() == 1);
-        return new Project(arguments.get(0));
+        return new Project(expression, arguments.get(0));
     }
 
     @Override
     public String toString()
     {
-        return String.format("(project %s)", getArguments().get(0));
+        return String.format("(project %s %s)", expression, getArguments().get(0));
     }
 
     @Override
@@ -62,13 +70,13 @@ public class Project
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        Expression other = (Expression) o;
-        return Objects.equals(getArguments(), other.getArguments());
+        Project other = (Project) o;
+        return Objects.equals(expression, other.expression) && Objects.equals(getArguments(), other.getArguments());
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(getArguments());
+        return Objects.hash(expression, getArguments());
     }
 }

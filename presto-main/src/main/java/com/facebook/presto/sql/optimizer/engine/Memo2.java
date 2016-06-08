@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableMap;
 
 import java.util.ArrayDeque;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
@@ -32,19 +31,26 @@ import static com.google.common.base.Preconditions.checkState;
 
 public class Memo2
 {
+    private long version;
     private long groupCounter;
 
-    private final Set<String> groups = new HashSet<>();
-    private final Set<Expression> expressions = new HashSet<>();
+    private final Map<String, Long> groups = new HashMap<>();
+    private final Map<Expression, Long> expressions = new HashMap<>();
 
-    private final Map<String, Set<Expression>> expressionsByGroup = new HashMap<>();
+    private final Map<String, Map<Expression, Long>> expressionsByGroup = new HashMap<>();
     private final Map<Expression, String> expressionMembership = new HashMap<>();
-    private final Map<String, Set<Expression>> incomingReferences = new HashMap<>();
+    private final Map<String, Map<Expression, Long>> incomingReferences = new HashMap<>();
 
-    private final Map<Expression, Expression> rewrites = new HashMap<>();
-    private final Map<String, String> merges = new HashMap<>();
+    private final Map<Expression, VersionedItem<Expression>> rewrites = new HashMap<>();
+    private final Map<String, VersionedItem<String>> merges = new HashMap<>();
 
     public String insert(Expression expression)
+    {
+        version++;
+        return insertInternal(expression);
+    }
+
+    private String insertInternal(Expression expression)
     {
         if (expression instanceof Reference) {
             String group = ((Reference) expression).getName();
@@ -56,14 +62,20 @@ public class Memo2
         String group = expressionMembership.get(rewritten);
         if (group == null) {
             group = createNewGroup();
+            addToGroup(rewritten, group);
         }
-
-        addToGroup(rewritten, group);
 
         return group;
     }
 
+
     public void insert(String group, Expression expression)
+    {
+        version++;
+        insertInternal(group, expression);
+    }
+
+    private void insertInternal(String group, Expression expression)
     {
         if (expression instanceof Reference) {
             mergeInto(group, ((Reference) expression).getName());
@@ -84,13 +96,13 @@ public class Memo2
     private void addToGroup(Expression rewritten, String group)
     {
         expressionMembership.put(rewritten, group);
-        expressions.add(rewritten);
-        expressionsByGroup.get(group).add(rewritten);
+        expressions.put(rewritten, version);
+        expressionsByGroup.get(group).put(rewritten, version);
 
         rewritten.getArguments().stream()
                 .map(Reference.class::cast)
                 .map(Reference::getName)
-                .forEach(child -> incomingReferences.get(child).add(rewritten));
+                .forEach(child -> incomingReferences.get(child).putIfAbsent(rewritten, version));
     }
 
     private Expression insertChildrenAndRewrite(Expression expression)
@@ -99,7 +111,7 @@ public class Memo2
 
         if (!expression.getArguments().isEmpty()) {
             List<Expression> arguments = expression.getArguments().stream()
-                    .map(this::insert)
+                    .map(this::insertInternal)
                     .map(Reference::new)
                     .collect(Collectors.toList());
 
@@ -114,30 +126,30 @@ public class Memo2
         String name = "$" + groupCounter;
         groupCounter++;
 
-        incomingReferences.put(name, new HashSet<>());
-        expressionsByGroup.put(name, new HashSet<>());
-        groups.add(name);
+        incomingReferences.put(name, new HashMap<>());
+        expressionsByGroup.put(name, new HashMap<>());
+        groups.put(name, version);
 
         return name;
     }
 
     public void mergeInto(String targetGroup, String group)
     {
-        checkArgument(groups.contains(targetGroup), "Group doesn't exist: %s", targetGroup);
-        checkArgument(groups.contains(group), "Group doesn't exist: %s", group);
+        checkArgument(groups.containsKey(targetGroup), "Group doesn't exist: %s", targetGroup);
+        checkArgument(groups.containsKey(group), "Group doesn't exist: %s", group);
 
         verifyNoCycle(targetGroup, group);
 
-        merges.put(group, targetGroup);
+        merges.put(group, new VersionedItem<>(targetGroup, version));
 
         // move all expressions to the target group
-        for (Expression expression : expressionsByGroup.get(group)) {
-            expressionsByGroup.get(targetGroup).add(expression);
+        for (Expression expression : expressionsByGroup.get(group).keySet()) {
+            expressionsByGroup.get(targetGroup).put(expression, version);
             expressionMembership.put(expression, targetGroup);
         }
 //        expressionsByGroup.get(group).clear();
 
-        Map<String, List<Expression>> referrerGroups = incomingReferences.get(group).stream()
+        Map<String, List<Expression>> referrerGroups = incomingReferences.get(group).keySet().stream()
                 .collect(Collectors.groupingBy(expressionMembership::get));
 
         // rewrite expressions that reference the merged group
@@ -160,10 +172,10 @@ public class Memo2
 
                 Expression rewritten = referrerExpression.copyWithArguments(newArguments);
 
-                insert(referrerGroup, rewritten);
+                insertInternal(referrerGroup, rewritten);
 
                 if (!rewritten.equals(referrerExpression)) {
-                    rewrites.put(referrerExpression, rewritten);
+                    rewrites.put(referrerExpression, new VersionedItem<>(rewritten, version));
                 }
             }
         }
@@ -180,59 +192,51 @@ public class Memo2
             String current = pending.poll();
             checkArgument(!current.equals(group2), "Cycle detected");
 
-            incomingReferences.get(current).stream()
+            incomingReferences.get(current).keySet().stream()
                     .map(expressionMembership::get)
                     .forEach(pending::add);
         }
     }
 
-    private void removeGroup(String group)
-    {
-        checkState(expressionsByGroup.get(group).isEmpty(), "Can't remove non-empty group");
-
-        expressionsByGroup.remove(group);
-        incomingReferences.remove(group);
-    }
-
-    public void verify()
-    {
-        for (Map.Entry<String, Set<Expression>> entry : expressionsByGroup.entrySet()) {
-            String group = entry.getKey();
-
-            checkState(incomingReferences.containsKey(group), "Group in expressionsByGroup but not in incomingReferences: %s", group);
-
-            for (Expression expression : entry.getValue()) {
-                checkState(expressionMembership.get(expression).equals(group), "Membership for expression doesn't match group that contains it: %s, %s vs %s",
-                        expression,
-                        expressionMembership.get(expression),
-                        group);
-            }
-        }
-
-        for (Map.Entry<Expression, String> entry : expressionMembership.entrySet()) {
-            Expression expression = entry.getKey();
-            String group = entry.getValue();
-
-            checkState(expressionsByGroup.containsKey(group), "Group in expressionMembership but not in expressionsByGroup: %s", group);
-            checkState(expressionsByGroup.get(group).contains(expression), "expressionsByGroup does not contain expression declared by expressionMembership: %s, %s", group, expression);
-        }
-
-        for (Map.Entry<String, Set<Expression>> entry : incomingReferences.entrySet()) {
-            String group = entry.getKey();
-            checkState(expressionsByGroup.containsKey(group), "Group exists in incomingReferences but not in expressionsByGroup: %s", group);
-
-            for (Expression expression : entry.getValue()) {
-                checkState(expressionMembership.containsKey(expression), "Expression in incomingReferences for group %s but not in expressionMembership: %s", group, expression);
-            }
-        }
-    }
+//    public void verify()
+//    {
+//        for (Map.Entry<String, Set<VersionedItem<Expression>>> entry : expressionsByGroup.entrySet()) {
+//            String group = entry.getKey();
+//
+//            checkState(incomingReferences.containsKey(group), "Group in expressionsByGroup but not in incomingReferences: %s", group);
+//
+//            for (VersionedItem<Expression> expression : entry.getValue()) {
+//                checkState(expressionMembership.get(expression).equals(group), "Membership for expression doesn't match group that contains it: %s, %s vs %s",
+//                        expression,
+//                        expressionMembership.get(expression),
+//                        group);
+//            }
+//        }
+//
+//        for (Map.Entry<Expression, String> entry : expressionMembership.entrySet()) {
+//            Expression expression = entry.getKey();
+//            String group = entry.getValue();
+//
+//            checkState(expressionsByGroup.containsKey(group), "Group in expressionMembership but not in expressionsByGroup: %s", group);
+//            checkState(expressionsByGroup.get(group).contains(expression), "expressionsByGroup does not contain expression declared by expressionMembership: %s, %s", group, expression);
+//        }
+//
+//        for (Map.Entry<String, Set<Expression>> entry : incomingReferences.entrySet()) {
+//            String group = entry.getKey();
+//            checkState(expressionsByGroup.containsKey(group), "Group exists in incomingReferences but not in expressionsByGroup: %s", group);
+//
+//            for (Expression expression : entry.getValue()) {
+//                checkState(expressionMembership.containsKey(expression), "Expression in incomingReferences for group %s but not in expressionMembership: %s", group, expression);
+//            }
+//        }
+//    }
 
     public String dump()
     {
         StringBuilder builder = new StringBuilder();
 
         builder.append("== Groups ==\n");
-        for (Map.Entry<String, Set<Expression>> entry : expressionsByGroup.entrySet()) {
+        for (Map.Entry<String, Map<Expression, Long>> entry : expressionsByGroup.entrySet()) {
             builder.append(entry.getKey() + ": " + entry.getValue() + "\n");
         }
         builder.append('\n');
@@ -244,16 +248,16 @@ public class Memo2
         builder.append('\n');
 
         builder.append("== References ==\n");
-        for (Map.Entry<String, Set<Expression>> entry : incomingReferences.entrySet()) {
-            for (Expression expression : entry.getValue()) {
-                builder.append(expression + " -> " + entry.getKey() + "\n");
+        for (Map.Entry<String, Map<Expression, Long>> entry : incomingReferences.entrySet()) {
+            for (Map.Entry<Expression, Long> versioned : entry.getValue().entrySet()) {
+                builder.append(versioned.getKey() + " -> " + entry.getKey() + " [" + versioned.getValue() + "]\n");
             }
         }
         builder.append('\n');
 
         builder.append("== Rewrites ==\n");
-        for (Map.Entry<Expression, Expression> entry : rewrites.entrySet()) {
-            builder.append(entry.getKey() + " -> " + entry.getValue() + "\n");
+        for (Map.Entry<Expression, VersionedItem<Expression>> entry : rewrites.entrySet()) {
+            builder.append(entry.getKey() + " -> " + entry.getValue().getItem() + " @" + entry.getValue().getVersion() + "\n");
         }
 
         return builder.toString();
@@ -269,37 +273,41 @@ public class Memo2
         private final Type type;
         private final Object payload;
         private final boolean active;
+        private final long version;
 
-        public Node(Type type, Object payload, boolean active)
+        public Node(Type type, Object payload, boolean active, long version)
         {
             this.active = active;
             this.type = type;
             this.payload = payload;
+            this.version = version;
         }
     }
 
     private static class Edge
     {
         private final Type type;
+        private final long version;
 
         public enum Type
         {
             CONTAINS, REFERENCES, MERGED_WITH, REWRITTEN_TO
         }
 
-        public Edge(Type type)
+        public Edge(Type type, long version)
         {
             this.type = type;
+            this.version = version;
         }
     }
 
     public String toGraphviz()
     {
         Map<Object, Integer> ids = new HashMap<>();
-        for (String group : groups) {
+        for (String group : groups.keySet()) {
             ids.put(group, ids.size());
         }
-        for (Expression expression : expressions) {
+        for (Expression expression : expressions.keySet()) {
             ids.put(expression, ids.size());
         }
 
@@ -307,59 +315,62 @@ public class Memo2
         DisjointSets<Integer> clusters = new DisjointSets<>();
         DisjointSets<Integer> ranks = new DisjointSets<>();
 
-        for (String group : groups) {
+        for (Map.Entry<String, Long> entry : groups.entrySet()) {
+            String group = entry.getKey();
+
             clusters.add(ids.get(group));
             ranks.add(ids.get(group));
 
             boolean active = !merges.containsKey(group);
-            graph.addNode(ids.get(group), new Node(Node.Type.GROUP, group, active));
+            graph.addNode(ids.get(group), new Node(Node.Type.GROUP, group, active, entry.getValue()));
         }
 
-        for (Expression expression : expressions) {
+        for (Map.Entry<Expression, Long> entry : expressions.entrySet()) {
+            Expression expression = entry.getKey();
             clusters.add(ids.get(expression));
             ranks.add(ids.get(expression));
 
             boolean active = !rewrites.containsKey(expression);
-            graph.addNode(ids.get(expression), new Node(Node.Type.EXPRESSION, expression, active));
+            graph.addNode(ids.get(expression), new Node(Node.Type.EXPRESSION, expression, active, entry.getValue()));
         }
 
         // membership
-        for (Map.Entry<String, Set<Expression>> entry : expressionsByGroup.entrySet()) {
+        for (Map.Entry<String, Map<Expression, Long>> entry : expressionsByGroup.entrySet()) {
             String group = entry.getKey();
-            for (Expression expression : entry.getValue()) {
-                clusters.union(ids.get(group), ids.get(expression));
-                graph.addEdge(ids.get(group), ids.get(expression), new Edge(Edge.Type.CONTAINS));
+            for (Map.Entry<Expression, Long> versioned : entry.getValue().entrySet()) {
+                clusters.union(ids.get(group), ids.get(versioned.getKey()));
+                graph.addEdge(ids.get(group), ids.get(versioned.getKey()), new Edge(Edge.Type.CONTAINS, versioned.getValue()));
             }
         }
 
         // references
-        for (Map.Entry<String, Set<Expression>> entry : incomingReferences.entrySet()) {
+        for (Map.Entry<String, Map<Expression, Long>> entry : incomingReferences.entrySet()) {
             String group = entry.getKey();
-            for (Expression expression : entry.getValue()) {
-                graph.addEdge(ids.get(expression), ids.get(group), new Edge(Edge.Type.REFERENCES));
+            for (Map.Entry<Expression, Long> versioned : entry.getValue().entrySet()) {
+                graph.addEdge(ids.get(versioned.getKey()), ids.get(group), new Edge(Edge.Type.REFERENCES, versioned.getValue()));
             }
         }
 
         // merges
-        for (Map.Entry<String, String> entry : merges.entrySet()) {
+        for (Map.Entry<String, VersionedItem<String>> entry : merges.entrySet()) {
             String source = entry.getKey();
-            String target = entry.getValue();
+            String target = entry.getValue().getItem();
 
             clusters.union(ids.get(source), ids.get(target));
             ranks.union(ids.get(source), ids.get(target));
 
-            graph.addEdge(ids.get(source), ids.get(target), new Edge(Edge.Type.MERGED_WITH));
+            graph.addEdge(ids.get(source), ids.get(target), new Edge(Edge.Type.MERGED_WITH, entry.getValue().getVersion()));
         }
 
         // rewrites
-        for (Map.Entry<Expression, Expression> entry : rewrites.entrySet()) {
+        for (Map.Entry<Expression, VersionedItem<Expression>> entry : rewrites.entrySet()) {
             Expression from = entry.getKey();
-            Expression to = entry.getValue();
+            Expression to = entry.getValue().getItem();
 
             clusters.union(ids.get(from), ids.get(to));
             ranks.union(ids.get(from), ids.get(to));
 
-            graph.addEdge(ids.get(from), ids.get(to), new Edge(Edge.Type.REWRITTEN_TO));
+            graph.addEdge(ids.get(from), ids.get(to), new Edge(Edge.Type.REWRITTEN_TO, entry.getValue().getVersion()));
         }
 
         int i = 0;
@@ -376,7 +387,7 @@ public class Memo2
                 () -> ImmutableMap.of("nodesep", "0.5"),
                 (nodeId, node) -> {
                     Map<String, String> attributes = new HashMap<>();
-                    attributes.put("label", node.payload.toString());
+                    attributes.put("label", node.payload.toString() + " @" + node.version);
 
                     if (node.type == Node.Type.GROUP) {
                         attributes.put("shape", "circle");
@@ -394,6 +405,7 @@ public class Memo2
                 },
                 (from, to, edge) -> {
                     Map<String, String> attributes = new HashMap<>();
+                    attributes.put("label", Long.toString(edge.version));
 
                     if (!graph.getNode(from).get().active || !graph.getNode(to).get().active) {
                         attributes.put("color", "lightgrey");

@@ -12,7 +12,7 @@ public class TestMemo2
             throws Exception
     {
         Memo2 memo = new Memo2();
-        String group = memo.insert(new Filter("a", new Project(new Get("t"))));
-        memo.insert(group, new Project(new Get("t")));
+        String group = memo.insert(new Filter("a", new Project("b", new Get("t"))));
+        memo.insert(group, new Project("b", new Get("t")));
     }
 }
