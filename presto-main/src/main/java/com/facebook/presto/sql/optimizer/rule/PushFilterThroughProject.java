@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.sql.optimizer.rule;
 
-import com.facebook.presto.sql.optimizer.engine.Resolver;
 import com.facebook.presto.sql.optimizer.engine.Pattern;
+import com.facebook.presto.sql.optimizer.engine.Resolver;
 import com.facebook.presto.sql.optimizer.engine.Rule;
 import com.facebook.presto.sql.optimizer.tree.Expression;
 import com.facebook.presto.sql.optimizer.tree.Filter;
@@ -49,7 +49,7 @@ public class PushFilterThroughProject
         Expression argument = resolver.resolve(root.getArguments().get(0));
 
         if (root instanceof Filter && argument instanceof Project) {
-            return ImmutableList.of(new Project(new Filter(((Filter) root).getCriteria(), argument.getArguments().get(0))));
+            return ImmutableList.of(new Project(((Project) argument).getExpression(), new Filter(((Filter) root).getCriteria(), argument.getArguments().get(0))));
         }
 
         return ImmutableList.of();
