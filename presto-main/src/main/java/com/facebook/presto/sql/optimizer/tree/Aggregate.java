@@ -21,7 +21,7 @@ import java.util.Objects;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class Aggregate
-        extends Expression
+        extends Expression<Aggregate>
 {
     public enum Type
     {
@@ -63,7 +63,7 @@ public class Aggregate
     }
 
     @Override
-    public Expression copyWithArguments(List<Expression> arguments)
+    public Expression<?> copyWithArguments(List<Expression<?>> arguments)
     {
         checkArgument(arguments.size() == 1);
         return new Aggregate(type, function, arguments.get(0));
@@ -76,23 +76,15 @@ public class Aggregate
     }
 
     @Override
-    public boolean equals(Object o)
+    public boolean shallowEquals(Aggregate other)
     {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        Aggregate other = (Aggregate) o;
         return Objects.equals(type, other.type) &&
-                Objects.equals(function, other.function) &&
-                Objects.equals(getArguments(), other.getArguments());
+                Objects.equals(function, other.function);
     }
 
     @Override
-    public int hashCode()
+    public int shallowHashCode()
     {
-        return Objects.hash(type, function, getArguments());
+        return Objects.hash(type, function);
     }
 }

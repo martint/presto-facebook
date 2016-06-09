@@ -15,15 +15,20 @@ package com.facebook.presto.sql.optimizer.tree;
 
 import com.google.common.collect.ImmutableList;
 
+import javax.annotation.concurrent.Immutable;
+
 import java.util.List;
+import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
-public abstract class Expression
+@Immutable
+public abstract class Expression<T extends Expression<?>>
 {
-    private final List<Expression> arguments;
+    private final List<Expression<?>> arguments;
+    private int hashCode;
 
-    public Expression(List<Expression> arguments)
+    public Expression(List<Expression<?>> arguments)
     {
         requireNonNull(arguments, "arguments is null");
         this.arguments = ImmutableList.copyOf(arguments);
@@ -33,16 +38,39 @@ public abstract class Expression
 
     public abstract boolean isLogical();
 
-    public List<Expression> getArguments()
+    public final List<Expression<?>> getArguments()
     {
         return arguments;
     }
 
-    public abstract Expression copyWithArguments(List<Expression> arguments);
+    public abstract Expression<?> copyWithArguments(List<Expression<?>> arguments);
 
-    @Override
-    public abstract boolean equals(Object o);
+    protected abstract int shallowHashCode();
 
-    @Override
-    public abstract int hashCode();
+    protected abstract boolean shallowEquals(T other);
+
+    public final boolean equals(Object other)
+    {
+        if (this == other) {
+            return true;
+        }
+        if (other == null || getClass() != other.getClass()) {
+            return false;
+        }
+
+        T that = (T) other;
+        return shallowEquals(that) &&
+                Objects.equals(arguments, that.getArguments());
+    }
+
+    public final int hashCode()
+    {
+        int hash = hashCode;
+        if (hash == 0) {
+            hash = Objects.hash(arguments, shallowHashCode());
+            hashCode = hash;
+        }
+
+        return hash;
+    }
 }

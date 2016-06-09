@@ -21,7 +21,7 @@ import java.util.Objects;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class Reference
-    extends Expression
+    extends Expression<Reference>
 {
     private String name;
 
@@ -44,7 +44,7 @@ public class Reference
     }
 
     @Override
-    public Expression copyWithArguments(List<Expression> arguments)
+    public Expression<?> copyWithArguments(List<Expression<?>> arguments)
     {
         checkArgument(arguments.isEmpty());
         return this;
@@ -62,21 +62,14 @@ public class Reference
     }
 
     @Override
-    public boolean equals(Object o)
+    protected boolean shallowEquals(Reference other)
     {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        Reference reference = (Reference) o;
-        return Objects.equals(name, reference.name);
+        return Objects.equals(name, other.name);
     }
 
     @Override
-    public int hashCode()
+    protected int shallowHashCode()
     {
-        return Objects.hash(name);
+        return name.hashCode();
     }
 }

@@ -21,7 +21,7 @@ import java.util.Objects;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class Limit
-        extends Expression
+        extends Expression<Limit>
 {
     private final long count;
 
@@ -49,7 +49,7 @@ public class Limit
     }
 
     @Override
-    public Expression copyWithArguments(List<Expression> arguments)
+    public Expression<?> copyWithArguments(List<Expression<?>> arguments)
     {
         checkArgument(arguments.size() == 1);
         return new Limit(count, arguments.get(0));
@@ -62,22 +62,14 @@ public class Limit
     }
 
     @Override
-    public boolean equals(Object o)
+    protected boolean shallowEquals(Limit other)
     {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        Limit filter = (Limit) o;
-        return Objects.equals(count, filter.count) &&
-                Objects.equals(getArguments(), filter.getArguments());
+        return Objects.equals(count, other.count);
     }
 
     @Override
-    public int hashCode()
+    protected int shallowHashCode()
     {
-        return Objects.hash(count, getArguments());
+        return Long.hashCode(count);
     }
 }

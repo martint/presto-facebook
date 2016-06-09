@@ -16,16 +16,15 @@ package com.facebook.presto.sql.optimizer.tree;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.Objects;
 
 public class Intersect
-        extends Expression
+        extends Expression<Intersect>
 {
-    public Intersect(List<Expression> arguments)
+    public Intersect(List<Expression<?>> arguments)
     {
         super(arguments);
     }
-    public Intersect(Expression... arguments)
+    public Intersect(Expression<?>... arguments)
     {
         super(ImmutableList.copyOf(arguments));
     }
@@ -43,7 +42,7 @@ public class Intersect
     }
 
     @Override
-    public Expression copyWithArguments(List<Expression> arguments)
+    public Expression<?> copyWithArguments(List<Expression<?>> arguments)
     {
         return new Intersect(arguments);
     }
@@ -55,21 +54,14 @@ public class Intersect
     }
 
     @Override
-    public boolean equals(Object o)
+    protected boolean shallowEquals(Intersect other)
     {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        Intersect other = (Intersect) o;
-        return Objects.equals(getArguments(), other.getArguments());
+        return true;
     }
 
     @Override
-    public int hashCode()
+    protected int shallowHashCode()
     {
-        return Objects.hash(getArguments());
+        return getClass().hashCode();
     }
 }

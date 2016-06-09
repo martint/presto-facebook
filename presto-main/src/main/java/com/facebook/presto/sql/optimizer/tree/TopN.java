@@ -21,7 +21,7 @@ import java.util.Objects;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class TopN
-        extends Expression
+        extends Expression<TopN>
 {
     private final long count;
     private final String criteria;
@@ -56,7 +56,7 @@ public class TopN
     }
 
     @Override
-    public Expression copyWithArguments(List<Expression> arguments)
+    public Expression<?> copyWithArguments(List<Expression<?>> arguments)
     {
         checkArgument(arguments.size() == 1);
         return new TopN(count, criteria, arguments.get(0));
@@ -69,23 +69,15 @@ public class TopN
     }
 
     @Override
-    public boolean equals(Object o)
+    protected boolean shallowEquals(TopN other)
     {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        TopN filter = (TopN) o;
-        return Objects.equals(count, filter.count) &&
-                Objects.equals(criteria, filter.criteria) &&
-                Objects.equals(getArguments(), filter.getArguments());
+        return Objects.equals(count, other.count) &&
+                Objects.equals(criteria, other.criteria);
     }
 
     @Override
-    public int hashCode()
+    protected int shallowHashCode()
     {
-        return Objects.hash(count, criteria, getArguments());
+        return Objects.hash(count, criteria);
     }
 }
