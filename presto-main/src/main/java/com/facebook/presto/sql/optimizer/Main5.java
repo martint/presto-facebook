@@ -17,6 +17,7 @@ import com.facebook.presto.sql.optimizer.engine.Memo2;
 import com.facebook.presto.sql.optimizer.engine.Rule;
 import com.facebook.presto.sql.optimizer.rule.GetToScan;
 import com.facebook.presto.sql.optimizer.rule.IntersectToUnion;
+import com.facebook.presto.sql.optimizer.rule.MergeFilterAndCrossJoin;
 import com.facebook.presto.sql.optimizer.rule.MergeFilters;
 import com.facebook.presto.sql.optimizer.rule.MergeLimits;
 import com.facebook.presto.sql.optimizer.rule.OrderByLimitToTopN;
@@ -27,6 +28,7 @@ import com.facebook.presto.sql.optimizer.rule.PushFilterThroughProject;
 import com.facebook.presto.sql.optimizer.rule.PushFilterThroughUnion;
 import com.facebook.presto.sql.optimizer.rule.PushLimitThroughUnion;
 import com.facebook.presto.sql.optimizer.tree.Aggregate;
+import com.facebook.presto.sql.optimizer.tree.CrossJoin;
 import com.facebook.presto.sql.optimizer.tree.Expression;
 import com.facebook.presto.sql.optimizer.tree.Filter;
 import com.facebook.presto.sql.optimizer.tree.Get;
@@ -69,14 +71,17 @@ public class Main5
                                                                                 )
                                                                         ),
                                                                         new Filter("f2",
-                                                                                new Project("p2",
-                                                                                        new Get("u")
+                                                                                new CrossJoin(
+                                                                                        new Get("u"),
+                                                                                        new Project("p2",
+                                                                                                new Get("t")
+                                                                                        )
                                                                                 )
                                                                         ),
                                                                         new Intersect(
                                                                                 new Get("t"),
                                                                                 new Get("u"))
-                                                                        )
+                                                                )
                                                         )
                                                 )
                                         )
@@ -97,6 +102,7 @@ public class Main5
                 new PushLimitThroughUnion(),
                 new OrderByLimitToTopN(),
                 new IntersectToUnion(),
+                new MergeFilterAndCrossJoin(),
                 new GetToScan());
 
         System.out.println(memo.toGraphviz());
