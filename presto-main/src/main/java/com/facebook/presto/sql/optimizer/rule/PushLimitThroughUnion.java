@@ -43,10 +43,10 @@ public class PushLimitThroughUnion
 
     private Optional<Expression> process(Limit parent, Union child, Lookup lookup)
     {
-        List<Expression> children = new ArrayList<>();
+        List<Expression<?>> children = new ArrayList<>();
 
         boolean success = false;
-        for (Expression grandChild : child.getArguments()) {
+        for (Expression<?> grandChild : child.getArguments()) {
             boolean hasLimit = lookup.lookup(grandChild)
                     .filter(Limit.class::isInstance)
                     .map(Limit.class::cast)

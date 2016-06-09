@@ -21,7 +21,7 @@ import java.util.Objects;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class Scan
-        extends Expression
+        extends Expression<Scan>
 {
     private final String table;
 
@@ -49,34 +49,27 @@ public class Scan
     }
 
     @Override
-    public Expression copyWithArguments(List<Expression> arguments)
+    public Expression<?> copyWithArguments(List<Expression<?>> arguments)
     {
         checkArgument(arguments.isEmpty());
         return this;
     }
 
     @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        Scan get = (Scan) o;
-        return Objects.equals(table, get.table);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(table);
-    }
-
-    @Override
     public String toString()
     {
         return String.format("(scan '%s')", table);
+    }
+
+    @Override
+    protected boolean shallowEquals(Scan other)
+    {
+        return Objects.equals(table, other.table);
+    }
+
+    @Override
+    protected int shallowHashCode()
+    {
+        return table.hashCode();
     }
 }

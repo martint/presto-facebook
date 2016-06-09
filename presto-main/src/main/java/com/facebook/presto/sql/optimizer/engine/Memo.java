@@ -40,16 +40,16 @@ public class Memo
     private int count;
     private final VariableAllocator allocator = () -> "@" + (count++);
 
-    public EquivalenceClass insert(Expression expression)
-    {
-        if (root == null) {
-            root = createNewGroup();
-        }
-
-        EquivalenceClass result = new EquivalenceClass(root.getId());
-        root = insert(result, expression);
-        return result;
-    }
+//    public EquivalenceClass insert(Expression expression)
+//    {
+//        if (root == null) {
+//            root = createNewGroup();
+//        }
+//
+//        EquivalenceClass result = new EquivalenceClass(root.getId());
+//        root = insert(result, expression);
+//        return result;
+//    }
 
     private Group createNewGroup()
     {
@@ -60,16 +60,16 @@ public class Memo
     }
 
     //     TODO: need to return rewritten expression so that explorer can queue it up for further exploration
-    public Group insert(EquivalenceClass group, Expression expression)
-    {
-        Group targetGroup = insertInternal(expression);
-
-        if (!targetGroup.getId().equals(group.getName())) {
-            return mergeGroups(targetGroup.getId(), group.getName());
-        }
-
-        return targetGroup;
-    }
+//    public Group insert(EquivalenceClass group, Expression expression)
+//    {
+//        Group targetGroup = insertInternal(expression);
+//
+//        if (!targetGroup.getId().equals(group.getName())) {
+//            return mergeGroups(targetGroup.getId(), group.getName());
+//        }
+//
+//        return targetGroup;
+//    }
 
     public Group mergeGroups(String a, String b)
     {
@@ -107,9 +107,9 @@ public class Memo
         return newGroup;
     }
 
-    private Expression rewrite(Expression expression, Function<Expression, Expression> mapping)
+    private Expression<?> rewrite(Expression<?> expression, Function<Expression<?>, Expression<?>> mapping)
     {
-        List<Expression> arguments = expression.getArguments().stream()
+        List<Expression<?>> arguments = expression.getArguments().stream()
                 .map(e -> rewrite(e, mapping))
                 .collect(Collectors.toList());
 
@@ -183,37 +183,37 @@ public class Memo
 //        return newGroup.getId();
 //    }
 
-    private Group insertInternal(Expression expression)
-    {
-        Expression rewritten = expression;
-        if (!expression.getArguments().isEmpty()) {
-            List<Group> children = expression.getArguments().stream()
-                    .map(argument -> insertInternal(argument))
-                    .collect(Collectors.toList());
-
-            List<Expression> arguments = children.stream()
-                    .map(Group::getId)
-                    .map(Reference::new)
-                    .collect(Collectors.toList());
-
-            rewritten = expression.copyWithArguments(arguments);
-
-            for (Group child : children) {
-                child.addReferrer(rewritten);
-            }
-        }
-
-        String name = expressionToGroup.get(rewritten);
-        Group group = groups.get(name);
-        if (name == null) {
-            group = createNewGroup();
-            expressionToGroup.put(rewritten, group.getId());
-        }
-
-        group.add(rewritten);
-
-        return group;
-    }
+//    private Group insertInternal(Expression expression)
+//    {
+//        Expression rewritten = expression;
+//        if (!expression.getArguments().isEmpty()) {
+//            List<Group> children = expression.getArguments().stream()
+//                    .map(argument -> insertInternal(argument))
+//                    .collect(Collectors.toList());
+//
+//            List<Expression> arguments = children.stream()
+//                    .map(Group::getId)
+//                    .map(Reference::new)
+//                    .collect(Collectors.toList());
+//
+//            rewritten = expression.copyWithArguments(arguments);
+//
+//            for (Group child : children) {
+//                child.addReferrer(rewritten);
+//            }
+//        }
+//
+//        String name = expressionToGroup.get(rewritten);
+//        Group group = groups.get(name);
+//        if (name == null) {
+//            group = createNewGroup();
+//            expressionToGroup.put(rewritten, group.getId());
+//        }
+//
+//        group.add(rewritten);
+//
+//        return group;
+//    }
 
 //    private void add(String name, Expression value)
 //    {

@@ -16,16 +16,15 @@ package com.facebook.presto.sql.optimizer.tree;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.Objects;
 
 public class CrossJoin
-        extends Expression
+        extends Expression<CrossJoin>
 {
-    public CrossJoin(List<Expression> arguments)
+    public CrossJoin(List<Expression<?>> arguments)
     {
         super(arguments);
     }
-    public CrossJoin(Expression... arguments)
+    public CrossJoin(Expression<?>... arguments)
     {
         super(ImmutableList.copyOf(arguments));
     }
@@ -43,7 +42,7 @@ public class CrossJoin
     }
 
     @Override
-    public Expression copyWithArguments(List<Expression> arguments)
+    public Expression<?> copyWithArguments(List<Expression<?>> arguments)
     {
         return new CrossJoin(arguments);
     }
@@ -55,21 +54,14 @@ public class CrossJoin
     }
 
     @Override
-    public boolean equals(Object o)
+    protected boolean shallowEquals(CrossJoin other)
     {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        CrossJoin other = (CrossJoin) o;
-        return Objects.equals(getArguments(), other.getArguments());
+        return true;
     }
 
     @Override
-    public int hashCode()
+    protected int shallowHashCode()
     {
-        return Objects.hash(getArguments());
+        return getClass().hashCode();
     }
 }

@@ -38,11 +38,11 @@ public class SSA
         return new Let(assignments, root);
     }
 
-    private Reference assignVariable(Expression expression)
+    private Reference assignVariable(Expression<?> expression)
     {
         String name = allocator.newName();
 
-        List<Expression> arguments = expression.getArguments().stream()
+        List<Expression<?>> arguments = expression.getArguments().stream()
                 .map(this::assignVariable)
                 .collect(Collectors.toList());
 

@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.optimizer.engine;
 
 import com.facebook.presto.sql.optimizer.tree.Expression;
-import com.facebook.presto.sql.optimizer.tree.Reference;
 
 import java.util.LinkedList;
 import java.util.List;
@@ -31,18 +30,18 @@ public class Engine
 
     private final List<Object> rules;
 
-    public void optimize(Expression expression)
-    {
-        Memo memo = new Memo();
-        EquivalenceClass clazz = memo.insert(expression);
-
-        optimizeEquivalenceClass(memo, clazz, Cost.UNBOUNDED, null);
-
-        // TODO: extract optimal expression from memo
-
-        System.out.println("*** Memo ****");
-        System.out.println(memo.dump());
-    }
+//    public void optimize(Expression expression)
+//    {
+//        Memo memo = new Memo();
+//        EquivalenceClass clazz = memo.insert(expression);
+//
+//        optimizeEquivalenceClass(memo, clazz, Cost.UNBOUNDED, null);
+//
+//        // TODO: extract optimal expression from memo
+//
+//        System.out.println("*** Memo ****");
+//        System.out.println(memo.dump());
+//    }
 
     private void optimizeEquivalenceClass(Memo memo, EquivalenceClass equivalenceClass, Cost maximumCost, Requirements requirements)
     {
@@ -77,11 +76,11 @@ public class Engine
             }
         }
 
-        for (Expression expression : memo.getExpressions(equivalenceClass)) {
-            for (Expression input : expression.getArguments()) {
-                exploreEquivalenceClass(memo.getEquivalenceClass(input), memo);
-            }
-        }
+//        for (Expression expression : memo.getExpressions(equivalenceClass)) {
+//            for (Expression input : expression.getArguments()) {
+//                exploreEquivalenceClass(memo.getEquivalenceClass(input), memo);
+//            }
+//        }
     }
 
     // TODO: how to re-explore potential matches that my be created by exploring children
@@ -95,19 +94,19 @@ public class Engine
 
     // TODO: optimization of children may create new potential matches, so we need to re-try patterns.
 
-    private void optimizeExpression(Expression expression, Cost maximumCost, Requirements requirements, Memo memo)
-    {
-        for (Expression argument : expression.getArguments()) {
-            Reference reference = (Reference) argument;
-            Requirements inputRequirements = null; // TODO: derive child requirements
-            Cost maximumChildCost = null; // TODO: derive max child cost
-            optimizeEquivalenceClass(memo, memo.getEquivalenceClass(reference), maximumChildCost, inputRequirements);
-
-            // TODO: short-circuit if we can't achieve cost target, but remember the fact that we couldn't
-            // in case another request tries to optimize the same expression+reqs+ a lower cost bound
-        }
-
-        // TODO: derive expression properties from input properties
-        // TODO: add enforcer?
-    }
+//    private void optimizeExpression(Expression expression, Cost maximumCost, Requirements requirements, Memo memo)
+//    {
+//        for (Expression argument : expression.getArguments()) {
+//            Reference reference = (Reference) argument;
+//            Requirements inputRequirements = null; // TODO: derive child requirements
+//            Cost maximumChildCost = null; // TODO: derive max child cost
+//            optimizeEquivalenceClass(memo, memo.getEquivalenceClass(reference), maximumChildCost, inputRequirements);
+//
+//            // TODO: short-circuit if we can't achieve cost target, but remember the fact that we couldn't
+//            // in case another request tries to optimize the same expression+reqs+ a lower cost bound
+//        }
+//
+//        // TODO: derive expression properties from input properties
+//        // TODO: add enforcer?
+//    }
 }

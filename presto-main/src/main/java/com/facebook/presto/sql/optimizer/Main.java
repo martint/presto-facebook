@@ -53,7 +53,6 @@ public class Main
                 new Filter("e",
                         new Get("v")));
 
-        System.out.println("Merging " + x + " with " + y);
         memo.mergeInto(x, y);
 //        System.out.println(memo.dump());
 

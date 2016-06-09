@@ -19,5 +19,5 @@ import java.util.stream.Stream;
 
 public interface Lookup
 {
-    Stream<Expression> lookup(Expression expression);
+    Stream<Expression<?>> lookup(Expression<?> expression);
 }

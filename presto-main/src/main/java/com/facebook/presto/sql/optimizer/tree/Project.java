@@ -21,7 +21,7 @@ import java.util.Objects;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class Project
-    extends Expression
+    extends Expression<Project>
 {
     private final String expression;
 
@@ -49,7 +49,7 @@ public class Project
     }
 
     @Override
-    public Expression copyWithArguments(List<Expression> arguments)
+    public Expression<?> copyWithArguments(List<Expression<?>> arguments)
     {
         checkArgument(arguments.size() == 1);
         return new Project(expression, arguments.get(0));
@@ -62,21 +62,14 @@ public class Project
     }
 
     @Override
-    public boolean equals(Object o)
+    protected boolean shallowEquals(Project other)
     {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        Project other = (Project) o;
-        return Objects.equals(expression, other.expression) && Objects.equals(getArguments(), other.getArguments());
+        return Objects.equals(expression, other.expression);
     }
 
     @Override
-    public int hashCode()
+    protected int shallowHashCode()
     {
-        return Objects.hash(expression, getArguments());
+        return expression.hashCode();
     }
 }

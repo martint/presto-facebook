@@ -16,16 +16,15 @@ package com.facebook.presto.sql.optimizer.tree;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.Objects;
 
 public class Union
-        extends Expression
+        extends Expression<Union>
 {
-    public Union(List<Expression> arguments)
+    public Union(List<Expression<?>> arguments)
     {
         super(arguments);
     }
-    public Union(Expression... arguments)
+    public Union(Expression<?>... arguments)
     {
         super(ImmutableList.copyOf(arguments));
     }
@@ -43,7 +42,7 @@ public class Union
     }
 
     @Override
-    public Expression copyWithArguments(List<Expression> arguments)
+    public Expression<?> copyWithArguments(List<Expression<?>> arguments)
     {
         return new Union(arguments);
     }
@@ -55,21 +54,14 @@ public class Union
     }
 
     @Override
-    public boolean equals(Object o)
+    protected boolean shallowEquals(Union other)
     {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        Union other = (Union) o;
-        return Objects.equals(getArguments(), other.getArguments());
+        return true;
     }
 
     @Override
-    public int hashCode()
+    protected int shallowHashCode()
     {
-        return Objects.hash(getArguments());
+        return getClass().hashCode();
     }
 }
