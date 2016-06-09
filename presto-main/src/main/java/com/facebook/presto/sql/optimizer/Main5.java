@@ -45,6 +45,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Queue;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 public class Main5
 {
@@ -58,36 +59,43 @@ public class Main5
         Memo2 memo = new Memo2();
 
         Expression root =
-                new Limit(3,
-                        new Sort("s0",
-                                new Filter("f0",
-                                        new Aggregate(Aggregate.Type.SINGLE, "a1",
-                                                new Limit(5,
-                                                        new Limit(10,
-                                                                new Union(
-                                                                        new Filter("f1",
-                                                                                new Project("p1",
+        new Limit(3,
+                new Sort("s0",
+                        new Filter("f0",
+                                new Aggregate(Aggregate.Type.SINGLE, "a1",
+                                        new Limit(5,
+                                                new Limit(10,
+                                                        new Union(
+                                                                new Filter("f1",
+                                                                        new Project("p1",
+                                                                                new Get("t")
+                                                                        )
+                                                                ),
+                                                                new Filter("f2",
+                                                                        new CrossJoin(
+                                                                                new Get("u"),
+                                                                                new Project("p2",
                                                                                         new Get("t")
                                                                                 )
-                                                                        ),
-                                                                        new Filter("f2",
-                                                                                new CrossJoin(
-                                                                                        new Get("u"),
-                                                                                        new Project("p2",
-                                                                                                new Get("t")
-                                                                                        )
-                                                                                )
-                                                                        ),
-                                                                        new Intersect(
-                                                                                new Get("t"),
-                                                                                new Get("u"))
-                                                                )
+                                                                        )
+                                                                ),
+                                                                new Intersect(
+                                                                        new Get("t"),
+                                                                        new Get("u"))
                                                         )
                                                 )
                                         )
                                 )
                         )
-                );
+                )
+        );
+
+//        Expression root =
+                new Limit(5,
+                        new Union(
+                                new Get("t"),
+                                new Limit(10, new Get("t"))
+                        ));
 
         String rootClass = memo.insert(root);
 
@@ -141,9 +149,13 @@ public class Main5
             });
         }
 
-        memo.lookup().lookup(new Reference(group))
+        List<Reference> references = memo.lookup().lookup(new Reference(group))
                 .flatMap(e -> e.getArguments().stream())
                 .map(Reference.class::cast)
-                .forEach(e -> explore(memo, explored, rules, e.getName()));
+                .collect(Collectors.toList());
+
+        for (Reference reference : references) {
+            explore(memo, explored, rules, reference.getName());
+        }
     }
 }

@@ -68,6 +68,9 @@ public class Memo2
     {
         if (expression instanceof Reference) {
             String group = ((Reference) expression).getName();
+            while (merges.containsKey(group)) {
+                group = merges.get(group).getItem();
+            }
             return group;
         }
 
@@ -99,7 +102,7 @@ public class Memo2
             mergeInto(group, previousGroup);
         }
 
-        return expression;
+        return rewritten;
     }
 
     private void addToGroup(Expression rewritten, String group)
@@ -123,7 +126,6 @@ public class Memo2
                     .map(this::insertInternal)
                     .map(Reference::new)
                     .collect(Collectors.toList());
-
             rewritten = expression.copyWithArguments(arguments);
         }
 
@@ -172,7 +174,8 @@ public class Memo2
 
                 Expression rewritten = referrerExpression.copyWithArguments(newArguments);
 
-                insertInternal(referrerGroup, rewritten);
+                // inserting may rewrite the expression further
+                rewritten = insertInternal(referrerGroup, rewritten);
 
                 if (!rewritten.equals(referrerExpression)) {
                     rewrites.put(referrerExpression, new VersionedItem<>(rewritten, version));
