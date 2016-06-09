@@ -69,10 +69,6 @@ import static java.util.stream.Collectors.toMap;
  * <p/>
  * SELECT a
  * FROM
- * (SELECT a,
- * COUNT(foo_marker) AS foo_cnt,
- * COUNT(bar_marker) AS bar_cnt
- * FROM
  * (
  * SELECT a, true as foo_marker, null as bar_marker FROM foo
  * UNION ALL

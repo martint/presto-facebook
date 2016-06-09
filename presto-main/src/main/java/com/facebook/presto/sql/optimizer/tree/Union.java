@@ -18,28 +18,22 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.Objects;
 
-import static com.google.common.base.Preconditions.checkArgument;
-
-public class Get
+public class Union
         extends Expression
 {
-    private final String table;
-
-    public Get(String table)
+    public Union(List<Expression> arguments)
     {
-        super(ImmutableList.of());
-        this.table = table;
+        super(arguments);
     }
-
-    public String getTable()
+    public Union(Expression... arguments)
     {
-        return table;
+        super(ImmutableList.copyOf(arguments));
     }
 
     @Override
     public boolean isPhysical()
     {
-        return false;
+        return true;
     }
 
     @Override
@@ -51,8 +45,13 @@ public class Get
     @Override
     public Expression copyWithArguments(List<Expression> arguments)
     {
-        checkArgument(arguments.isEmpty());
-        return this;
+        return new Union(arguments);
+    }
+
+    @Override
+    public String toString()
+    {
+        return String.format("(union %s)", getArguments());
     }
 
     @Override
@@ -64,19 +63,13 @@ public class Get
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        Get get = (Get) o;
-        return Objects.equals(table, get.table);
+        Union other = (Union) o;
+        return Objects.equals(getArguments(), other.getArguments());
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(table);
-    }
-
-    @Override
-    public String toString()
-    {
-        return String.format("(get '%s')", table);
+        return Objects.hash(getArguments());
     }
 }

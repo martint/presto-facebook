@@ -24,12 +24,12 @@ import static java.util.Objects.requireNonNull;
 
 public class Engine
 {
-    public Engine(List<Rule> rules)
+    public Engine(List<RuleOld> rules)
     {
         this.rules = requireNonNull(rules, "rules is null");
     }
 
-    private final List<Rule> rules;
+    private final List<RuleOld> rules;
 
     public void optimize(Expression expression)
     {
@@ -62,7 +62,7 @@ public class Engine
         while (!expressions.isEmpty()) {
             Expression expression = expressions.poll();
 
-            for (Rule rule : rules) {
+            for (RuleOld rule : rules) {
                 memo.match(/* TODO: rule.getPattern(), */ expression)
                         .forEach(match -> {
                             if (rule.canApply(match)) {

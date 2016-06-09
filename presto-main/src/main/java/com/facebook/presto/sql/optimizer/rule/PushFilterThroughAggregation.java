@@ -15,13 +15,13 @@ package com.facebook.presto.sql.optimizer.rule;
 
 import com.facebook.presto.sql.optimizer.engine.Lookup;
 import com.facebook.presto.sql.optimizer.engine.Rule;
+import com.facebook.presto.sql.optimizer.tree.Aggregate;
 import com.facebook.presto.sql.optimizer.tree.Expression;
 import com.facebook.presto.sql.optimizer.tree.Filter;
-import com.facebook.presto.sql.optimizer.tree.Project;
 
 import java.util.stream.Stream;
 
-public class PushFilterThroughProject
+public class PushFilterThroughAggregation
         implements Rule
 {
     @Override
@@ -31,14 +31,16 @@ public class PushFilterThroughProject
                 .filter(Filter.class::isInstance)
                 .map(Filter.class::cast)
                 .flatMap(parent -> lookup.lookup(parent.getArguments().get(0))
-                        .filter(Project.class::isInstance)
-                        .map(Project.class::cast)
+                        .filter(Aggregate.class::isInstance)
+                        .map(Aggregate.class::cast)
                         .map(child -> process(parent, child)));
     }
 
-    private Expression process(Filter parent, Project child)
+    private Expression process(Filter parent, Aggregate child)
     {
-        return new Project(child.getExpression(),
+        return new Aggregate(
+                child.getType(),
+                child.getFunction(),
                 new Filter(parent.getCriteria(),
                         child.getArguments().get(0)));
     }

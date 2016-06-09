@@ -15,31 +15,37 @@ package com.facebook.presto.sql.optimizer.rule;
 
 import com.facebook.presto.sql.optimizer.engine.Lookup;
 import com.facebook.presto.sql.optimizer.engine.Rule;
+import com.facebook.presto.sql.optimizer.tree.Aggregate;
 import com.facebook.presto.sql.optimizer.tree.Expression;
 import com.facebook.presto.sql.optimizer.tree.Filter;
+import com.facebook.presto.sql.optimizer.tree.Intersect;
 import com.facebook.presto.sql.optimizer.tree.Project;
+import com.facebook.presto.sql.optimizer.tree.Union;
 
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class PushFilterThroughProject
+public class IntersectToUnion
         implements Rule
 {
     @Override
     public Stream<Expression> apply(Expression expression, Lookup lookup)
     {
         return lookup.lookup(expression)
-                .filter(Filter.class::isInstance)
-                .map(Filter.class::cast)
-                .flatMap(parent -> lookup.lookup(parent.getArguments().get(0))
-                        .filter(Project.class::isInstance)
-                        .map(Project.class::cast)
-                        .map(child -> process(parent, child)));
+                .filter(Intersect.class::isInstance)
+                .map(Intersect.class::cast)
+                .map(this::process);
     }
 
-    private Expression process(Filter parent, Project child)
+    private Expression process(Intersect expression)
     {
-        return new Project(child.getExpression(),
-                new Filter(parent.getCriteria(),
-                        child.getArguments().get(0)));
+        return new Filter("f",
+                new Aggregate(
+                        Aggregate.Type.SINGLE,
+                        "a",
+                        new Union(
+                                expression.getArguments().stream()
+                                        .map(e -> new Project("x", e))
+                                        .collect(Collectors.toList()))));
     }
 }

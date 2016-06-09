@@ -17,7 +17,7 @@ import com.facebook.presto.sql.optimizer.tree.Expression;
 
 import java.util.stream.Stream;
 
-public interface Rule
+public interface Lookup
 {
-    Stream<Expression> apply(Expression expression, Lookup lookup);
+    Stream<Expression> lookup(Expression expression);
 }
