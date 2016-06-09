@@ -24,12 +24,12 @@ import static java.util.Objects.requireNonNull;
 
 public class Engine
 {
-    public Engine(List<RuleOld> rules)
+    public Engine(List<Object> rules)
     {
         this.rules = requireNonNull(rules, "rules is null");
     }
 
-    private final List<RuleOld> rules;
+    private final List<Object> rules;
 
     public void optimize(Expression expression)
     {
@@ -62,17 +62,17 @@ public class Engine
         while (!expressions.isEmpty()) {
             Expression expression = expressions.poll();
 
-            for (RuleOld rule : rules) {
+            for (Object rule : rules) {
                 memo.match(/* TODO: rule.getPattern(), */ expression)
                         .forEach(match -> {
-                            if (rule.canApply(match)) {
+//                            if (rule.canApply(match)) {
                                 System.out.println(String.format("Apply %s(%s)", rule, match));
-                                for (Expression transformed : rule.apply(match)) {
-                                    System.out.println(String.format("-> %s", transformed));
-                                    // TODO: transformed = memo.recordEquivalence(equivalenceClass, transformed);
-                                    expressions.add(transformed);
-                                }
-                            }
+//                                for (Expression transformed : rule.apply(match)) {
+//                                    System.out.println(String.format("-> %s", transformed));
+//                                    // TODO: transformed = memo.recordEquivalence(equivalenceClass, transformed);
+//                                    expressions.add(transformed);
+//                                }
+//                            }
                         });
             }
         }
