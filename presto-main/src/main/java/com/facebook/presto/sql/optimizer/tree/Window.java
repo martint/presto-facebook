@@ -21,7 +21,7 @@ import java.util.Objects;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class Window
-        extends Expression<Window>
+        extends Expression
 {
     private String partition;
     private String order;
@@ -56,7 +56,7 @@ public class Window
     }
 
     @Override
-    public Expression<?> copyWithArguments(List<Expression<?>> arguments)
+    public Expression copyWithArguments(List<Expression> arguments)
     {
         checkArgument(arguments.size() == 1);
         return new Window(partition, order, arguments.get(0));
@@ -69,10 +69,11 @@ public class Window
     }
 
     @Override
-    protected boolean shallowEquals(Window other)
+    protected boolean shallowEquals(Expression other)
     {
-        return Objects.equals(partition, other.partition) &&
-                Objects.equals(order, other.order);
+        Window that = (Window) other;
+        return Objects.equals(partition, that.partition) &&
+                Objects.equals(order, that.order);
     }
 
     @Override

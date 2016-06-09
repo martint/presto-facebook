@@ -58,7 +58,7 @@ public class Main5
     {
         Memo2 memo = new Memo2();
 
-        Expression<?> root =
+        Expression root =
         new Limit(3,
                 new Sort("s0",
                         new Filter("f0",
@@ -128,18 +128,18 @@ public class Main5
         }
         explored.add(group);
 
-        Queue<Expression<?>> queue = new ArrayDeque<>();
+        Queue<Expression> queue = new ArrayDeque<>();
 
         memo.lookup().lookup(new Reference(group))
                 .forEach(queue::add);
 
         while (!queue.isEmpty()) {
-            Expression<?> expression = queue.poll();
+            Expression expression = queue.poll();
 
             rules.forEach(rule -> {
                 rule.apply(expression, memo.lookup())
                         .forEach(transformed -> {
-                            Expression<?> rewritten = memo.insert(group, transformed);
+                            Expression rewritten = memo.insert(group, transformed);
                             queue.add(rewritten);
                         });
             });

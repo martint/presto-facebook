@@ -23,12 +23,12 @@ import java.util.Objects;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
-public abstract class Expression<T extends Expression<?>>
+public abstract class Expression
 {
-    private final List<Expression<?>> arguments;
+    private final List<Expression> arguments;
     private int hashCode;
 
-    public Expression(List<Expression<?>> arguments)
+    public Expression(List<Expression> arguments)
     {
         requireNonNull(arguments, "arguments is null");
         this.arguments = ImmutableList.copyOf(arguments);
@@ -38,16 +38,16 @@ public abstract class Expression<T extends Expression<?>>
 
     public abstract boolean isLogical();
 
-    public final List<Expression<?>> getArguments()
+    public final List<Expression> getArguments()
     {
         return arguments;
     }
 
-    public abstract Expression<?> copyWithArguments(List<Expression<?>> arguments);
+    public abstract Expression copyWithArguments(List<Expression> arguments);
 
     protected abstract int shallowHashCode();
 
-    protected abstract boolean shallowEquals(T other);
+    protected abstract boolean shallowEquals(Expression other);
 
     public final boolean equals(Object other)
     {
@@ -58,7 +58,7 @@ public abstract class Expression<T extends Expression<?>>
             return false;
         }
 
-        T that = (T) other;
+        Expression that = (Expression) other;
         return shallowEquals(that) &&
                 Objects.equals(arguments, that.getArguments());
     }

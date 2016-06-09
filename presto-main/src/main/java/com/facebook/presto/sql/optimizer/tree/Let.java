@@ -23,7 +23,7 @@ import java.util.Objects;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class Let
-    extends Expression<Let>
+    extends Expression
 {
     private final Map<String, Expression> assignments;
     private final Expression expression;
@@ -48,7 +48,7 @@ public class Let
     }
 
     @Override
-    public Expression<?> copyWithArguments(List<Expression<?>> arguments)
+    public Expression copyWithArguments(List<Expression> arguments)
     {
         checkArgument(arguments.isEmpty());
         return this;
@@ -71,10 +71,11 @@ public class Let
     }
 
     @Override
-    protected boolean shallowEquals(Let other)
+    protected boolean shallowEquals(Expression other)
     {
-        return Objects.equals(assignments, other.assignments) &&
-                Objects.equals(expression, other.expression);    }
+        Let that = (Let) other;
+        return Objects.equals(assignments, that.assignments) &&
+                Objects.equals(expression, that.expression);    }
 
     @Override
     protected int shallowHashCode()
