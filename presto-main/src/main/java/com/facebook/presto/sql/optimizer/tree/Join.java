@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.Objects;
 
 public class Join
-        extends Expression<Join>
+        extends Expression
 {
     public enum Type
     {
@@ -57,7 +57,7 @@ public class Join
     }
 
     @Override
-    public Expression<?> copyWithArguments(List<Expression<?>> arguments)
+    public Expression copyWithArguments(List<Expression> arguments)
     {
         return new Join(type, criteria, getArguments().get(0), getArguments().get(1));
     }
@@ -69,10 +69,11 @@ public class Join
     }
 
     @Override
-    protected boolean shallowEquals(Join other)
+    protected boolean shallowEquals(Expression other)
     {
-        return Objects.equals(type, other.type) &&
-                Objects.equals(criteria, other.criteria);
+        Join that = (Join) other;
+        return Objects.equals(type, that.type) &&
+                Objects.equals(criteria, that.criteria);
     }
 
     @Override

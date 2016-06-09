@@ -18,13 +18,13 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 public class CrossJoin
-        extends Expression<CrossJoin>
+        extends Expression
 {
-    public CrossJoin(List<Expression<?>> arguments)
+    public CrossJoin(List<Expression> arguments)
     {
         super(arguments);
     }
-    public CrossJoin(Expression<?>... arguments)
+    public CrossJoin(Expression... arguments)
     {
         super(ImmutableList.copyOf(arguments));
     }
@@ -42,7 +42,7 @@ public class CrossJoin
     }
 
     @Override
-    public Expression<?> copyWithArguments(List<Expression<?>> arguments)
+    public Expression copyWithArguments(List<Expression> arguments)
     {
         return new CrossJoin(arguments);
     }
@@ -54,9 +54,9 @@ public class CrossJoin
     }
 
     @Override
-    protected boolean shallowEquals(CrossJoin other)
+    protected boolean shallowEquals(Expression other)
     {
-        return true;
+        return other instanceof CrossJoin;
     }
 
     @Override

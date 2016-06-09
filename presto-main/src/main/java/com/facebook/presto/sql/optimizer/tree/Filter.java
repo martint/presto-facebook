@@ -21,7 +21,7 @@ import java.util.Objects;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class Filter
-    extends Expression<Filter>
+    extends Expression
 {
     private String criteria;
 
@@ -49,7 +49,7 @@ public class Filter
     }
 
     @Override
-    public Expression<?> copyWithArguments(List<Expression<?>> arguments)
+    public Expression copyWithArguments(List<Expression> arguments)
     {
         checkArgument(arguments.size() == 1);
         return new Filter(criteria, arguments.get(0));
@@ -62,9 +62,10 @@ public class Filter
     }
 
     @Override
-    protected boolean shallowEquals(Filter other)
+    protected boolean shallowEquals(Expression other)
     {
-        return Objects.equals(criteria, other.criteria);
+        Filter that = (Filter) other;
+        return Objects.equals(criteria, that.criteria);
     }
 
     @Override

@@ -107,9 +107,9 @@ public class Memo
         return newGroup;
     }
 
-    private Expression<?> rewrite(Expression<?> expression, Function<Expression<?>, Expression<?>> mapping)
+    private Expression rewrite(Expression expression, Function<Expression, Expression> mapping)
     {
-        List<Expression<?>> arguments = expression.getArguments().stream()
+        List<Expression> arguments = expression.getArguments().stream()
                 .map(e -> rewrite(e, mapping))
                 .collect(Collectors.toList());
 

@@ -21,7 +21,7 @@ import java.util.Objects;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class Sort
-    extends Expression<Sort>
+    extends Expression
 {
     private final String criteria;
 
@@ -49,7 +49,7 @@ public class Sort
     }
 
     @Override
-    public Expression<?> copyWithArguments(List<Expression<?>> arguments)
+    public Expression copyWithArguments(List<Expression> arguments)
     {
         checkArgument(arguments.size() == 1);
         return new Sort(criteria, arguments.get(0));
@@ -62,9 +62,10 @@ public class Sort
     }
 
     @Override
-    protected boolean shallowEquals(Sort other)
+    protected boolean shallowEquals(Expression other)
     {
-        return Objects.equals(criteria, other.criteria);
+        Sort that = (Sort) other;
+        return Objects.equals(criteria, that.criteria);
     }
 
     @Override

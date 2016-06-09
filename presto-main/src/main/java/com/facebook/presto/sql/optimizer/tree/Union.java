@@ -18,13 +18,13 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 public class Union
-        extends Expression<Union>
+        extends Expression
 {
-    public Union(List<Expression<?>> arguments)
+    public Union(List<Expression> arguments)
     {
         super(arguments);
     }
-    public Union(Expression<?>... arguments)
+    public Union(Expression... arguments)
     {
         super(ImmutableList.copyOf(arguments));
     }
@@ -42,7 +42,7 @@ public class Union
     }
 
     @Override
-    public Expression<?> copyWithArguments(List<Expression<?>> arguments)
+    public Expression copyWithArguments(List<Expression> arguments)
     {
         return new Union(arguments);
     }
@@ -54,9 +54,9 @@ public class Union
     }
 
     @Override
-    protected boolean shallowEquals(Union other)
+    protected boolean shallowEquals(Expression other)
     {
-        return true;
+        return other instanceof Union;
     }
 
     @Override

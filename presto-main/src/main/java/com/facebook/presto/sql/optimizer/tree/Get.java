@@ -21,7 +21,7 @@ import java.util.Objects;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class Get
-        extends Expression<Get>
+        extends Expression
 {
     private final String table;
 
@@ -49,7 +49,7 @@ public class Get
     }
 
     @Override
-    public Expression<?> copyWithArguments(List<Expression<?>> arguments)
+    public Expression copyWithArguments(List<Expression> arguments)
     {
         checkArgument(arguments.isEmpty());
         return this;
@@ -62,9 +62,10 @@ public class Get
     }
 
     @Override
-    protected boolean shallowEquals(Get other)
+    protected boolean shallowEquals(Expression other)
     {
-        return Objects.equals(table, other.table);
+        Get that = (Get) other;
+        return Objects.equals(table, that.table);
     }
 
     @Override

@@ -18,13 +18,13 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 public class Intersect
-        extends Expression<Intersect>
+        extends Expression
 {
-    public Intersect(List<Expression<?>> arguments)
+    public Intersect(List<Expression> arguments)
     {
         super(arguments);
     }
-    public Intersect(Expression<?>... arguments)
+    public Intersect(Expression... arguments)
     {
         super(ImmutableList.copyOf(arguments));
     }
@@ -42,7 +42,7 @@ public class Intersect
     }
 
     @Override
-    public Expression<?> copyWithArguments(List<Expression<?>> arguments)
+    public Expression copyWithArguments(List<Expression> arguments)
     {
         return new Intersect(arguments);
     }
@@ -54,9 +54,9 @@ public class Intersect
     }
 
     @Override
-    protected boolean shallowEquals(Intersect other)
+    protected boolean shallowEquals(Expression other)
     {
-        return true;
+        return other instanceof Intersect;
     }
 
     @Override
