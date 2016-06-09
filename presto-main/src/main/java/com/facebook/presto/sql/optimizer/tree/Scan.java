@@ -20,12 +20,12 @@ import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-public class Get
+public class Scan
         extends Expression
 {
     private final String table;
 
-    public Get(String table)
+    public Scan(String table)
     {
         super(ImmutableList.of());
         this.table = table;
@@ -39,13 +39,13 @@ public class Get
     @Override
     public boolean isPhysical()
     {
-        return false;
+        return true;
     }
 
     @Override
     public boolean isLogical()
     {
-        return true;
+        return false;
     }
 
     @Override
@@ -64,7 +64,7 @@ public class Get
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        Get get = (Get) o;
+        Scan get = (Scan) o;
         return Objects.equals(table, get.table);
     }
 
@@ -77,6 +77,6 @@ public class Get
     @Override
     public String toString()
     {
-        return String.format("(get '%s')", table);
+        return String.format("(scan '%s')", table);
     }
 }

@@ -13,33 +13,47 @@
  */
 package com.facebook.presto.sql.optimizer.tree;
 
-import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
-public class Call
-    extends Expression
-{
-    private final String name;
+import static com.google.common.base.Preconditions.checkArgument;
 
-    public Call(String name, Expression... arguments)
+public class Aggregate
+        extends Expression
+{
+    public enum Type
     {
-        super(Arrays.asList(arguments));
-        this.name = name;
+        FINAL,
+        PARTIAL,
+        SINGLE
     }
 
-    public Call(String name, List<Expression> arguments)
+    private final String function;
+    private final Type type;
+
+    public Aggregate(Type type, String function, Expression argument)
     {
-        super(arguments);
-        this.name = name;
+        super(ImmutableList.of(argument));
+        this.type = type;
+        this.function = function;
+    }
+
+    public Type getType()
+    {
+        return type;
+    }
+
+    public String getFunction()
+    {
+        return function;
     }
 
     @Override
     public boolean isPhysical()
     {
-        return false;
+        return true;
     }
 
     @Override
@@ -51,17 +65,14 @@ public class Call
     @Override
     public Expression copyWithArguments(List<Expression> arguments)
     {
-        return new Call(name, arguments);
+        checkArgument(arguments.size() == 1);
+        return new Aggregate(type, function, arguments.get(0));
     }
 
     @Override
     public String toString()
     {
-        if (getArguments().isEmpty()) {
-            return name;
-        }
-
-        return String.format("(%s %s)", name, Joiner.on(" ").join(getArguments()));
+        return String.format("(aggregate %s %s)", function, getArguments().get(0));
     }
 
     @Override
@@ -73,13 +84,15 @@ public class Call
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        Call call = (Call) o;
-        return Objects.equals(name, call.name) && Objects.equals(getArguments(), call.getArguments());
+        Aggregate other = (Aggregate) o;
+        return Objects.equals(type, other.type) &&
+                Objects.equals(function, other.function) &&
+                Objects.equals(getArguments(), other.getArguments());
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, getArguments());
+        return Objects.hash(type, function, getArguments());
     }
 }

@@ -17,11 +17,12 @@ import com.facebook.presto.sql.optimizer.engine.Lookup;
 import com.facebook.presto.sql.optimizer.engine.Rule;
 import com.facebook.presto.sql.optimizer.tree.Expression;
 import com.facebook.presto.sql.optimizer.tree.Filter;
-import com.facebook.presto.sql.optimizer.tree.Project;
+import com.facebook.presto.sql.optimizer.tree.Union;
 
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class PushFilterThroughProject
+public class PushFilterThroughUnion
         implements Rule
 {
     @Override
@@ -31,15 +32,16 @@ public class PushFilterThroughProject
                 .filter(Filter.class::isInstance)
                 .map(Filter.class::cast)
                 .flatMap(parent -> lookup.lookup(parent.getArguments().get(0))
-                        .filter(Project.class::isInstance)
-                        .map(Project.class::cast)
+                        .filter(Union.class::isInstance)
+                        .map(Union.class::cast)
                         .map(child -> process(parent, child)));
     }
 
-    private Expression process(Filter parent, Project child)
+    private Expression process(Filter parent, Union child)
     {
-        return new Project(child.getExpression(),
-                new Filter(parent.getCriteria(),
-                        child.getArguments().get(0)));
+        return new Union(
+                child.getArguments().stream()
+                        .map(grandChild -> new Filter(parent.getCriteria(), grandChild))
+                        .collect(Collectors.toList()));
     }
 }

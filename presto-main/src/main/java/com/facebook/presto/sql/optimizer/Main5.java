@@ -14,10 +14,35 @@
 package com.facebook.presto.sql.optimizer;
 
 import com.facebook.presto.sql.optimizer.engine.Memo2;
+import com.facebook.presto.sql.optimizer.engine.Rule;
+import com.facebook.presto.sql.optimizer.rule.GetToScan;
+import com.facebook.presto.sql.optimizer.rule.IntersectToUnion;
+import com.facebook.presto.sql.optimizer.rule.MergeFilters;
+import com.facebook.presto.sql.optimizer.rule.MergeLimits;
+import com.facebook.presto.sql.optimizer.rule.OrderByLimitToTopN;
+import com.facebook.presto.sql.optimizer.rule.PushAggregationThroughUnion;
+import com.facebook.presto.sql.optimizer.rule.PushFilterIntoScan;
+import com.facebook.presto.sql.optimizer.rule.PushFilterThroughAggregation;
+import com.facebook.presto.sql.optimizer.rule.PushFilterThroughProject;
+import com.facebook.presto.sql.optimizer.rule.PushFilterThroughUnion;
+import com.facebook.presto.sql.optimizer.rule.PushLimitThroughUnion;
+import com.facebook.presto.sql.optimizer.tree.Aggregate;
 import com.facebook.presto.sql.optimizer.tree.Expression;
 import com.facebook.presto.sql.optimizer.tree.Filter;
 import com.facebook.presto.sql.optimizer.tree.Get;
+import com.facebook.presto.sql.optimizer.tree.Intersect;
+import com.facebook.presto.sql.optimizer.tree.Limit;
 import com.facebook.presto.sql.optimizer.tree.Project;
+import com.facebook.presto.sql.optimizer.tree.Reference;
+import com.facebook.presto.sql.optimizer.tree.Sort;
+import com.facebook.presto.sql.optimizer.tree.Union;
+import com.google.common.collect.ImmutableList;
+
+import java.util.ArrayDeque;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Queue;
+import java.util.Set;
 
 public class Main5
 {
@@ -30,26 +55,89 @@ public class Main5
     {
         Memo2 memo = new Memo2();
 
-        addEquivalentExpressions(
-                memo,
-                new Filter("f1",
-                        new Project("p1",
-                                new Get("t"))),
-                new Filter("p2",
-                        new Project("f2",
-                                new Get("t"))));
+        Expression root =
+                new Limit(3,
+                        new Sort("s0",
+                                new Filter("f0",
+                                        new Aggregate(Aggregate.Type.SINGLE, "a1",
+                                                new Limit(5,
+                                                        new Limit(10,
+                                                                new Union(
+                                                                        new Filter("f1",
+                                                                                new Project("p1",
+                                                                                        new Get("t")
+                                                                                )
+                                                                        ),
+                                                                        new Filter("f2",
+                                                                                new Project("p2",
+                                                                                        new Get("u")
+                                                                                )
+                                                                        ),
+                                                                        new Intersect(
+                                                                                new Get("t"),
+                                                                                new Get("u"))
+                                                                        )
+                                                        )
+                                                )
+                                        )
+                                )
+                        )
+                );
 
-        System.out.println(memo.dump());
-    }
+        String rootClass = memo.insert(root);
 
-    public static void addEquivalentExpressions(Memo2 memo, Expression first, Expression... rest)
-    {
-        String group = memo.insert(first);
+        List<Rule> rules = ImmutableList.of(
+                new PushFilterThroughProject(),
+                new PushAggregationThroughUnion(),
+                new PushFilterThroughAggregation(),
+                new PushFilterThroughUnion(),
+                new MergeFilters(),
+                new PushFilterIntoScan(),
+                new MergeLimits(),
+                new PushLimitThroughUnion(),
+                new OrderByLimitToTopN(),
+                new IntersectToUnion(),
+                new GetToScan());
+
         System.out.println(memo.toGraphviz());
 
-        for (Expression expression : rest) {
-            memo.insert(group, expression);
-            System.out.println(memo.toGraphviz());
+        explore(memo, new HashSet<>(), rules, rootClass);
+//        System.out.println(memo.toGraphviz());
+
+        explore(memo, new HashSet<>(), rules, rootClass);
+//        System.out.println(memo.toGraphviz());
+
+        explore(memo, new HashSet<>(), rules, rootClass);
+        System.out.println(memo.toGraphviz());
+    }
+
+    private static void explore(Memo2 memo, Set<String> explored, List<Rule> rules, String group)
+    {
+        if (explored.contains(group)) {
+            return;
         }
+        explored.add(group);
+
+        Queue<Expression> queue = new ArrayDeque<>();
+
+        memo.lookup().lookup(new Reference(group))
+                .forEach(queue::add);
+
+        while (!queue.isEmpty()) {
+            Expression expression = queue.poll();
+
+            rules.forEach(rule -> {
+                rule.apply(expression, memo.lookup())
+                        .forEach(transformed -> {
+                            Expression rewritten = memo.insert(group, transformed);
+                            queue.add(rewritten);
+                        });
+            });
+        }
+
+        memo.lookup().lookup(new Reference(group))
+                .flatMap(e -> e.getArguments().stream())
+                .map(Reference.class::cast)
+                .forEach(e -> explore(memo, explored, rules, e.getName()));
     }
 }

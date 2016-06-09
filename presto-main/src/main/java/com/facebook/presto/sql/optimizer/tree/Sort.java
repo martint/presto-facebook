@@ -20,26 +20,26 @@ import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-public class Get
-        extends Expression
+public class Sort
+    extends Expression
 {
-    private final String table;
+    private final String criteria;
 
-    public Get(String table)
+    public Sort(String criteria, Expression argument)
     {
-        super(ImmutableList.of());
-        this.table = table;
+        super(ImmutableList.of(argument));
+        this.criteria = criteria;
     }
 
-    public String getTable()
+    public String getCriteria()
     {
-        return table;
+        return criteria;
     }
 
     @Override
     public boolean isPhysical()
     {
-        return false;
+        return true;
     }
 
     @Override
@@ -51,8 +51,14 @@ public class Get
     @Override
     public Expression copyWithArguments(List<Expression> arguments)
     {
-        checkArgument(arguments.isEmpty());
-        return this;
+        checkArgument(arguments.size() == 1);
+        return new Sort(criteria, arguments.get(0));
+    }
+
+    @Override
+    public String toString()
+    {
+        return String.format("(sort %s %s)", criteria, getArguments().get(0));
     }
 
     @Override
@@ -64,19 +70,14 @@ public class Get
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        Get get = (Get) o;
-        return Objects.equals(table, get.table);
+        Sort filter = (Sort) o;
+        return Objects.equals(criteria, filter.criteria) &&
+                Objects.equals(getArguments(), filter.getArguments());
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(table);
-    }
-
-    @Override
-    public String toString()
-    {
-        return String.format("(get '%s')", table);
+        return Objects.hash(criteria, getArguments());
     }
 }

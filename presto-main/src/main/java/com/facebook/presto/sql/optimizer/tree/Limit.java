@@ -20,26 +20,26 @@ import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-public class Get
+public class Limit
         extends Expression
 {
-    private final String table;
+    private final long count;
 
-    public Get(String table)
+    public Limit(long count, Expression argument)
     {
-        super(ImmutableList.of());
-        this.table = table;
+        super(ImmutableList.of(argument));
+        this.count = count;
     }
 
-    public String getTable()
+    public long getCount()
     {
-        return table;
+        return count;
     }
 
     @Override
     public boolean isPhysical()
     {
-        return false;
+        return true;
     }
 
     @Override
@@ -51,8 +51,14 @@ public class Get
     @Override
     public Expression copyWithArguments(List<Expression> arguments)
     {
-        checkArgument(arguments.isEmpty());
-        return this;
+        checkArgument(arguments.size() == 1);
+        return new Limit(count, arguments.get(0));
+    }
+
+    @Override
+    public String toString()
+    {
+        return String.format("(limit %s %s)", count, getArguments().get(0));
     }
 
     @Override
@@ -64,19 +70,14 @@ public class Get
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        Get get = (Get) o;
-        return Objects.equals(table, get.table);
+        Limit filter = (Limit) o;
+        return Objects.equals(count, filter.count) &&
+                Objects.equals(getArguments(), filter.getArguments());
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(table);
-    }
-
-    @Override
-    public String toString()
-    {
-        return String.format("(get '%s')", table);
+        return Objects.hash(count, getArguments());
     }
 }

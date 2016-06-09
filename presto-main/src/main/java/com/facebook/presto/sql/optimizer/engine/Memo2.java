@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -47,12 +48,21 @@ public class Memo2
         return insertInternal(expression);
     }
 
-    public void insert(String group, Expression expression)
+    public Expression insert(String group, Expression expression)
     {
         version++;
-        insertInternal(group, expression);
+        return insertInternal(group, expression);
     }
 
+    public Lookup lookup()
+    {
+        return expression -> {
+            if (expression instanceof Reference) {
+                return expressionsByGroup.get(((Reference) expression).getName()).keySet().stream();
+            }
+            return Stream.of(expression);
+        };
+    }
 
     private String insertInternal(Expression expression)
     {
@@ -72,11 +82,11 @@ public class Memo2
         return group;
     }
 
-    private void insertInternal(String group, Expression expression)
+    private Expression insertInternal(String group, Expression expression)
     {
         if (expression instanceof Reference) {
             mergeInto(group, ((Reference) expression).getName());
-            return;
+            return new Reference(group);
         }
 
         Expression rewritten = insertChildrenAndRewrite(expression);
@@ -88,6 +98,8 @@ public class Memo2
         else if (!previousGroup.equals(group)) {
             mergeInto(group, previousGroup);
         }
+
+        return expression;
     }
 
     private void addToGroup(Expression rewritten, String group)

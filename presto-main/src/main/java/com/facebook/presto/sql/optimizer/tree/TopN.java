@@ -20,26 +20,33 @@ import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-public class Get
+public class TopN
         extends Expression
 {
-    private final String table;
+    private final long count;
+    private final String criteria;
 
-    public Get(String table)
+    public TopN(long count, String criteria, Expression argument)
     {
-        super(ImmutableList.of());
-        this.table = table;
+        super(ImmutableList.of(argument));
+        this.count = count;
+        this.criteria = criteria;
     }
 
-    public String getTable()
+    public long getCount()
     {
-        return table;
+        return count;
+    }
+
+    public String getCriteria()
+    {
+        return criteria;
     }
 
     @Override
     public boolean isPhysical()
     {
-        return false;
+        return true;
     }
 
     @Override
@@ -51,8 +58,14 @@ public class Get
     @Override
     public Expression copyWithArguments(List<Expression> arguments)
     {
-        checkArgument(arguments.isEmpty());
-        return this;
+        checkArgument(arguments.size() == 1);
+        return new TopN(count, criteria, arguments.get(0));
+    }
+
+    @Override
+    public String toString()
+    {
+        return String.format("(top-n %s %s %s)", count, criteria, getArguments().get(0));
     }
 
     @Override
@@ -64,19 +77,15 @@ public class Get
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        Get get = (Get) o;
-        return Objects.equals(table, get.table);
+        TopN filter = (TopN) o;
+        return Objects.equals(count, filter.count) &&
+                Objects.equals(criteria, filter.criteria) &&
+                Objects.equals(getArguments(), filter.getArguments());
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(table);
-    }
-
-    @Override
-    public String toString()
-    {
-        return String.format("(get '%s')", table);
+        return Objects.hash(count, criteria, getArguments());
     }
 }

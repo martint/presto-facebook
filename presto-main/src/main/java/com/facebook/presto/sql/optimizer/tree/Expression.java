@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.optimizer.tree;
 
+import com.google.common.collect.ImmutableList;
+
 import java.util.List;
 
 import static java.util.Objects.requireNonNull;
@@ -23,7 +25,8 @@ public abstract class Expression
 
     public Expression(List<Expression> arguments)
     {
-        this.arguments = requireNonNull(arguments, "arguments is null");
+        requireNonNull(arguments, "arguments is null");
+        this.arguments = ImmutableList.copyOf(arguments);
     }
 
     public abstract boolean isPhysical();

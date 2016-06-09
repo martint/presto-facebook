@@ -15,9 +15,9 @@ package com.facebook.presto.sql.optimizer.engine;
 
 import com.facebook.presto.sql.optimizer.tree.Expression;
 
-import java.util.stream.Stream;
-
-public interface Rule
+public abstract class RuleOld
 {
-    Stream<Expression> apply(Expression expression, Lookup lookup);
+    public abstract Pattern getPattern();
+    public abstract boolean canApply(Expression match);
+    public abstract Iterable<Expression> apply(Expression match);
 }
