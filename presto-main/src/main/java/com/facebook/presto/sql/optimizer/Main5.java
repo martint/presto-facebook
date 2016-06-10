@@ -58,7 +58,7 @@ public class Main5
     {
         Memo2 memo = new Memo2();
 
-        Expression root =
+//        Expression root =
         new Limit(3,
                 new Sort("s0",
                         new Filter("f0",
@@ -90,8 +90,8 @@ public class Main5
                 )
         );
 
-//        Expression<?> root =
-//                new Limit(10, new Limit(5, new Get("t")));
+        Expression root =
+                new Limit(10, new Limit(5, new Get("t")));
 
         String rootClass = memo.insert(root);
 
@@ -109,7 +109,7 @@ public class Main5
                 new MergeFilterAndCrossJoin(),
                 new GetToScan());
 
-        System.out.println(memo.toGraphviz());
+//        System.out.println(memo.toGraphviz());
 
         explore(memo, new HashSet<>(), rules, rootClass);
 //        System.out.println(memo.toGraphviz());
@@ -118,7 +118,9 @@ public class Main5
 //        System.out.println(memo.toGraphviz());
 
 //        explore(memo, new HashSet<>(), rules, rootClass);
-        System.out.println(memo.toGraphviz());
+//        System.out.println(memo.toGraphviz());
+
+        System.out.println(memo.dump());
     }
 
     private static void explore(Memo2 memo, Set<String> explored, List<Rule> rules, String group)
