@@ -15,6 +15,7 @@ package com.facebook.presto.sql.optimizer;
 
 import com.facebook.presto.sql.optimizer.engine.Lookup;
 import com.facebook.presto.sql.optimizer.engine.Memo2;
+import com.facebook.presto.sql.optimizer.engine.MemoLookup;
 import com.facebook.presto.sql.optimizer.engine.Rule;
 import com.facebook.presto.sql.optimizer.rule.GetToScan;
 import com.facebook.presto.sql.optimizer.rule.IntersectToUnion;
@@ -49,7 +50,6 @@ import java.util.List;
 import java.util.Queue;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 public class Main
 {
@@ -79,7 +79,7 @@ public class Main
 
         Memo2 memo = new Memo2();
 
-        Expression root =
+//        Expression root =
         new Limit(3,
                 new Sort("s0",
                         new Filter("f0",
@@ -117,7 +117,7 @@ public class Main
                         new Project("p",
                                 new Get("t"))));
 
-//        Expression root =
+        Expression root =
         new Filter("f1",
                 new Filter("f2",
                         new Get("t")
@@ -168,13 +168,13 @@ public class Main
             Expression expression = queue.poll();
 
             for (Rule rule : rules) {
-                Lookup lookup = new LookupImpl(memo, group);
+                Lookup lookup = new MemoLookup(memo, group);
 
                 List<Expression> transformed = rule.apply(expression, lookup)
                         .collect(Collectors.toList());
 
                 for (Expression e : transformed) {
-                    Expression rewritten = memo.insert(group, e);
+                    Expression rewritten = memo.transform(expression, e, rule.getClass().getSimpleName());
                     queue.add(rewritten);
                 }
             }
@@ -187,33 +187,6 @@ public class Main
 
         for (Reference reference : references) {
             explore(memo, explored, rules, reference.getName());
-        }
-    }
-
-    private static class LookupImpl
-            implements Lookup
-    {
-        private final Set<Expression> visited = new HashSet<>();
-        private final Memo2 memo;
-
-        public LookupImpl(Memo2 memo, String group)
-        {
-            this.memo = memo;
-            visited.add(new Reference(group));
-        }
-
-        @Override
-        public Stream<Expression> lookup(Expression expression)
-        {
-            if (visited.contains(expression)) {
-                return Stream.empty();
-            }
-            visited.add(expression);
-
-            if (expression instanceof Reference) {
-                return memo.getExpressions(((Reference) expression).getName()).stream();
-            }
-            return Stream.of(expression);
         }
     }
 }

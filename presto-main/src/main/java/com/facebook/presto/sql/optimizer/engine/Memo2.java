@@ -43,6 +43,7 @@ public class Memo2
 
     private final Map<Expression, VersionedItem<Expression>> rewrites = new HashMap<>();
     private final Map<String, VersionedItem<String>> merges = new HashMap<>();
+    private final Map<Expression, Map<Expression, VersionedItem<String>>> transformations = new HashMap<>();
 
     public long getVersion()
     {
@@ -54,11 +55,25 @@ public class Memo2
         return insertInternal(expression);
     }
 
+    public Expression transform(Expression from, Expression to, String reason)
+    {
+        checkArgument(expressionMembership.containsKey(from), "Unknown expression: %s", from);
+
+        String group = expressionMembership.get(from);
+        Expression result = insert(group, to);
+
+        transformations.computeIfAbsent(from, e -> new HashMap<>())
+                .computeIfAbsent(result, e -> new VersionedItem<>(reason, version++));
+
+        return result;
+    }
+
     public Expression insert(String group, Expression expression)
     {
         // Make sure we use the latest version of a group, otherwise, we
         // may end up attempting to merge groups that are already merged
-        return insertInternal(canonicalizeGroup(group), expression);
+        Expression result = insertInternal(canonicalizeGroup(group), expression);
+        return result;
     }
 
     public Set<Expression> getExpressions(String group)
@@ -192,6 +207,11 @@ public class Memo2
         }
     }
 
+    public void verify()
+    {
+        // TODO:
+        // 1. ensure all expression memberships point to canonical group
+    }
 //    public void verify()
 //    {
 //        for (Map.Entry<String, Set<VersionedItem<Expression>>> entry : expressionsByGroup.entrySet()) {
@@ -300,16 +320,23 @@ public class Memo2
     {
         private final Type type;
         private final long version;
+        private final String label;
 
         public enum Type
         {
-            CONTAINS, REFERENCES, MERGED_WITH, REWRITTEN_TO
+            CONTAINS, REFERENCES, MERGED_WITH, REWRITTEN_TO, TRANSFORMED
         }
 
         public Edge(Type type, long version)
         {
+            this(type, version, null);
+        }
+
+        public Edge(Type type, long version, String label)
+        {
             this.type = type;
             this.version = version;
+            this.label = label;
         }
     }
 
@@ -400,6 +427,17 @@ public class Memo2
             graph.addEdge(fromId, toId, new Edge(Edge.Type.REWRITTEN_TO, entry.getValue().getVersion()));
         }
 
+        // transformations
+        for (Map.Entry<Expression, Map<Expression, VersionedItem<String>>> entry : transformations.entrySet()) {
+            Expression from = entry.getKey();
+            int fromId = ids.get(from);
+
+            for (Map.Entry<Expression, VersionedItem<String>> edge : entry.getValue().entrySet()) {
+                int toId = ids.get(edge.getKey());
+                graph.addEdge(fromId, toId, new Edge(Edge.Type.TRANSFORMED, edge.getValue().getVersion(), edge.getValue().getItem()));
+            }
+        }
+
         int i = 0;
         for (Set<Integer> nodes : clusters.sets()) {
             String clusterId = Integer.toString(i++);
@@ -432,7 +470,13 @@ public class Memo2
                 },
                 (from, to, edge) -> {
                     Map<String, String> attributes = new HashMap<>();
-                    attributes.put("label", Long.toString(edge.version));
+
+                    String label = "";
+                    if (edge.label != null) {
+                        label = edge.label + " @";
+                    }
+                    label += edge.version;
+                    attributes.put("label", label);
 
                     if (!graph.getNode(from).get().active || !graph.getNode(to).get().active) {
                         attributes.put("color", "lightgrey");
@@ -441,6 +485,10 @@ public class Memo2
                         case MERGED_WITH:
                         case REWRITTEN_TO:
                             attributes.put("style", "dotted");
+                            break;
+                        case TRANSFORMED:
+                            attributes.put("color", "blue");
+                            attributes.put("penwidth", "2");
                             break;
                     }
 
