@@ -42,22 +42,29 @@ public class Memo2
     private final Map<Expression, VersionedItem<Expression>> rewrites = new HashMap<>();
     private final Map<String, VersionedItem<String>> merges = new HashMap<>();
 
+    public long getVersion()
+    {
+        return version;
+    }
+
     public String insert(Expression expression)
     {
-        version++;
         return insertInternal(expression);
     }
 
     public Expression insert(String group, Expression expression)
     {
-        version++;
-        return insertInternal(group, expression);
+        // Make sure we use the latest version of a group, otherwise, we
+        // may end up attempting to merge groups that are already merged
+        return insertInternal(canonicalizeGroup(group), expression);
     }
 
     public Lookup lookup()
     {
         return expression -> {
             if (expression instanceof Reference) {
+                // TODO: this needs to return a stream that allows concurrent modifications
+                // and, possibly, can see new items that get added since the stream was created
                 return expressionsByGroup.get(((Reference) expression).getName()).keySet().stream();
             }
             return Stream.of(expression);
@@ -68,10 +75,7 @@ public class Memo2
     {
         if (expression instanceof Reference) {
             String group = ((Reference) expression).getName();
-            while (merges.containsKey(group)) {
-                group = merges.get(group).getItem();
-            }
-            return group;
+            return canonicalizeGroup(group);
         }
 
         Expression rewritten = insertChildrenAndRewrite(expression);
@@ -82,6 +86,14 @@ public class Memo2
             addToGroup(rewritten, group);
         }
 
+        return group;
+    }
+
+    private String canonicalizeGroup(String group)
+    {
+        while (merges.containsKey(group)) {
+            group = merges.get(group).getItem();
+        }
         return group;
     }
 
@@ -108,13 +120,13 @@ public class Memo2
     private void addToGroup(Expression rewritten, String group)
     {
         expressionMembership.put(rewritten, group);
-        expressions.put(rewritten, version);
-        expressionsByGroup.get(group).put(rewritten, version);
+        expressions.put(rewritten, version++);
+        expressionsByGroup.get(group).put(rewritten, version++);
 
         rewritten.getArguments().stream()
                 .map(Reference.class::cast)
                 .map(Reference::getName)
-                .forEach(child -> incomingReferences.get(child).putIfAbsent(rewritten, version));
+                .forEach(child -> incomingReferences.get(child).putIfAbsent(rewritten, version++));
     }
 
     private Expression insertChildrenAndRewrite(Expression expression)
@@ -139,7 +151,7 @@ public class Memo2
 
         incomingReferences.put(name, new HashMap<>());
         expressionsByGroup.put(name, new HashMap<>());
-        groups.put(name, version);
+        groups.put(name, version++);
 
         return name;
     }
@@ -148,12 +160,13 @@ public class Memo2
     {
         checkArgument(groups.containsKey(targetGroup), "Group doesn't exist: %s", targetGroup);
         checkArgument(groups.containsKey(group), "Group doesn't exist: %s", group);
+        checkArgument(!canonicalizeGroup(targetGroup).equals(canonicalizeGroup(group)), "Groups are already merged: %s vs %s", targetGroup, group);
 
-        merges.put(group, new VersionedItem<>(targetGroup, version));
+        merges.put(group, new VersionedItem<>(targetGroup, version++));
 
         // move all expressions to the target group
         for (Expression expression : expressionsByGroup.get(group).keySet()) {
-            expressionsByGroup.get(targetGroup).put(expression, version);
+            expressionsByGroup.get(targetGroup).put(expression, version++);
             expressionMembership.put(expression, targetGroup);
         }
 
@@ -178,7 +191,7 @@ public class Memo2
                 rewritten = insertInternal(referrerGroup, rewritten);
 
                 if (!rewritten.equals(referrerExpression)) {
-                    rewrites.put(referrerExpression, new VersionedItem<>(rewritten, version));
+                    rewrites.put(referrerExpression, new VersionedItem<>(rewritten, version++));
                 }
             }
         }
@@ -248,6 +261,24 @@ public class Memo2
 
         return builder.toString();
     }
+
+//    public boolean contains(String group, Expression expression)
+//    {
+//        Expression rewritten = expression;
+//
+// TODO: broken... needs to rewrite children recursively
+//        if (!expression.getArguments().isEmpty()) {
+//            List<Expression> arguments = expression.getArguments().stream()
+//                    .map(Reference.class::cast)
+//                    .map(Reference::getName)
+//                    .map(this::canonicalizeGroup)
+//                    .map(Reference::new)
+//                    .collect(Collectors.toList());
+//            rewritten = expression.copyWithArguments(arguments);
+//        }
+//
+//        return expressionsByGroup.get(group).containsKey(rewritten);
+//    }
 
     private static class Node
     {

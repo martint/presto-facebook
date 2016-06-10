@@ -16,30 +16,29 @@ package com.facebook.presto.sql.optimizer.rule;
 import com.facebook.presto.sql.optimizer.engine.Lookup;
 import com.facebook.presto.sql.optimizer.engine.Rule;
 import com.facebook.presto.sql.optimizer.tree.Expression;
-import com.facebook.presto.sql.optimizer.tree.Limit;
+import com.facebook.presto.sql.optimizer.tree.Project;
 
 import java.util.stream.Stream;
 
-public class MergeLimits
+public class MergeProjections
         implements Rule
 {
     @Override
     public Stream<Expression> apply(Expression expression, Lookup lookup)
     {
         return lookup.lookup(expression)
-                .filter(Limit.class::isInstance)
-                .map(Limit.class::cast)
+                .filter(Project.class::isInstance)
+                .map(Project.class::cast)
                 .flatMap(parent -> lookup.lookup(parent.getArguments().get(0))
-                        .filter(Limit.class::isInstance)
-                        .map(Limit.class::cast)
+                        .filter(Project.class::isInstance)
+                        .map(Project.class::cast)
                         .map(child -> process(parent, child)));
     }
 
-    private Expression process(Limit parent, Limit child)
+    private Expression process(Project parent, Project child)
     {
-        if (parent.getCount() < child.getCount()) {
-            return new Limit(parent.getCount(), child.getArguments().get(0));
-        }
-        return child;
+        return new Project(
+                parent.getExpression() + "/" + child.getExpression(),
+                child.getArguments().get(0));
     }
 }

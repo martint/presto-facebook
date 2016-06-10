@@ -17,10 +17,12 @@ import com.facebook.presto.sql.optimizer.engine.Lookup;
 import com.facebook.presto.sql.optimizer.engine.Rule;
 import com.facebook.presto.sql.optimizer.tree.Expression;
 import com.facebook.presto.sql.optimizer.tree.Limit;
+import com.facebook.presto.sql.optimizer.tree.Project;
 
+import java.util.Optional;
 import java.util.stream.Stream;
 
-public class MergeLimits
+public class PushLimitThroughProject
         implements Rule
 {
     @Override
@@ -30,16 +32,29 @@ public class MergeLimits
                 .filter(Limit.class::isInstance)
                 .map(Limit.class::cast)
                 .flatMap(parent -> lookup.lookup(parent.getArguments().get(0))
-                        .filter(Limit.class::isInstance)
-                        .map(Limit.class::cast)
-                        .map(child -> process(parent, child)));
+                        .filter(Project.class::isInstance)
+                        .map(Project.class::cast)
+                        .map(child -> process(parent, child, lookup))
+                        .filter(Optional::isPresent)
+                        .map(Optional::get));
     }
 
-    private Expression process(Limit parent, Limit child)
+    private Optional<Expression> process(Limit parent, Project child, Lookup lookup)
     {
-        if (parent.getCount() < child.getCount()) {
-            return new Limit(parent.getCount(), child.getArguments().get(0));
+        boolean hasLimit = lookup.lookup(child.getArguments().get(0))
+                .filter(Limit.class::isInstance)
+                .map(Limit.class::cast)
+                .anyMatch(e -> e.getCount() == parent.getCount());
+
+        if (hasLimit) {
+            return Optional.empty();
         }
-        return child;
+
+        return Optional.of(
+                new Project(
+                        child.getExpression(),
+                        new Limit(
+                                parent.getCount(),
+                                child.getArguments().get(0))));
     }
 }
