@@ -20,12 +20,14 @@ import com.facebook.presto.sql.optimizer.rule.IntersectToUnion;
 import com.facebook.presto.sql.optimizer.rule.MergeFilterAndCrossJoin;
 import com.facebook.presto.sql.optimizer.rule.MergeFilters;
 import com.facebook.presto.sql.optimizer.rule.MergeLimits;
+import com.facebook.presto.sql.optimizer.rule.MergeProjections;
 import com.facebook.presto.sql.optimizer.rule.OrderByLimitToTopN;
 import com.facebook.presto.sql.optimizer.rule.PushAggregationThroughUnion;
 import com.facebook.presto.sql.optimizer.rule.PushFilterIntoScan;
 import com.facebook.presto.sql.optimizer.rule.PushFilterThroughAggregation;
 import com.facebook.presto.sql.optimizer.rule.PushFilterThroughProject;
 import com.facebook.presto.sql.optimizer.rule.PushFilterThroughUnion;
+import com.facebook.presto.sql.optimizer.rule.PushLimitThroughProject;
 import com.facebook.presto.sql.optimizer.rule.PushLimitThroughUnion;
 import com.facebook.presto.sql.optimizer.tree.Aggregate;
 import com.facebook.presto.sql.optimizer.tree.CrossJoin;
@@ -56,15 +58,32 @@ public class Main5
     public static void main(String[] args)
             throws InterruptedException
     {
+        List<Rule> rules = ImmutableList.of(
+                new PushFilterThroughProject(),
+                new PushFilterThroughAggregation(),
+                new PushFilterThroughUnion(),
+                new PushFilterIntoScan(),
+                new MergeFilterAndCrossJoin(),
+                new PushAggregationThroughUnion(),
+                new MergeProjections(),
+                new MergeFilters(),
+                new MergeLimits(),
+                new PushLimitThroughUnion(),
+                new PushLimitThroughProject(),
+                new OrderByLimitToTopN(),
+                new IntersectToUnion(),
+                new GetToScan()
+        );
+
         Memo2 memo = new Memo2();
 
-//        Expression root =
+        Expression root =
         new Limit(3,
                 new Sort("s0",
                         new Filter("f0",
                                 new Aggregate(Aggregate.Type.SINGLE, "a1",
-                                        new Limit(5,
-                                                new Limit(10,
+                                        new Limit(10,
+                                                new Limit(5,
                                                         new Union(
                                                                 new Filter("f1",
                                                                         new Project("p1",
@@ -90,37 +109,41 @@ public class Main5
                 )
         );
 
-        Expression root =
-                new Limit(10, new Limit(5, new Get("t")));
+//        Expression root =
+                new Limit(10,
+                        new Limit(5,
+                                new Project("p",
+                                        new Get("t"))));
+
+//        Expression root =
+        new Filter("f1",
+                new Filter("f2",
+                        new Get("t")
+                )
+        );
+
+//        Expression root =
+                new Filter("f",
+                        new Limit(5,
+                                new Project("p",
+                                        new Get("t"))));
 
         String rootClass = memo.insert(root);
+        System.out.println(memo.toGraphviz());
 
-        List<Rule> rules = ImmutableList.of(
-                new PushFilterThroughProject(),
-                new PushAggregationThroughUnion(),
-                new PushFilterThroughAggregation(),
-                new PushFilterThroughUnion(),
-                new MergeFilters(),
-                new PushFilterIntoScan(),
-                new MergeLimits(),
-                new PushLimitThroughUnion(),
-                new OrderByLimitToTopN(),
-                new IntersectToUnion(),
-                new MergeFilterAndCrossJoin(),
-                new GetToScan());
+        long previous;
+        long version = memo.getVersion();
+        do {
+            explore(memo, new HashSet<>(), rules, rootClass);
+            previous = version;
+            version = memo.getVersion();
+        }
+        while (previous != version);
 
-//        System.out.println(memo.toGraphviz());
+//        System.out.println(memo.getVersion());
+        System.out.println(memo.toGraphviz());
 
-        explore(memo, new HashSet<>(), rules, rootClass);
-//        System.out.println(memo.toGraphviz());
-
-        explore(memo, new HashSet<>(), rules, rootClass);
-//        System.out.println(memo.toGraphviz());
-
-//        explore(memo, new HashSet<>(), rules, rootClass);
-//        System.out.println(memo.toGraphviz());
-
-        System.out.println(memo.dump());
+//        System.out.println(memo.dump());
     }
 
     private static void explore(Memo2 memo, Set<String> explored, List<Rule> rules, String group)
@@ -139,11 +162,20 @@ public class Main5
             Expression expression = queue.poll();
 
             rules.forEach(rule -> {
-                rule.apply(expression, memo.lookup())
-                        .forEach(transformed -> {
-                            Expression rewritten = memo.insert(group, transformed);
-                            queue.add(rewritten);
-                        });
+                List<Expression> transformed = rule.apply(expression, memo.lookup())
+                        .collect(Collectors.toList());
+
+                for (Expression e : transformed) {
+                    // TODO: need something smarter here
+                    // It's to work around an infinite loop caused by "limit(10, limit(5, x))"
+                    // Maybe the pattern matcher needs to be smarter and not consider matches
+                    // where the graph recurses into itself
+                    long version = memo.getVersion();
+                    Expression rewritten = memo.insert(group, e);
+                    if (version != memo.getVersion()) {
+                        queue.add(rewritten);
+                    }
+                }
             });
         }
 
