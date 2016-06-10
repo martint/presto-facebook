@@ -18,7 +18,9 @@ import com.facebook.presto.sql.optimizer.tree.Reference;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -320,9 +322,12 @@ public class Memo2
 
     public String toGraphviz()
     {
+        Set<Integer> groupIds = new HashSet<>();
+
         Map<Object, Integer> ids = new HashMap<>();
         for (String group : groups.keySet()) {
             ids.put(group, ids.size());
+            groupIds.add(ids.get(group));
         }
         for (Expression expression : expressions.keySet()) {
             ids.put(expression, ids.size());
@@ -403,12 +408,12 @@ public class Memo2
         }
 
         int i = 0;
-        for (Set<Integer> set : clusters.sets()) {
+        for (Set<Integer> nodes : clusters.sets()) {
             String clusterId = Integer.toString(i++);
 
             graph.addCluster(clusterId, null);
-            for (Integer value : set) {
-                graph.addNodeToCluster(value, clusterId);
+            for (int node : nodes) {
+                graph.addNodeToCluster(node, clusterId);
             }
         }
 
@@ -448,11 +453,31 @@ public class Memo2
 
                     return attributes;
                 },
-                (clusterId, cluster) -> graph.getNodesInCluster(clusterId).stream()
-                        .map(ranks::find)
-                        .distinct()
-                        .map(ranks::findAll)
-                        .map(set -> "{rank=same;" + Joiner.on(";").join(set) + "}")
-                        .collect(Collectors.joining("\n")) + "style=dotted;");
+                (clusterId, cluster) -> {
+                    List<String> result = new ArrayList<>();
+                    result.add("style=dotted");
+
+                    List<Integer> representatives = graph.getNodesInCluster(clusterId).stream()
+                            .map(ranks::find)
+                            .distinct()
+                            .collect(Collectors.toList());
+
+                    for (int node : representatives) {
+                        StringBuilder value = new StringBuilder();
+                        value.append("{ rank=");
+                        if (groupIds.contains(node)) {
+                            value.append("min");
+                        }
+                        else {
+                            value.append("same");
+                        }
+                        value.append("; ");
+                        value.append(Joiner.on(";").join(ranks.findAll(node)));
+                        value.append(" }");
+
+                        result.add(value.toString());
+                    }
+                    return result;
+                });
     }
 }
