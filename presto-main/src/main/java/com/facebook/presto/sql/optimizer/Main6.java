@@ -37,7 +37,7 @@ public class Main6
                                 new Get("t"))),
                 new Get("t"));
 
-        System.out.println(memo.dump());
+        System.out.println(memo.toGraphviz());
     }
 
     public static void addEquivalentExpressions(Memo2 memo, Expression first, Expression... rest)
