@@ -17,6 +17,7 @@ import com.facebook.presto.sql.optimizer.engine.Memo2;
 import com.facebook.presto.sql.optimizer.tree.Expression;
 import com.facebook.presto.sql.optimizer.tree.Filter;
 import com.facebook.presto.sql.optimizer.tree.Get;
+import com.google.common.collect.ImmutableMap;
 
 public class Main3
 {
