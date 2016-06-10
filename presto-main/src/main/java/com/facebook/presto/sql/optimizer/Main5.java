@@ -77,7 +77,7 @@ public class Main5
 
         Memo2 memo = new Memo2();
 
-        Expression root =
+//        Expression root =
         new Limit(3,
                 new Sort("s0",
                         new Filter("f0",
@@ -109,7 +109,7 @@ public class Main5
                 )
         );
 
-//        Expression root =
+        Expression root =
                 new Limit(10,
                         new Limit(5,
                                 new Project("p",

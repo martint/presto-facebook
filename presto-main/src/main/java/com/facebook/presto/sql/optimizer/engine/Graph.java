@@ -21,6 +21,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BiFunction;
@@ -97,7 +98,7 @@ public class Graph<VID, CID, V, E, C>
             Supplier<Map<String, String>> graphAttributes,
             BiFunction<VID, V, Map<String, String>> nodeAttributes,
             EdgeAttributeFunction<VID, E> edgeAttributes,
-            BiFunction<CID, C, String> clusterFormatter)
+            BiFunction<CID, C, List<String>> clusterFormatter)
     {
         StringBuilder builder = new StringBuilder("digraph G {\n");
         builder.append("\tcompound=true;\n");
@@ -105,9 +106,6 @@ public class Graph<VID, CID, V, E, C>
         for (Map.Entry<String, String> entry : graphAttributes.get().entrySet()) {
             builder.append(String.format("\t%s=\"%s\";\n", entry.getKey(), entry.getValue()));
         }
-//        builder.append("\trankdir=BT;\n");
-//        builder.append("\tranksep=1.5;\n");
-//        builder.append("\tnode [shape=rectangle];\n");
 
         Set<VID> nodesWithoutCluster = new HashSet<>();
         Multimap<CID, VID> nodesByCluster = HashMultimap.create();
@@ -124,7 +122,9 @@ public class Graph<VID, CID, V, E, C>
         for (Map.Entry<CID, Collection<VID>> entry : nodesByCluster.asMap().entrySet()) {
             builder.append("\tsubgraph cluster_" + entry.getKey() + "{\n");
 
-            builder.append("\t" + clusterFormatter.apply(entry.getKey(), clusters.get(entry.getKey())) + "\n");
+            for (String item : clusterFormatter.apply(entry.getKey(), clusters.get(entry.getKey()))) {
+                builder.append("\t\t" + item + ";\n");
+            }
 
             for (VID nodeId : entry.getValue()) {
                 V node = nodes.get(nodeId);
