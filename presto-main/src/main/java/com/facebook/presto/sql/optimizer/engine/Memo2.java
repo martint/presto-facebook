@@ -19,13 +19,13 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -61,16 +61,9 @@ public class Memo2
         return insertInternal(canonicalizeGroup(group), expression);
     }
 
-    public Lookup lookup()
+    public Set<Expression> getExpressions(String group)
     {
-        return expression -> {
-            if (expression instanceof Reference) {
-                // TODO: this needs to return a stream that allows concurrent modifications
-                // and, possibly, can see new items that get added since the stream was created
-                return expressionsByGroup.get(((Reference) expression).getName()).keySet().stream();
-            }
-            return Stream.of(expression);
-        };
+        return Collections.unmodifiableSet(expressionsByGroup.get(group).keySet());
     }
 
     private String insertInternal(Expression expression)
@@ -158,7 +151,7 @@ public class Memo2
         return name;
     }
 
-    public void mergeInto(String targetGroup, String group)
+    private void mergeInto(String targetGroup, String group)
     {
         checkArgument(groups.containsKey(targetGroup), "Group doesn't exist: %s", targetGroup);
         checkArgument(groups.containsKey(group), "Group doesn't exist: %s", group);
