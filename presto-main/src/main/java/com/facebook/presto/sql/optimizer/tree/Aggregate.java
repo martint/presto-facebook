@@ -72,7 +72,7 @@ public class Aggregate
     @Override
     public String toString()
     {
-        return String.format("(aggregate %s %s)", function, getArguments().get(0));
+        return String.format("(aggregate %s %s %s)", type, function, getArguments().get(0));
     }
 
     @Override
