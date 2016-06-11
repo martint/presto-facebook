@@ -33,6 +33,7 @@ import com.facebook.presto.sql.optimizer.rule.PushFilterThroughProject;
 import com.facebook.presto.sql.optimizer.rule.PushFilterThroughUnion;
 import com.facebook.presto.sql.optimizer.rule.PushLimitThroughProject;
 import com.facebook.presto.sql.optimizer.rule.PushLimitThroughUnion;
+import com.facebook.presto.sql.optimizer.rule.RemoveIdentityProjection;
 import com.facebook.presto.sql.optimizer.tree.Aggregate;
 import com.facebook.presto.sql.optimizer.tree.CrossJoin;
 import com.facebook.presto.sql.optimizer.tree.Expression;
@@ -70,6 +71,7 @@ public class Main
                 new MergeFilterAndCrossJoin(),
                 new PushAggregationThroughUnion(),
                 new MergeProjections(),
+                new RemoveIdentityProjection(),
                 new MergeFilters(),
                 new MergeLimits(),
                 new PushLimitThroughUnion(),
@@ -82,6 +84,10 @@ public class Main
         );
 
         Memo2 memo = new Memo2(true);
+
+        Expression root =
+                new Project("id",
+                        new Get("t"));
 
 //        Expression root =
         new Limit(3,
@@ -123,10 +129,12 @@ public class Main
         );
 
 //        Expression root =
-        new Limit(10,
-                new Limit(5,
-                        new Project("p",
-                                new Get("t"))));
+                new Limit(10,
+                        new Limit(5,
+//                                new Project("p",
+                                        new Get("t"))
+//                        )
+                );
 
 //        Expression root =
         new Filter("f1",
@@ -147,21 +155,21 @@ public class Main
                 new Get("t")
         );
 
-        Expression root =
+//        Expression root =
 //                new Limit(10,
+        new Union(
+                new Union(
                         new Union(
-                                new Union(
-                                        new Union(
-                                                new Get("a"),
-                                                new Get("b")
-                                        ),
-                                        new Union(
-                                                new Get("c"),
-                                                new Get("d")
-                                        )
-                                ),
-                                new Get("e")
-                        );
+                                new Get("a"),
+                                new Get("b")
+                        ),
+                        new Union(
+                                new Get("c"),
+                                new Get("d")
+                        )
+                ),
+                new Get("e")
+        );
 //        );
 
         optimize(rules, memo, root);
@@ -205,7 +213,9 @@ public class Main
                 for (Expression e : transformed) {
                     Expression rewritten = memo.transform(expression, e, rule.getClass().getSimpleName());
                     memo.verify();
-                    queue.add(rewritten);
+                    if (!(rewritten instanceof Reference)) {
+                        queue.add(rewritten);
+                    }
                 }
             }
         }
