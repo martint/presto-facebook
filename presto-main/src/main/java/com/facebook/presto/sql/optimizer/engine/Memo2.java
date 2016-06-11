@@ -130,13 +130,7 @@ public class Memo2
 
     private String insertRecursive(Expression expression)
     {
-        if (expression instanceof Reference) {
-            // TODO: maybe move this case to the caller? It doesn't make much sense to add
-            // a Reference expression. It's only needed for insertChildrenAndRewrite, but not for insert(Expression)
-            // Also, we need to make sure it's a valid existing group
-            String group = ((Reference) expression).getName();
-            return canonicalize(group);
-        }
+        checkArgument(!(expression instanceof Reference), "Expression cannot be a Reference: %s", expression);
 
         Expression rewritten = insertChildrenAndRewrite(expression);
 
@@ -155,8 +149,14 @@ public class Memo2
 
         if (!expression.getArguments().isEmpty()) {
             List<Expression> arguments = expression.getArguments().stream()
-                    .map(this::insertRecursive)
-                    .map(Reference::new)
+                    .map(arg -> {
+                        if (arg instanceof Reference) {
+                            // TODO: make sure group exists
+                            return new Reference(canonicalize(((Reference) arg).getName()));
+                        }
+
+                        return new Reference(insertRecursive(arg));
+                    })
                     .collect(Collectors.toList());
             rewritten = expression.copyWithArguments(arguments);
         }
