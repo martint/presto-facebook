@@ -16,9 +16,9 @@ package com.facebook.presto.sql.optimizer.rule;
 import com.facebook.presto.sql.optimizer.engine.Lookup;
 import com.facebook.presto.sql.optimizer.engine.Rule;
 import com.facebook.presto.sql.optimizer.tree.Expression;
-import com.facebook.presto.sql.optimizer.tree.Filter;
 import com.facebook.presto.sql.optimizer.tree.Project;
 
+import java.util.Optional;
 import java.util.stream.Stream;
 
 public class RemoveIdentityProjection
@@ -28,18 +28,19 @@ public class RemoveIdentityProjection
     public Stream<Expression> apply(Expression expression, Lookup lookup)
     {
         return lookup.lookup(expression)
-                .filter(Filter.class::isInstance)
-                .map(Filter.class::cast)
-                .flatMap(parent -> lookup.lookup(parent.getArguments().get(0))
-                        .filter(Project.class::isInstance)
-                        .map(Project.class::cast)
-                        .map(child -> process(parent, child)));
+                .filter(Project.class::isInstance)
+                .map(Project.class::cast)
+                .map(this::process)
+                .filter(Optional::isPresent)
+                .map(Optional::get);
     }
 
-    private Expression process(Filter parent, Project child)
+    private Optional<Expression> process(Project expression)
     {
-        return new Project(child.getExpression(),
-                new Filter(parent.getCriteria(),
-                        child.getArguments().get(0)));
+        if (expression.getExpression().equals("id")) {
+            return Optional.of(expression.getArguments().get(0));
+        }
+
+        return Optional.empty();
     }
 }
