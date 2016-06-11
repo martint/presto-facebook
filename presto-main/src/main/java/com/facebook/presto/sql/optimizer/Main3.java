@@ -68,7 +68,7 @@ public class Main3
         System.out.println(memo.toGraphviz());
 
         for (Expression expression : rest) {
-            memo.insert(group, expression);
+//            memo.insert(group, expression);
             System.out.println(memo.toGraphviz());
         }
     }

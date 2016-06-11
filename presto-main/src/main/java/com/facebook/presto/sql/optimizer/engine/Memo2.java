@@ -28,9 +28,12 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 
 public class Memo2
 {
+    private final boolean debug;
+
     private long version;
     private long groupCounter;
 
@@ -45,6 +48,16 @@ public class Memo2
     private final Map<String, VersionedItem<String>> merges = new HashMap<>();
     private final Map<Expression, Map<Expression, VersionedItem<String>>> transformations = new HashMap<>();
 
+    public Memo2()
+    {
+        this(false);
+    }
+
+    public Memo2(boolean debug)
+    {
+        this.debug = debug;
+    }
+
     public long getVersion()
     {
         return version;
@@ -52,9 +65,15 @@ public class Memo2
 
     public String insert(Expression expression)
     {
-        return insertInternal(expression);
+        String result = insertInternal(expression);
+        if (debug) {
+            verify();
+        }
+        return result;
     }
 
+    // TODO: need to return whether the expression is new
+    // TODO: maybe return Optional<Expression>
     public Expression transform(Expression from, Expression to, String reason)
     {
         checkArgument(expressionMembership.containsKey(from), "Unknown expression: %s", from);
@@ -62,23 +81,27 @@ public class Memo2
         String group = expressionMembership.get(from);
         Expression result = insert(group, to);
 
-        transformations.computeIfAbsent(from, e -> new HashMap<>())
+        transformations.computeIfAbsent(canonicalizeExpression(from), e -> new HashMap<>())
                 .computeIfAbsent(result, e -> new VersionedItem<>(reason, version++));
 
-        return result;
-    }
+        if (debug) {
+            verify();
+        }
 
-    public Expression insert(String group, Expression expression)
-    {
-        // Make sure we use the latest version of a group, otherwise, we
-        // may end up attempting to merge groups that are already merged
-        Expression result = insertInternal(canonicalizeGroup(group), expression);
         return result;
     }
 
     public Set<Expression> getExpressions(String group)
     {
         return Collections.unmodifiableSet(expressionsByGroup.get(group).keySet());
+    }
+
+    private Expression insert(String group, Expression expression)
+    {
+        // Make sure we use the latest version of a group, otherwise, we
+        // may end up attempting to merge groups that are already merged
+        Expression result = insertInternal(canonicalizeGroup(group), expression);
+        return result;
     }
 
     private String insertInternal(Expression expression)
@@ -105,6 +128,14 @@ public class Memo2
             group = merges.get(group).getItem();
         }
         return group;
+    }
+
+    private Expression canonicalizeExpression(Expression expression)
+    {
+        while (rewrites.containsKey(expression)) {
+            expression = rewrites.get(expression).getItem();
+        }
+        return expression;
     }
 
     private Expression insertInternal(String group, Expression expression)
@@ -209,9 +240,22 @@ public class Memo2
 
     public void verify()
     {
-        // TODO:
-        // 1. ensure all expression memberships point to canonical group
+        // ensure all active expressions "belong" to the canonical group name
+        for (Map.Entry<Expression, String> entry : expressionMembership.entrySet()) {
+            Expression expression = entry.getKey();
+            String group = entry.getValue();
+
+            checkState(group.equals(canonicalizeGroup(group)),
+                    "Expression not marked as belonging to canonical group: %s (%s vs %s)  ", expression, group, canonicalizeGroup(group));
+
+            expression.getArguments().stream()
+                    .peek(e -> checkState((e instanceof Reference), "All expression arguments must be references: %s", expression))
+                    .map(Reference.class::cast)
+                    .peek(r -> checkState(r.getName().equals(canonicalizeGroup(r.getName())),
+                            "Expression arguments must reference canonical groups: %s, %s vs %s", expression, r.getName(), canonicalizeGroup(r.getName())));
+        }
     }
+
 //    public void verify()
 //    {
 //        for (Map.Entry<String, Set<VersionedItem<Expression>>> entry : expressionsByGroup.entrySet()) {
@@ -275,6 +319,11 @@ public class Memo2
         }
 
         return builder.toString();
+    }
+
+    public boolean contains(Expression expression)
+    {
+        return expressionMembership.containsKey(expression);
     }
 
 //    public boolean contains(String group, Expression expression)
@@ -462,6 +511,7 @@ public class Memo2
                     }
 
                     if (!node.active) {
+                        attributes.put("color", "grey");
                         attributes.put("fillcolor", "lightgrey");
                         attributes.put("style", "filled");
                     }
@@ -484,6 +534,7 @@ public class Memo2
                     switch (edge.type) {
                         case MERGED_WITH:
                         case REWRITTEN_TO:
+                        case CONTAINS:
                             attributes.put("style", "dotted");
                             break;
                         case TRANSFORMED:

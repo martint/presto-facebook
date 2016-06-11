@@ -17,6 +17,8 @@ import com.facebook.presto.sql.optimizer.engine.Lookup;
 import com.facebook.presto.sql.optimizer.engine.Memo2;
 import com.facebook.presto.sql.optimizer.engine.MemoLookup;
 import com.facebook.presto.sql.optimizer.engine.Rule;
+import com.facebook.presto.sql.optimizer.rule.FlattenIntersect;
+import com.facebook.presto.sql.optimizer.rule.FlattenUnion;
 import com.facebook.presto.sql.optimizer.rule.GetToScan;
 import com.facebook.presto.sql.optimizer.rule.IntersectToUnion;
 import com.facebook.presto.sql.optimizer.rule.MergeFilterAndCrossJoin;
@@ -74,10 +76,12 @@ public class Main
                 new PushLimitThroughProject(),
                 new OrderByLimitToTopN(),
                 new IntersectToUnion(),
+                new FlattenUnion(),
+                new FlattenIntersect(),
                 new GetToScan()
         );
 
-        Memo2 memo = new Memo2();
+        Memo2 memo = new Memo2(true);
 
 //        Expression root =
         new Limit(3,
@@ -88,9 +92,12 @@ public class Main
                                                 new Limit(5,
                                                         new Union(
                                                                 new Filter("f1",
-                                                                        new Project("p1",
-                                                                                new Get("t")
-                                                                        )
+                                                                        new Union(
+                                                                                new Project("p1",
+                                                                                        new Get("t")
+                                                                                ),
+                                                                                new Get("v"))
+
                                                                 ),
                                                                 new Filter("f2",
                                                                         new CrossJoin(
@@ -101,8 +108,12 @@ public class Main
                                                                         )
                                                                 ),
                                                                 new Intersect(
-                                                                        new Get("t"),
-                                                                        new Get("u"))
+                                                                        new Get("w"),
+                                                                        new Get("x"),
+                                                                        new Intersect(
+                                                                                new Get("y"),
+                                                                                new Get("z"))
+                                                                )
                                                         )
                                                 )
                                         )
@@ -117,7 +128,7 @@ public class Main
                         new Project("p",
                                 new Get("t"))));
 
-        Expression root =
+//        Expression root =
         new Filter("f1",
                 new Filter("f2",
                         new Get("t")
@@ -131,11 +142,34 @@ public class Main
                                 new Get("t"))));
 
 //        Expression root =
-                new Union(
-                        new Get("t"),
-                        new Get("t")
-                );
+        new Union(
+                new Get("t"),
+                new Get("t")
+        );
 
+        Expression root =
+//                new Limit(10,
+                        new Union(
+                                new Union(
+                                        new Union(
+                                                new Get("a"),
+                                                new Get("b")
+                                        ),
+                                        new Union(
+                                                new Get("c"),
+                                                new Get("d")
+                                        )
+                                ),
+                                new Get("e")
+                        );
+//        );
+
+        optimize(rules, memo, root);
+        System.out.println(memo.toGraphviz());
+    }
+
+    private static void optimize(List<Rule> rules, Memo2 memo, Expression root)
+    {
         String rootClass = memo.insert(root);
         System.out.println(memo.toGraphviz());
 
@@ -147,11 +181,6 @@ public class Main
             version = memo.getVersion();
         }
         while (previous != version);
-
-//        System.out.println(memo.getVersion());
-        System.out.println(memo.toGraphviz());
-
-//        System.out.println(memo.dump());
     }
 
     private static void explore(Memo2 memo, Set<String> explored, List<Rule> rules, String group)
@@ -175,6 +204,7 @@ public class Main
 
                 for (Expression e : transformed) {
                     Expression rewritten = memo.transform(expression, e, rule.getClass().getSimpleName());
+                    memo.verify();
                     queue.add(rewritten);
                 }
             }

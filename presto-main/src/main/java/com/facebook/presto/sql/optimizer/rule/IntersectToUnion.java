@@ -45,7 +45,7 @@ public class IntersectToUnion
                         "a",
                         new Union(
                                 expression.getArguments().stream()
-                                        .map(e -> new Project("x", e))
+                                        .map(e -> new Project("x" + expression.hashCode(), e))
                                         .collect(Collectors.toList()))));
     }
 }
