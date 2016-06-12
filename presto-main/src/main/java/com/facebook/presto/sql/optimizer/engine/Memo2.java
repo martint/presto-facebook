@@ -136,7 +136,7 @@ public class Memo2
 
         String group = expressionMembership.get(rewritten);
         if (group == null) {
-            group = createNewGroup();
+            group = createGroup();
             insert(rewritten, group);
         }
 
@@ -176,7 +176,7 @@ public class Memo2
                 .forEach(child -> incomingReferences.get(child).putIfAbsent(rewritten, version++));
     }
 
-    private String createNewGroup()
+    private String createGroup()
     {
         String name = "$" + groupCounter;
         groupCounter++;
