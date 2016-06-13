@@ -14,7 +14,7 @@
 package com.facebook.presto.sql.optimizer.engine;
 
 import com.facebook.presto.sql.optimizer.rule.CombineFilterAndCrossJoin;
-import com.facebook.presto.sql.optimizer.rule.CombineFilterAndScan;
+import com.facebook.presto.sql.optimizer.rule.CombineScanFilterProject;
 import com.facebook.presto.sql.optimizer.rule.CombineFilters;
 import com.facebook.presto.sql.optimizer.rule.CombineGlobalLimits;
 import com.facebook.presto.sql.optimizer.rule.CombineIntersects;
@@ -27,6 +27,7 @@ import com.facebook.presto.sql.optimizer.rule.OrderByLimitToTopN;
 import com.facebook.presto.sql.optimizer.rule.PushAggregationThroughUnion;
 import com.facebook.presto.sql.optimizer.rule.PushFilterThroughAggregation;
 import com.facebook.presto.sql.optimizer.rule.PushFilterThroughProject;
+import com.facebook.presto.sql.optimizer.rule.PushFilterThroughSort;
 import com.facebook.presto.sql.optimizer.rule.PushFilterThroughUnion;
 import com.facebook.presto.sql.optimizer.rule.PushGlobalLimitThroughUnion;
 import com.facebook.presto.sql.optimizer.rule.PushLimitThroughProject;
@@ -57,7 +58,8 @@ public class Optimizer
                 new PushFilterThroughProject(),
                 new PushFilterThroughAggregation(),
                 new PushFilterThroughUnion(),
-                new CombineFilterAndScan(),
+                new PushFilterThroughSort(),
+                new CombineScanFilterProject(),
                 new CombineFilterAndCrossJoin(),
                 new PushAggregationThroughUnion(),
                 new CombineProjections(),

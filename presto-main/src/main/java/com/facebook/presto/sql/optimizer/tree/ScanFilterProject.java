@@ -20,17 +20,19 @@ import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-public class FilteredScan
+public class ScanFilterProject
         extends Expression
 {
-    private final String criteria;
+    private final String projection;
+    private final String filter;
     private final String table;
 
-    public FilteredScan(String table, String criteria)
+    public ScanFilterProject(String table, String filter, String projection)
     {
         super(ImmutableList.of());
         this.table = table;
-        this.criteria = criteria;
+        this.filter = filter;
+        this.projection = projection;
     }
 
     public String getTable()
@@ -38,9 +40,14 @@ public class FilteredScan
         return table;
     }
 
-    public String getCriteria()
+    public String getFilter()
     {
-        return criteria;
+        return filter;
+    }
+
+    public String getProjection()
+    {
+        return projection;
     }
 
     @Override
@@ -65,19 +72,19 @@ public class FilteredScan
     @Override
     public String toString()
     {
-        return String.format("(filtered-scan '%s' %s)", table, criteria);
+        return String.format("(scan-filter-project '%s' %s %s)", table, filter, projection);
     }
 
     protected boolean shallowEquals(Expression other)
     {
-        FilteredScan that = (FilteredScan) other;
-        return Objects.equals(criteria, that.criteria) &&
+        ScanFilterProject that = (ScanFilterProject) other;
+        return Objects.equals(filter, that.filter) &&
                 Objects.equals(table, that.table);
     }
 
     @Override
     protected int shallowHashCode()
     {
-        return Objects.hash(criteria, table);
+        return Objects.hash(filter, table);
     }
 }

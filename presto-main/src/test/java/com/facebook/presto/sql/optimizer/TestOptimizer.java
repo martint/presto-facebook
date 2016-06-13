@@ -241,65 +241,77 @@ public class TestOptimizer
         GreedyOptimizer optimizer = new GreedyOptimizer();
 
 //        Expression expression =
-                new GlobalLimit(3,
-                        new Sort("s0",
-                                new Filter("f0",
-                                        new Aggregate(Aggregate.Type.SINGLE, "a1",
-                                                new GlobalLimit(10,
-                                                        new GlobalLimit(5,
-                                                                new Union(
-                                                                        new Filter("f1",
-                                                                                new Union(
-                                                                                        new Project("p1",
-                                                                                                new Get("t")
-                                                                                        ),
-                                                                                        new Get("v"))
+        new GlobalLimit(3,
+                new Sort("s0",
+                        new Filter("f0",
+                                new Aggregate(Aggregate.Type.SINGLE, "a1",
+                                        new GlobalLimit(10,
+                                                new GlobalLimit(5,
+                                                        new Union(
+                                                                new Filter("f1",
+                                                                        new Union(
+                                                                                new Project("p1",
+                                                                                        new Get("t")
+                                                                                ),
+                                                                                new Get("v"))
 
-                                                                        ),
-                                                                        new Filter("f2",
-                                                                                new CrossJoin(
-                                                                                        new Get("u"),
-                                                                                        new Project("p2",
-                                                                                                new Get("t")
-                                                                                        )
+                                                                ),
+                                                                new Filter("f2",
+                                                                        new CrossJoin(
+                                                                                new Get("u"),
+                                                                                new Project("p2",
+                                                                                        new Get("t")
                                                                                 )
-                                                                        ),
-                                                                        new Intersect(
-                                                                                new Get("w"),
-                                                                                new Get("x"),
-                                                                                new Intersect(
-                                                                                        new Get("y"),
-                                                                                        new Get("z"))
                                                                         )
+                                                                ),
+                                                                new Intersect(
+                                                                        new Get("w"),
+                                                                        new Get("x"),
+                                                                        new Intersect(
+                                                                                new Get("y"),
+                                                                                new Get("z"))
                                                                 )
                                                         )
                                                 )
                                         )
                                 )
                         )
-                );
+                )
+        );
 
-        Expression expression = new Union(
+//        Expression expression =
+        new Union(
                 new Filter("f",
                         new Get("t")),
                 new Filter("f",
                         new Scan("t"))
         );
-//
-//                new Limit(5,
-//                        new Union(
-//                                new Filter("f1",
-//                                        new Union(
-//                                                new Get("a"),
-//                                                new Get("b")
-//                                        )
-//                                ),
-//                                new Get("c")
-//                        )
-//                );
 
-        System.out.println(expression);
-        System.out.println(optimizer.optimize(expression));
+//        Expression expression =
+        new GlobalLimit(5,
+                new Union(
+                        new Filter("f1",
+                                new Union(
+                                        new Get("a"),
+                                        new Get("b")
+                                )
+                        ),
+                        new Get("c")
+                )
+        );
+
+        Expression expression =
+                new GlobalLimit(5,
+                        new Filter("f",
+                                new Sort("s",
+                                        new Project("p",
+                                                new Get("t"))
+                                )
+                        )
+                );
+
+        System.out.println("before: " + expression);
+        System.out.println("after:  " + optimizer.optimize(expression));
 //        Memo memo = optimizer.optimize(expression);
 //        System.out.println(memo.toGraphviz());
     }
