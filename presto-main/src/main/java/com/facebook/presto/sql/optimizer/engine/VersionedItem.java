@@ -24,7 +24,7 @@ public class VersionedItem<T>
         this.version = version;
     }
 
-    public T getItem()
+    public T get()
     {
         return item;
     }

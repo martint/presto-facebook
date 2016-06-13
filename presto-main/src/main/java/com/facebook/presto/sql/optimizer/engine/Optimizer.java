@@ -14,12 +14,12 @@
 package com.facebook.presto.sql.optimizer.engine;
 
 import com.facebook.presto.sql.optimizer.rule.CombineFilterAndCrossJoin;
-import com.facebook.presto.sql.optimizer.rule.CombineScanFilterProject;
 import com.facebook.presto.sql.optimizer.rule.CombineFilters;
 import com.facebook.presto.sql.optimizer.rule.CombineGlobalLimits;
 import com.facebook.presto.sql.optimizer.rule.CombineIntersects;
 import com.facebook.presto.sql.optimizer.rule.CombineLocalLimits;
 import com.facebook.presto.sql.optimizer.rule.CombineProjections;
+import com.facebook.presto.sql.optimizer.rule.CombineScanFilterProject;
 import com.facebook.presto.sql.optimizer.rule.CombineUnions;
 import com.facebook.presto.sql.optimizer.rule.GetToScan;
 import com.facebook.presto.sql.optimizer.rule.IntersectToUnion;
@@ -87,7 +87,7 @@ public class Optimizer
         long previous;
         long version = memo.getVersion();
         do {
-            explore(memo, new HashSet<>(), rules, rootClass);
+            explore(memo, new HashSet<>(), rules, rootClass, new MemoLookup(memo, rootClass));
             previous = version;
             version = memo.getVersion();
         }
@@ -96,7 +96,7 @@ public class Optimizer
         return memo;
     }
 
-    private void explore(Memo memo, Set<String> explored, List<Rule> rules, String group)
+    private void explore(Memo memo, Set<String> explored, List<Rule> rules, String group, MemoLookup lookup)
     {
         if (explored.contains(group)) {
             return;
@@ -105,15 +105,13 @@ public class Optimizer
 
         Queue<Expression> queue = new ArrayDeque<>();
         memo.getExpressions(group).stream()
-                .map(VersionedItem::getItem)
+                .map(VersionedItem::get)
                 .forEach(queue::add);
 
         while (!queue.isEmpty()) {
             Expression expression = queue.poll();
 
             for (Rule rule : rules) {
-                Lookup lookup = new MemoLookup(memo, group);
-
                 List<Expression> transformed = rule.apply(expression, lookup)
                         .collect(Collectors.toList());
 
@@ -125,13 +123,13 @@ public class Optimizer
         }
 
         List<Reference> references = memo.getExpressions(group).stream()
-                .map(VersionedItem::getItem)
+                .map(VersionedItem::get)
                 .flatMap(e -> e.getArguments().stream())
                 .map(Reference.class::cast)
                 .collect(Collectors.toList());
 
         for (Reference reference : references) {
-            explore(memo, explored, rules, reference.getName());
+            explore(memo, explored, rules, reference.getName(), lookup.push(reference.getName()));
         }
     }
 }
