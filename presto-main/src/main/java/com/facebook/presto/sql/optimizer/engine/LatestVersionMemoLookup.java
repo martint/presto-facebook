@@ -53,7 +53,7 @@ class LatestVersionMemoLookup
             return memo.getExpressions(((Reference) expression).getName()).stream()
                     .sorted((e1, e2) -> -Longs.compare(e1.getVersion(), e2.getVersion()))
                     .limit(1)
-                    .map(VersionedItem::getItem);
+                    .map(VersionedItem::get);
         }
         return Stream.of(expression);
     }

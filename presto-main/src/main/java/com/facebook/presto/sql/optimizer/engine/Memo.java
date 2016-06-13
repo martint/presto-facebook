@@ -223,7 +223,7 @@ public class Memo
     private String canonicalize(String group)
     {
         while (merges.containsKey(group)) {
-            group = merges.get(group).getItem();
+            group = merges.get(group).get();
         }
         return group;
     }
@@ -358,7 +358,7 @@ public class Memo
 
         builder.append("== Rewrites ==\n");
         for (Map.Entry<Expression, VersionedItem<Expression>> entry : rewrites.entrySet()) {
-            builder.append(entry.getKey() + " -> " + entry.getValue().getItem() + " @" + entry.getValue().getVersion() + "\n");
+            builder.append(entry.getKey() + " -> " + entry.getValue().get() + " @" + entry.getValue().getVersion() + "\n");
         }
 
         return builder.toString();
@@ -494,7 +494,7 @@ public class Memo
         // merges
         for (Map.Entry<String, VersionedItem<String>> entry : merges.entrySet()) {
             String source = entry.getKey();
-            String target = entry.getValue().getItem();
+            String target = entry.getValue().get();
 
             int sourceId = ids.get(source);
             int targetId = ids.get(target);
@@ -508,7 +508,7 @@ public class Memo
         // rewrites
         for (Map.Entry<Expression, VersionedItem<Expression>> entry : rewrites.entrySet()) {
             Expression from = entry.getKey();
-            Expression to = entry.getValue().getItem();
+            Expression to = entry.getValue().get();
 
             int fromId = ids.get(from);
             int toId = ids.get(to);
@@ -532,7 +532,7 @@ public class Memo
                 else {
                     toId = ids.get(edge.getKey());
                 }
-                graph.addEdge(fromId, toId, new Edge(Edge.Type.TRANSFORMED, edge.getValue().getVersion(), edge.getValue().getItem()));
+                graph.addEdge(fromId, toId, new Edge(Edge.Type.TRANSFORMED, edge.getValue().getVersion(), edge.getValue().get()));
             }
         }
 

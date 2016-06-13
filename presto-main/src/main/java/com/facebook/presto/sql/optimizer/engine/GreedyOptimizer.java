@@ -14,10 +14,10 @@
 package com.facebook.presto.sql.optimizer.engine;
 
 import com.facebook.presto.sql.optimizer.rule.CombineFilterAndCrossJoin;
-import com.facebook.presto.sql.optimizer.rule.CombineScanFilterProject;
 import com.facebook.presto.sql.optimizer.rule.CombineFilters;
 import com.facebook.presto.sql.optimizer.rule.CombineGlobalLimits;
 import com.facebook.presto.sql.optimizer.rule.CombineProjections;
+import com.facebook.presto.sql.optimizer.rule.CombineScanFilterProject;
 import com.facebook.presto.sql.optimizer.rule.CombineUnions;
 import com.facebook.presto.sql.optimizer.rule.GetToScan;
 import com.facebook.presto.sql.optimizer.rule.IntersectToUnion;
@@ -99,28 +99,24 @@ public class GreedyOptimizer
             while (previous != version);
         }
 
-//        System.out.println(memo.toGraphviz());
-        return extract(memo, rootClass, new HashSet<>());
+        MemoLookup lookup = new MemoLookup(
+                memo,
+                rootClass,
+                expressions -> expressions.sorted((e1, e2) -> -Longs.compare(e1.getVersion(), e2.getVersion()))
+                        .limit(1));
+
+        return extract(rootClass, lookup);
     }
 
-    private Expression extract(Memo memo, String group, Set<String> visitedGroups)
+    private Expression extract(String group, MemoLookup lookup)
     {
-        Set<String> newVisited = new HashSet<>(visitedGroups);
-        newVisited.add(group);
-
-        Expression expression = memo.getExpressions(group).stream()
-                .sorted((e1, e2) -> -Longs.compare(e1.getVersion(), e2.getVersion()))
-                .map(VersionedItem::getItem)
-                .filter(e -> !e.getArguments().stream()
-                        .map(Reference.class::cast)
-                        .map(Reference::getName)
-                        .anyMatch(newVisited::contains))
+        Expression expression = lookup.lookup(new Reference(group))
                 .findFirst()
                 .get();
 
         List<Expression> children = expression.getArguments().stream()
                 .map(Reference.class::cast)
-                .map(e -> extract(memo, e.getName(), newVisited))
+                .map(e -> extract(e.getName(), lookup.push(e.getName())))
                 .collect(Collectors.toList());
 
         return expression.copyWithArguments(children);
@@ -138,7 +134,7 @@ public class GreedyOptimizer
 
         Expression expression = memo.getExpressions(group).stream()
                 .sorted((e1, e2) -> -Longs.compare(e1.getVersion(), e2.getVersion()))
-                .map(VersionedItem::getItem)
+                .map(VersionedItem::get)
                 .filter(e -> !e.getArguments().stream()
                         .map(Reference.class::cast)
                         .map(Reference::getName)

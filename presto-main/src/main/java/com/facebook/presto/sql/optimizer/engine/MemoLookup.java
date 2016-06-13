@@ -15,9 +15,10 @@ package com.facebook.presto.sql.optimizer.engine;
 
 import com.facebook.presto.sql.optimizer.tree.Expression;
 import com.facebook.presto.sql.optimizer.tree.Reference;
+import com.google.common.collect.ImmutableSet;
 
-import java.util.HashSet;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Stream;
 
 /**
@@ -32,27 +33,56 @@ import java.util.stream.Stream;
 class MemoLookup
         implements Lookup
 {
-    private final Set<Expression> visited = new HashSet<>();
     private final Memo memo;
+    private final Set<String> visited;
+    private final Function<Stream<VersionedItem<Expression>>, Stream<VersionedItem<Expression>>> selector;
 
     public MemoLookup(Memo memo, String group)
     {
+        this(memo, group, Function.identity());
+    }
+
+    public MemoLookup(Memo memo, String group, Function<Stream<VersionedItem<Expression>>, Stream<VersionedItem<Expression>>> selector)
+    {
+        this(memo, selector, ImmutableSet.of(group));
+    }
+
+    private MemoLookup(Memo memo, Function<Stream<VersionedItem<Expression>>, Stream<VersionedItem<Expression>>> selector, Set<String> visited)
+    {
         this.memo = memo;
-        visited.add(new Reference(group));
+        this.visited = ImmutableSet.copyOf(visited);
+        this.selector = selector;
     }
 
     @Override
     public Stream<Expression> lookup(Expression expression)
     {
-        if (visited.contains(expression)) {
-            return Stream.empty();
-        }
-        visited.add(expression);
-
         if (expression instanceof Reference) {
-            return memo.getExpressions(((Reference) expression).getName()).stream()
-                    .map(VersionedItem::getItem);
+            String name = ((Reference) expression).getName();
+//
+//            if (visited.contains(name)) {
+//                return Stream.empty();
+//            }
+
+            Stream<VersionedItem<Expression>> candidates = memo.getExpressions(name).stream()
+                    .filter(e -> !e.get().getArguments().stream()
+                            .map(Reference.class::cast)
+                            .map(Reference::getName)
+                            .anyMatch(visited::contains));
+
+            return selector.apply(candidates).map(VersionedItem::get);
         }
+
         return Stream.of(expression);
+    }
+
+    public MemoLookup push(String group)
+    {
+        Set<String> visited = ImmutableSet.<String>builder()
+                .addAll(this.visited)
+                .add(group)
+                .build();
+
+        return new MemoLookup(memo, selector, visited);
     }
 }
