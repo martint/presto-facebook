@@ -46,6 +46,7 @@ import java.util.stream.Collectors;
 import static com.google.common.base.Preconditions.checkState;
 
 public class GreedyOptimizer
+        implements Optimizer
 {
     private final List<Set<Rule>> batches;
 
@@ -61,7 +62,6 @@ public class GreedyOptimizer
                         new IntersectToUnion()
                 ),
                 ImmutableSet.of(
-                        new OrderByLimitToTopN(),
                         new RemoveIdentityProjection(),
                         new PushFilterThroughProject(),
                         new PushFilterThroughAggregation(),
@@ -79,6 +79,7 @@ public class GreedyOptimizer
                 ImmutableSet.of(
                         new CombineScanFilterProject(),
                         new CombineFilterAndCrossJoin(),
+                        new OrderByLimitToTopN(),
                         new GetToScan())));
     }
 
@@ -88,22 +89,22 @@ public class GreedyOptimizer
 
         String rootClass = memo.insert(expression);
 
-        for (Set<Rule> batch : batches) {
-            long previous;
-            long version = memo.getVersion();
-            do {
-                explore(memo, new HashSet<>(), batch, rootClass, new HashSet<>());
-                previous = version;
-                version = memo.getVersion();
-            }
-            while (previous != version);
-        }
-
         MemoLookup lookup = new MemoLookup(
                 memo,
                 rootClass,
                 expressions -> expressions.sorted((e1, e2) -> -Longs.compare(e1.getVersion(), e2.getVersion()))
                         .limit(1));
+
+        for (Set<Rule> batch : batches) {
+            long previous;
+            long version = memo.getVersion();
+            do {
+                explore(memo, lookup, new HashSet<>(), batch, rootClass);
+                previous = version;
+                version = memo.getVersion();
+            }
+            while (previous != version);
+        }
 
         return extract(rootClass, lookup);
     }
@@ -122,38 +123,26 @@ public class GreedyOptimizer
         return expression.copyWithArguments(children);
     }
 
-    private void explore(Memo memo, Set<String> explored, Set<Rule> rules, String group, Set<String> stack)
+    private void explore(Memo memo, MemoLookup lookup, Set<String> explored, Set<Rule> rules, String group)
     {
         if (explored.contains(group)) {
             return;
         }
         explored.add(group);
 
-        Set<String> newStack = new HashSet<>(stack);
-        newStack.add(group);
-
-        Expression expression = memo.getExpressions(group).stream()
-                .sorted((e1, e2) -> -Longs.compare(e1.getVersion(), e2.getVersion()))
-                .map(VersionedItem::get)
-                .filter(e -> !e.getArguments().stream()
-                        .map(Reference.class::cast)
-                        .map(Reference::getName)
-                        .anyMatch(newStack::contains))
-                .limit(1)
+        Expression expression = lookup.lookup(new Reference(group))
                 .findFirst()
                 .get();
 
         expression.getArguments().stream()
                 .map(Reference.class::cast)
                 .map(Reference::getName)
-                .forEach(name -> explore(memo, explored, rules, name, newStack));
+                .forEach(name -> explore(memo, lookup.push(name), explored, rules, name));
 
         boolean madeProgress;
         do {
             madeProgress = false;
             for (Rule rule : rules) {
-                Lookup lookup = new LatestVersionMemoLookup(memo, group);
-
                 List<Expression> transformed = rule.apply(expression, lookup)
                         .collect(Collectors.toList());
 

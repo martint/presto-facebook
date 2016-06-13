@@ -18,6 +18,7 @@ import com.facebook.presto.sql.optimizer.engine.Optimizer;
 import com.facebook.presto.sql.optimizer.rule.CombineFilterAndCrossJoin;
 import com.facebook.presto.sql.optimizer.rule.CombineFilters;
 import com.facebook.presto.sql.optimizer.rule.CombineGlobalLimits;
+import com.facebook.presto.sql.optimizer.rule.CombineLocalLimits;
 import com.facebook.presto.sql.optimizer.rule.CombineUnions;
 import com.facebook.presto.sql.optimizer.rule.OrderByLimitToTopN;
 import com.facebook.presto.sql.optimizer.rule.PushFilterThroughProject;
@@ -34,9 +35,10 @@ import com.facebook.presto.sql.optimizer.tree.Project;
 import com.facebook.presto.sql.optimizer.tree.Scan;
 import com.facebook.presto.sql.optimizer.tree.Sort;
 import com.facebook.presto.sql.optimizer.tree.Union;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
+
+import static com.facebook.presto.sql.optimizer.engine.CollectionConstructors.list;
+import static com.facebook.presto.sql.optimizer.engine.CollectionConstructors.set;
 
 public class TestOptimizer
 {
@@ -44,59 +46,63 @@ public class TestOptimizer
     public void testPushFilterThroughProject()
             throws Exception
     {
-        Optimizer optimizer = new Optimizer(ImmutableList.of(new PushFilterThroughProject()));
+        Optimizer optimizer = new GreedyOptimizer(list(set(new PushFilterThroughProject())));
         Expression expression =
                 new Filter("f",
                         new Project("p",
                                 new Get("t")));
 
-        System.out.println(optimizer.optimize(expression).toGraphviz());
+        System.out.println(expression);
+        System.out.println(optimizer.optimize(expression));
     }
 
     @Test
     public void testMergeLimits()
             throws Exception
     {
-        Optimizer optimizer = new Optimizer(ImmutableList.of(new CombineGlobalLimits()));
+        Optimizer optimizer = new GreedyOptimizer(list(set(new CombineGlobalLimits())));
         Expression expression =
                 new GlobalLimit(10,
                         new GlobalLimit(5,
                                 new Get("t")));
 
-        System.out.println(optimizer.optimize(expression).toGraphviz());
+        System.out.println(expression);
+        System.out.println(optimizer.optimize(expression));
     }
 
     @Test
     public void testMergeLimits2()
             throws Exception
     {
-        Optimizer optimizer = new Optimizer(ImmutableList.of(new CombineGlobalLimits()));
+        Optimizer optimizer = new GreedyOptimizer(list(set(new CombineGlobalLimits())));
         Expression expression =
                 new GlobalLimit(5,
                         new GlobalLimit(10,
                                 new Get("t")));
 
-        System.out.println(optimizer.optimize(expression).toGraphviz());
+        System.out.println(expression);
+        System.out.println(optimizer.optimize(expression));
     }
 
     @Test
     public void testMergeFilters()
             throws Exception
     {
-        Optimizer optimizer = new Optimizer(ImmutableList.of(new CombineFilters()));
+        Optimizer optimizer = new GreedyOptimizer(list(set(new CombineFilters())));
         Expression expression =
                 new Filter("f1",
                         new Filter("f2",
                                 new Get("t")));
 
-        System.out.println(optimizer.optimize(expression).toGraphviz());
+        System.out.println(expression);
+        System.out.println(optimizer.optimize(expression));
     }
 
     @Test
     public void testFlattenUnion()
             throws Exception
     {
-        Optimizer optimizer = new Optimizer(ImmutableList.of(new CombineUnions()));
+        Optimizer optimizer = new GreedyOptimizer(list(set(new CombineUnions())));
         Expression expression =
                 new Union(
                         new Union(
@@ -104,69 +110,78 @@ public class TestOptimizer
                                 new Get("b")),
                         new Get("c"));
 
-        System.out.println(optimizer.optimize(expression).toGraphviz());
+        System.out.println(expression);
+        System.out.println(optimizer.optimize(expression));
     }
 
     @Test
     public void testPushLimitThroughUnion()
             throws Exception
     {
-        Optimizer optimizer = new Optimizer(ImmutableList.of(new PushGlobalLimitThroughUnion()));
+        Optimizer optimizer = new GreedyOptimizer(list(set(new PushGlobalLimitThroughUnion())));
         Expression expression =
                 new GlobalLimit(5,
                         new Union(
                                 new Get("a"),
                                 new Get("b")));
 
-        System.out.println(optimizer.optimize(expression).toGraphviz());
+        System.out.println(expression);
+        System.out.println(optimizer.optimize(expression));
     }
 
     @Test
     public void testOrderByLimitToTopN()
             throws Exception
     {
-        Optimizer optimizer = new Optimizer(ImmutableList.of(new OrderByLimitToTopN()));
+        Optimizer optimizer = new GreedyOptimizer(list(set(new OrderByLimitToTopN())));
         Expression expression =
                 new GlobalLimit(5,
                         new Sort("s",
                                 new Get("a")));
 
-        System.out.println(optimizer.optimize(expression).toGraphviz());
+        System.out.println(expression);
+        System.out.println(optimizer.optimize(expression));
     }
 
     @Test
     public void testOrderByLimitToTopN2()
             throws Exception
     {
-        Optimizer optimizer = new Optimizer(ImmutableList.of(new OrderByLimitToTopN(), new CombineGlobalLimits()));
+        Optimizer optimizer = new GreedyOptimizer(list(
+                set(
+                        new CombineGlobalLimits(),
+                        new CombineLocalLimits()),
+                set(new OrderByLimitToTopN())));
+
         Expression expression =
                 new GlobalLimit(10,
                         new GlobalLimit(5,
                                 new Sort("s",
                                         new Get("a"))));
 
-        System.out.println(optimizer.optimize(expression).toGraphviz());
+        System.out.println(expression);
+        System.out.println(optimizer.optimize(expression));
     }
 
     @Test
     public void testMergeFilterAndCrossJoin()
             throws Exception
     {
-        Optimizer optimizer = new Optimizer(ImmutableList.of(new CombineFilterAndCrossJoin()));
+        Optimizer optimizer = new GreedyOptimizer(list(set(new CombineFilterAndCrossJoin())));
         Expression expression =
                 new Filter("f",
                         new CrossJoin(
                                 new Get("a"),
                                 new Get("b")));
-
-        System.out.println(optimizer.optimize(expression).toGraphviz());
+        System.out.println(expression);
+        System.out.println(optimizer.optimize(expression));
     }
 
     @Test
     public void testComplex()
             throws Exception
     {
-        Optimizer optimizer = new Optimizer();
+        Optimizer optimizer = new GreedyOptimizer();
 
         Expression expression =
                 new GlobalLimit(3,
@@ -207,16 +222,17 @@ public class TestOptimizer
                         )
                 );
 
-        System.out.println(optimizer.optimize(expression).toGraphviz());
+        System.out.println(expression);
+        System.out.println(optimizer.optimize(expression));
     }
 
     @Test
     public void testGreedy1()
             throws Exception
     {
-        GreedyOptimizer optimizer = new GreedyOptimizer(
-                ImmutableList.of(
-                        ImmutableSet.of(
+        Optimizer optimizer = new GreedyOptimizer(
+                list(
+                        set(
                                 new CombineGlobalLimits(),
                                 new PushGlobalLimitThroughUnion(),
                                 new PushLocalLimitThroughUnion(),
@@ -231,6 +247,7 @@ public class TestOptimizer
                                         new Scan("b")),
                                 new Scan("c")));
 
+        System.out.println(expression);
         System.out.println(optimizer.optimize(expression));
     }
 
@@ -238,7 +255,7 @@ public class TestOptimizer
     public void testGreedyOptimizer()
             throws Exception
     {
-        GreedyOptimizer optimizer = new GreedyOptimizer();
+        Optimizer optimizer = new GreedyOptimizer();
 
 //        Expression expression =
         new GlobalLimit(3,

@@ -13,9 +13,25 @@
  */
 package com.facebook.presto.sql.optimizer.engine;
 
-import com.facebook.presto.sql.optimizer.tree.Expression;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
-public interface Optimizer
+import java.util.List;
+import java.util.Set;
+
+public class CollectionConstructors
 {
-    Expression optimize(Expression expression);
+    private CollectionConstructors()
+    {
+    }
+
+    public static <T> Set<T> set(T... values)
+    {
+        return ImmutableSet.copyOf(values);
+    }
+
+    public static <T> List<T> list(T... values)
+    {
+        return ImmutableList.copyOf(values);
+    }
 }
