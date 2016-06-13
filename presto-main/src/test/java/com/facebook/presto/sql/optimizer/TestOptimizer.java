@@ -13,23 +13,29 @@
  */
 package com.facebook.presto.sql.optimizer;
 
+import com.facebook.presto.sql.optimizer.engine.GreedyOptimizer;
 import com.facebook.presto.sql.optimizer.engine.Optimizer;
-import com.facebook.presto.sql.optimizer.rule.FlattenUnion;
-import com.facebook.presto.sql.optimizer.rule.MergeFilterAndCrossJoin;
-import com.facebook.presto.sql.optimizer.rule.MergeFilters;
-import com.facebook.presto.sql.optimizer.rule.MergeLimits;
+import com.facebook.presto.sql.optimizer.rule.CombineFilterAndCrossJoin;
+import com.facebook.presto.sql.optimizer.rule.CombineFilters;
+import com.facebook.presto.sql.optimizer.rule.CombineGlobalLimits;
+import com.facebook.presto.sql.optimizer.rule.CombineUnions;
 import com.facebook.presto.sql.optimizer.rule.OrderByLimitToTopN;
 import com.facebook.presto.sql.optimizer.rule.PushFilterThroughProject;
-import com.facebook.presto.sql.optimizer.rule.PushLimitThroughUnion;
+import com.facebook.presto.sql.optimizer.rule.PushGlobalLimitThroughUnion;
+import com.facebook.presto.sql.optimizer.rule.PushLocalLimitThroughUnion;
+import com.facebook.presto.sql.optimizer.tree.Aggregate;
 import com.facebook.presto.sql.optimizer.tree.CrossJoin;
 import com.facebook.presto.sql.optimizer.tree.Expression;
 import com.facebook.presto.sql.optimizer.tree.Filter;
 import com.facebook.presto.sql.optimizer.tree.Get;
-import com.facebook.presto.sql.optimizer.tree.Limit;
+import com.facebook.presto.sql.optimizer.tree.GlobalLimit;
+import com.facebook.presto.sql.optimizer.tree.Intersect;
 import com.facebook.presto.sql.optimizer.tree.Project;
+import com.facebook.presto.sql.optimizer.tree.Scan;
 import com.facebook.presto.sql.optimizer.tree.Sort;
 import com.facebook.presto.sql.optimizer.tree.Union;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
 public class TestOptimizer
@@ -51,10 +57,10 @@ public class TestOptimizer
     public void testMergeLimits()
             throws Exception
     {
-        Optimizer optimizer = new Optimizer(ImmutableList.of(new MergeLimits()));
+        Optimizer optimizer = new Optimizer(ImmutableList.of(new CombineGlobalLimits()));
         Expression expression =
-                new Limit(10,
-                        new Limit(5,
+                new GlobalLimit(10,
+                        new GlobalLimit(5,
                                 new Get("t")));
 
         System.out.println(optimizer.optimize(expression).toGraphviz());
@@ -64,10 +70,10 @@ public class TestOptimizer
     public void testMergeLimits2()
             throws Exception
     {
-        Optimizer optimizer = new Optimizer(ImmutableList.of(new MergeLimits()));
+        Optimizer optimizer = new Optimizer(ImmutableList.of(new CombineGlobalLimits()));
         Expression expression =
-                new Limit(5,
-                        new Limit(10,
+                new GlobalLimit(5,
+                        new GlobalLimit(10,
                                 new Get("t")));
 
         System.out.println(optimizer.optimize(expression).toGraphviz());
@@ -77,7 +83,7 @@ public class TestOptimizer
     public void testMergeFilters()
             throws Exception
     {
-        Optimizer optimizer = new Optimizer(ImmutableList.of(new MergeFilters()));
+        Optimizer optimizer = new Optimizer(ImmutableList.of(new CombineFilters()));
         Expression expression =
                 new Filter("f1",
                         new Filter("f2",
@@ -90,7 +96,7 @@ public class TestOptimizer
     public void testFlattenUnion()
             throws Exception
     {
-        Optimizer optimizer = new Optimizer(ImmutableList.of(new FlattenUnion()));
+        Optimizer optimizer = new Optimizer(ImmutableList.of(new CombineUnions()));
         Expression expression =
                 new Union(
                         new Union(
@@ -105,9 +111,9 @@ public class TestOptimizer
     public void testPushLimitThroughUnion()
             throws Exception
     {
-        Optimizer optimizer = new Optimizer(ImmutableList.of(new PushLimitThroughUnion()));
+        Optimizer optimizer = new Optimizer(ImmutableList.of(new PushGlobalLimitThroughUnion()));
         Expression expression =
-                new Limit(5,
+                new GlobalLimit(5,
                         new Union(
                                 new Get("a"),
                                 new Get("b")));
@@ -121,9 +127,9 @@ public class TestOptimizer
     {
         Optimizer optimizer = new Optimizer(ImmutableList.of(new OrderByLimitToTopN()));
         Expression expression =
-                        new Limit(5,
-                                new Sort("s",
-                                        new Get("a")));
+                new GlobalLimit(5,
+                        new Sort("s",
+                                new Get("a")));
 
         System.out.println(optimizer.optimize(expression).toGraphviz());
     }
@@ -132,10 +138,10 @@ public class TestOptimizer
     public void testOrderByLimitToTopN2()
             throws Exception
     {
-        Optimizer optimizer = new Optimizer(ImmutableList.of(new OrderByLimitToTopN(), new MergeLimits()));
+        Optimizer optimizer = new Optimizer(ImmutableList.of(new OrderByLimitToTopN(), new CombineGlobalLimits()));
         Expression expression =
-                new Limit(10,
-                        new Limit(5,
+                new GlobalLimit(10,
+                        new GlobalLimit(5,
                                 new Sort("s",
                                         new Get("a"))));
 
@@ -146,7 +152,7 @@ public class TestOptimizer
     public void testMergeFilterAndCrossJoin()
             throws Exception
     {
-        Optimizer optimizer = new Optimizer(ImmutableList.of(new MergeFilterAndCrossJoin()));
+        Optimizer optimizer = new Optimizer(ImmutableList.of(new CombineFilterAndCrossJoin()));
         Expression expression =
                 new Filter("f",
                         new CrossJoin(
@@ -156,4 +162,145 @@ public class TestOptimizer
         System.out.println(optimizer.optimize(expression).toGraphviz());
     }
 
+    @Test
+    public void testComplex()
+            throws Exception
+    {
+        Optimizer optimizer = new Optimizer();
+
+        Expression expression =
+                new GlobalLimit(3,
+                        new Sort("s0",
+                                new Filter("f0",
+                                        new Aggregate(Aggregate.Type.SINGLE, "a1",
+                                                new GlobalLimit(10,
+                                                        new GlobalLimit(5,
+                                                                new Union(
+                                                                        new Filter("f1",
+                                                                                new Union(
+                                                                                        new Project("p1",
+                                                                                                new Get("t")
+                                                                                        ),
+                                                                                        new Get("v"))
+
+                                                                        ),
+                                                                        new Filter("f2",
+                                                                                new CrossJoin(
+                                                                                        new Get("u"),
+                                                                                        new Project("p2",
+                                                                                                new Get("t")
+                                                                                        )
+                                                                                )
+                                                                        ),
+                                                                        new Intersect(
+                                                                                new Get("w"),
+                                                                                new Get("x"),
+                                                                                new Intersect(
+                                                                                        new Get("y"),
+                                                                                        new Get("z"))
+                                                                        )
+                                                                )
+                                                        )
+                                                )
+                                        )
+                                )
+                        )
+                );
+
+        System.out.println(optimizer.optimize(expression).toGraphviz());
+    }
+
+    @Test
+    public void testGreedy1()
+            throws Exception
+    {
+        GreedyOptimizer optimizer = new GreedyOptimizer(
+                ImmutableList.of(
+                        ImmutableSet.of(
+                                new CombineGlobalLimits(),
+                                new PushGlobalLimitThroughUnion(),
+                                new PushLocalLimitThroughUnion(),
+                                new CombineUnions()
+                        )));
+
+        Expression expression =
+                new GlobalLimit(5,
+                        new Union(
+                                new Union(
+                                        new Scan("a"),
+                                        new Scan("b")),
+                                new Scan("c")));
+
+        System.out.println(optimizer.optimize(expression));
+    }
+
+    @Test
+    public void testGreedyOptimizer()
+            throws Exception
+    {
+        GreedyOptimizer optimizer = new GreedyOptimizer();
+
+//        Expression expression =
+                new GlobalLimit(3,
+                        new Sort("s0",
+                                new Filter("f0",
+                                        new Aggregate(Aggregate.Type.SINGLE, "a1",
+                                                new GlobalLimit(10,
+                                                        new GlobalLimit(5,
+                                                                new Union(
+                                                                        new Filter("f1",
+                                                                                new Union(
+                                                                                        new Project("p1",
+                                                                                                new Get("t")
+                                                                                        ),
+                                                                                        new Get("v"))
+
+                                                                        ),
+                                                                        new Filter("f2",
+                                                                                new CrossJoin(
+                                                                                        new Get("u"),
+                                                                                        new Project("p2",
+                                                                                                new Get("t")
+                                                                                        )
+                                                                                )
+                                                                        ),
+                                                                        new Intersect(
+                                                                                new Get("w"),
+                                                                                new Get("x"),
+                                                                                new Intersect(
+                                                                                        new Get("y"),
+                                                                                        new Get("z"))
+                                                                        )
+                                                                )
+                                                        )
+                                                )
+                                        )
+                                )
+                        )
+                );
+
+        Expression expression = new Union(
+                new Filter("f",
+                        new Get("t")),
+                new Filter("f",
+                        new Scan("t"))
+        );
+//
+//                new Limit(5,
+//                        new Union(
+//                                new Filter("f1",
+//                                        new Union(
+//                                                new Get("a"),
+//                                                new Get("b")
+//                                        )
+//                                ),
+//                                new Get("c")
+//                        )
+//                );
+
+        System.out.println(expression);
+        System.out.println(optimizer.optimize(expression));
+//        Memo memo = optimizer.optimize(expression);
+//        System.out.println(memo.toGraphviz());
+    }
 }

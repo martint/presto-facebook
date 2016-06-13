@@ -13,22 +13,23 @@
  */
 package com.facebook.presto.sql.optimizer.engine;
 
-import com.facebook.presto.sql.optimizer.rule.FlattenIntersect;
-import com.facebook.presto.sql.optimizer.rule.FlattenUnion;
+import com.facebook.presto.sql.optimizer.rule.CombineFilterAndCrossJoin;
+import com.facebook.presto.sql.optimizer.rule.CombineFilterAndScan;
+import com.facebook.presto.sql.optimizer.rule.CombineFilters;
+import com.facebook.presto.sql.optimizer.rule.CombineGlobalLimits;
+import com.facebook.presto.sql.optimizer.rule.CombineIntersects;
+import com.facebook.presto.sql.optimizer.rule.CombineLocalLimits;
+import com.facebook.presto.sql.optimizer.rule.CombineProjections;
+import com.facebook.presto.sql.optimizer.rule.CombineUnions;
 import com.facebook.presto.sql.optimizer.rule.GetToScan;
 import com.facebook.presto.sql.optimizer.rule.IntersectToUnion;
-import com.facebook.presto.sql.optimizer.rule.MergeFilterAndCrossJoin;
-import com.facebook.presto.sql.optimizer.rule.MergeFilters;
-import com.facebook.presto.sql.optimizer.rule.MergeLimits;
-import com.facebook.presto.sql.optimizer.rule.MergeProjections;
 import com.facebook.presto.sql.optimizer.rule.OrderByLimitToTopN;
 import com.facebook.presto.sql.optimizer.rule.PushAggregationThroughUnion;
-import com.facebook.presto.sql.optimizer.rule.PushFilterIntoScan;
 import com.facebook.presto.sql.optimizer.rule.PushFilterThroughAggregation;
 import com.facebook.presto.sql.optimizer.rule.PushFilterThroughProject;
 import com.facebook.presto.sql.optimizer.rule.PushFilterThroughUnion;
+import com.facebook.presto.sql.optimizer.rule.PushGlobalLimitThroughUnion;
 import com.facebook.presto.sql.optimizer.rule.PushLimitThroughProject;
-import com.facebook.presto.sql.optimizer.rule.PushLimitThroughUnion;
 import com.facebook.presto.sql.optimizer.rule.RemoveIdentityProjection;
 import com.facebook.presto.sql.optimizer.tree.Expression;
 import com.facebook.presto.sql.optimizer.tree.Reference;
@@ -56,19 +57,20 @@ public class Optimizer
                 new PushFilterThroughProject(),
                 new PushFilterThroughAggregation(),
                 new PushFilterThroughUnion(),
-                new PushFilterIntoScan(),
-                new MergeFilterAndCrossJoin(),
+                new CombineFilterAndScan(),
+                new CombineFilterAndCrossJoin(),
                 new PushAggregationThroughUnion(),
-                new MergeProjections(),
+                new CombineProjections(),
                 new RemoveIdentityProjection(),
-                new MergeFilters(),
-                new MergeLimits(),
-                new PushLimitThroughUnion(),
+                new CombineFilters(),
+                new CombineGlobalLimits(),
+                new CombineLocalLimits(),
+                new PushGlobalLimitThroughUnion(),
                 new PushLimitThroughProject(),
                 new OrderByLimitToTopN(),
                 new IntersectToUnion(),
-                new FlattenUnion(),
-                new FlattenIntersect(),
+                new CombineUnions(),
+                new CombineIntersects(),
                 new GetToScan()
         ));
     }
@@ -100,7 +102,9 @@ public class Optimizer
         explored.add(group);
 
         Queue<Expression> queue = new ArrayDeque<>();
-        queue.addAll(memo.getExpressions(group));
+        memo.getExpressions(group).stream()
+                .map(VersionedItem::getItem)
+                .forEach(queue::add);
 
         while (!queue.isEmpty()) {
             Expression expression = queue.poll();
@@ -119,6 +123,7 @@ public class Optimizer
         }
 
         List<Reference> references = memo.getExpressions(group).stream()
+                .map(VersionedItem::getItem)
                 .flatMap(e -> e.getArguments().stream())
                 .map(Reference.class::cast)
                 .collect(Collectors.toList());

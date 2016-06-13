@@ -16,29 +16,29 @@ package com.facebook.presto.sql.optimizer.rule;
 import com.facebook.presto.sql.optimizer.engine.Lookup;
 import com.facebook.presto.sql.optimizer.engine.Rule;
 import com.facebook.presto.sql.optimizer.tree.Expression;
-import com.facebook.presto.sql.optimizer.tree.Project;
+import com.facebook.presto.sql.optimizer.tree.Filter;
+import com.facebook.presto.sql.optimizer.tree.FilteredScan;
+import com.facebook.presto.sql.optimizer.tree.Scan;
 
 import java.util.stream.Stream;
 
-public class MergeProjections
+public class CombineFilterAndScan
         implements Rule
 {
     @Override
     public Stream<Expression> apply(Expression expression, Lookup lookup)
     {
         return lookup.lookup(expression)
-                .filter(Project.class::isInstance)
-                .map(Project.class::cast)
+                .filter(Filter.class::isInstance)
+                .map(Filter.class::cast)
                 .flatMap(parent -> lookup.lookup(parent.getArguments().get(0))
-                        .filter(Project.class::isInstance)
-                        .map(Project.class::cast)
+                        .filter(Scan.class::isInstance)
+                        .map(Scan.class::cast)
                         .map(child -> process(parent, child)));
     }
 
-    private Expression process(Project parent, Project child)
+    private Expression process(Filter parent, Scan child)
     {
-        return new Project(
-                parent.getExpression() + "/" + child.getExpression(),
-                child.getArguments().get(0));
+        return new FilteredScan(child.getTable(), parent.getCriteria());
     }
 }

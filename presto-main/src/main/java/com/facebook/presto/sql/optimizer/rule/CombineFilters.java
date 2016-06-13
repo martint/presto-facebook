@@ -16,32 +16,29 @@ package com.facebook.presto.sql.optimizer.rule;
 import com.facebook.presto.sql.optimizer.engine.Lookup;
 import com.facebook.presto.sql.optimizer.engine.Rule;
 import com.facebook.presto.sql.optimizer.tree.Expression;
-import com.facebook.presto.sql.optimizer.tree.GlobalLimit;
-import com.facebook.presto.sql.optimizer.tree.Sort;
-import com.facebook.presto.sql.optimizer.tree.TopN;
+import com.facebook.presto.sql.optimizer.tree.Filter;
 
 import java.util.stream.Stream;
 
-public class OrderByLimitToTopN
+public class CombineFilters
         implements Rule
 {
     @Override
     public Stream<Expression> apply(Expression expression, Lookup lookup)
     {
         return lookup.lookup(expression)
-                .filter(GlobalLimit.class::isInstance)
-                .map(GlobalLimit.class::cast)
+                .filter(Filter.class::isInstance)
+                .map(Filter.class::cast)
                 .flatMap(parent -> lookup.lookup(parent.getArguments().get(0))
-                        .filter(Sort.class::isInstance)
-                        .map(Sort.class::cast)
+                        .filter(Filter.class::isInstance)
+                        .map(Filter.class::cast)
                         .map(child -> process(parent, child)));
     }
 
-    private Expression process(GlobalLimit parent, Sort child)
+    private Expression process(Filter parent, Filter child)
     {
-        return new TopN(
-                parent.getCount(),
-                child.getCriteria(),
+        return new Filter(
+                parent.getCriteria() + "&" + child.getCriteria(),
                 child.getArguments().get(0));
     }
 }

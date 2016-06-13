@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.optimizer.engine;
 
-class VersionedItem<T>
+public class VersionedItem<T>
 {
     private final T item;
     private final long version;

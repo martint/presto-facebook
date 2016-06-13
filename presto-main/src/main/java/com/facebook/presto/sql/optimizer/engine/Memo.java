@@ -84,7 +84,7 @@ public class Memo
      */
     public Optional<Expression> transform(Expression from, Expression to, String reason)
     {
-        checkArgument(expressionMembership.containsKey(from), "Unknown expression: %s", from);
+        checkArgument(expressionMembership.containsKey(from), "Unknown expression: %s when applying %s", from, reason);
 
         // Make sure we use the latest version of a group, otherwise, we
         // may end up attempting to merge groups that are already merged
@@ -136,13 +136,17 @@ public class Memo
         }
     }
 
-    public Set<Expression> getExpressions(String group)
+    public List<VersionedItem<Expression>> getExpressions(String group)
     {
-        // pick only active expressions -- TODO: need a more efficient way to do this
-        return expressionsByGroup.get(group)
-                .keySet().stream()
+        Set<Expression> canonical = expressionMembership.keySet().stream()
                 .map(this::canonicalize)
                 .collect(Collectors.toSet());
+
+        return expressionsByGroup.get(group)
+                .keySet().stream()
+                .filter(e -> canonical.contains(e)) // pick only active expressions -- TODO: need a more efficient way to do this
+                .map(e -> new VersionedItem<Expression>(e, expressions.get(e)))
+                .collect(Collectors.toList());
     }
 
     private String insertRecursive(Expression expression)

@@ -15,6 +15,7 @@ package com.facebook.presto.sql.optimizer.engine;
 
 import com.facebook.presto.sql.optimizer.tree.Expression;
 import com.facebook.presto.sql.optimizer.tree.Reference;
+import com.google.common.primitives.Longs;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -27,15 +28,14 @@ import java.util.stream.Stream;
  * TODO: maybe add the "stack" as an argument to the lookup method and check against
  * those entries to see if the there's a cycle instead of making this implementation
  * non-idempotent.
- * TODO: or, add a push(group) method that gets us a new lookup that maintains the stack internally
  */
-class MemoLookup
+class LatestVersionMemoLookup
         implements Lookup
 {
     private final Set<Expression> visited = new HashSet<>();
     private final Memo memo;
 
-    public MemoLookup(Memo memo, String group)
+    public LatestVersionMemoLookup(Memo memo, String group)
     {
         this.memo = memo;
         visited.add(new Reference(group));
@@ -51,6 +51,8 @@ class MemoLookup
 
         if (expression instanceof Reference) {
             return memo.getExpressions(((Reference) expression).getName()).stream()
+                    .sorted((e1, e2) -> -Longs.compare(e1.getVersion(), e2.getVersion()))
+                    .limit(1)
                     .map(VersionedItem::getItem);
         }
         return Stream.of(expression);

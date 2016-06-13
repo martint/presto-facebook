@@ -16,29 +16,30 @@ package com.facebook.presto.sql.optimizer.rule;
 import com.facebook.presto.sql.optimizer.engine.Lookup;
 import com.facebook.presto.sql.optimizer.engine.Rule;
 import com.facebook.presto.sql.optimizer.tree.Expression;
-import com.facebook.presto.sql.optimizer.tree.Filter;
-import com.facebook.presto.sql.optimizer.tree.FilteredScan;
-import com.facebook.presto.sql.optimizer.tree.Scan;
+import com.facebook.presto.sql.optimizer.tree.LocalLimit;
 
 import java.util.stream.Stream;
 
-public class PushFilterIntoScan
+public class CombineLocalLimits
         implements Rule
 {
     @Override
     public Stream<Expression> apply(Expression expression, Lookup lookup)
     {
         return lookup.lookup(expression)
-                .filter(Filter.class::isInstance)
-                .map(Filter.class::cast)
+                .filter(LocalLimit.class::isInstance)
+                .map(LocalLimit.class::cast)
                 .flatMap(parent -> lookup.lookup(parent.getArguments().get(0))
-                        .filter(Scan.class::isInstance)
-                        .map(Scan.class::cast)
+                        .filter(LocalLimit.class::isInstance)
+                        .map(LocalLimit.class::cast)
                         .map(child -> process(parent, child)));
     }
 
-    private Expression process(Filter parent, Scan child)
+    private Expression process(LocalLimit parent, LocalLimit child)
     {
-        return new FilteredScan(child.getTable(), parent.getCriteria());
+        if (parent.getCount() < child.getCount()) {
+            return new LocalLimit(parent.getCount(), child.getArguments().get(0));
+        }
+        return child;
     }
 }

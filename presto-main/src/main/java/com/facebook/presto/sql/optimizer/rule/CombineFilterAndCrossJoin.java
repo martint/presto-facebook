@@ -15,12 +15,14 @@ package com.facebook.presto.sql.optimizer.rule;
 
 import com.facebook.presto.sql.optimizer.engine.Lookup;
 import com.facebook.presto.sql.optimizer.engine.Rule;
+import com.facebook.presto.sql.optimizer.tree.CrossJoin;
 import com.facebook.presto.sql.optimizer.tree.Expression;
 import com.facebook.presto.sql.optimizer.tree.Filter;
+import com.facebook.presto.sql.optimizer.tree.Join;
 
 import java.util.stream.Stream;
 
-public class MergeFilters
+public class CombineFilterAndCrossJoin
         implements Rule
 {
     @Override
@@ -30,15 +32,17 @@ public class MergeFilters
                 .filter(Filter.class::isInstance)
                 .map(Filter.class::cast)
                 .flatMap(parent -> lookup.lookup(parent.getArguments().get(0))
-                        .filter(Filter.class::isInstance)
-                        .map(Filter.class::cast)
+                        .filter(CrossJoin.class::isInstance)
+                        .map(CrossJoin.class::cast)
                         .map(child -> process(parent, child)));
     }
 
-    private Expression process(Filter parent, Filter child)
+    private Expression process(Filter parent, CrossJoin child)
     {
-        return new Filter(
-                parent.getCriteria() + "&" + child.getCriteria(),
-                child.getArguments().get(0));
+        return new Join(
+                Join.Type.INNER,
+                parent.getCriteria(),
+                child.getArguments().get(0),
+                child.getArguments().get(1));
     }
 }

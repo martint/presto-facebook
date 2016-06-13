@@ -16,7 +16,8 @@ package com.facebook.presto.sql.optimizer.rule;
 import com.facebook.presto.sql.optimizer.engine.Lookup;
 import com.facebook.presto.sql.optimizer.engine.Rule;
 import com.facebook.presto.sql.optimizer.tree.Expression;
-import com.facebook.presto.sql.optimizer.tree.Limit;
+import com.facebook.presto.sql.optimizer.tree.GlobalLimit;
+import com.facebook.presto.sql.optimizer.tree.LocalLimit;
 import com.facebook.presto.sql.optimizer.tree.Union;
 
 import java.util.ArrayList;
@@ -24,15 +25,15 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
 
-public class PushLimitThroughUnion
+public class PushGlobalLimitThroughUnion
         implements Rule
 {
     @Override
     public Stream<Expression> apply(Expression expression, Lookup lookup)
     {
         return lookup.lookup(expression)
-                .filter(Limit.class::isInstance)
-                .map(Limit.class::cast)
+                .filter(GlobalLimit.class::isInstance)
+                .map(GlobalLimit.class::cast)
                 .flatMap(parent -> lookup.lookup(parent.getArguments().get(0))
                         .filter(Union.class::isInstance)
                         .map(Union.class::cast)
@@ -41,15 +42,15 @@ public class PushLimitThroughUnion
                         .map(Optional::get));
     }
 
-    private Optional<Expression> process(Limit parent, Union child, Lookup lookup)
+    private Optional<Expression> process(GlobalLimit parent, Union child, Lookup lookup)
     {
         List<Expression> children = new ArrayList<>();
 
         boolean success = false;
         for (Expression grandChild : child.getArguments()) {
             boolean hasLimit = lookup.lookup(grandChild)
-                    .filter(Limit.class::isInstance)
-                    .map(Limit.class::cast)
+                    .filter(LocalLimit.class::isInstance)
+                    .map(LocalLimit.class::cast)
                     .anyMatch(e -> e.getCount() == parent.getCount());
 
             success = success || !hasLimit;
@@ -58,14 +59,15 @@ public class PushLimitThroughUnion
                 children.add(grandChild);
             }
             else {
-                children.add(new Limit(parent.getCount(), grandChild));
+                children.add(new LocalLimit(parent.getCount(), grandChild));
             }
         }
 
         if (success) {
-            return Optional.of(new Limit(
-                    parent.getCount(),
-                    new Union(children)));
+            return Optional.of(
+                    new GlobalLimit(
+                            parent.getCount(),
+                            new Union(children)));
         }
 
         return Optional.empty();
