@@ -59,7 +59,7 @@ public class Join
     @Override
     public Expression copyWithArguments(List<Expression> arguments)
     {
-        return new Join(type, criteria, getArguments().get(0), getArguments().get(1));
+        return new Join(type, criteria, arguments.get(0), arguments.get(1));
     }
 
     @Override

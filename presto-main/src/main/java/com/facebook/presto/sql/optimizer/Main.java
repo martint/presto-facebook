@@ -14,7 +14,7 @@
 package com.facebook.presto.sql.optimizer;
 
 import com.facebook.presto.sql.optimizer.engine.Memo;
-import com.facebook.presto.sql.optimizer.engine.Optimizer;
+import com.facebook.presto.sql.optimizer.engine.CostBasedOptimizer;
 import com.facebook.presto.sql.optimizer.tree.Aggregate;
 import com.facebook.presto.sql.optimizer.tree.CrossJoin;
 import com.facebook.presto.sql.optimizer.tree.Expression;
@@ -122,7 +122,7 @@ public class Main
         );
 //        );
 
-        Optimizer optimizer = new Optimizer();
+        CostBasedOptimizer optimizer = new CostBasedOptimizer();
 
         Memo memo = optimizer.optimize(root);
         System.out.println(memo.toGraphviz());

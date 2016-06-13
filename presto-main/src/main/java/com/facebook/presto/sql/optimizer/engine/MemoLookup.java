@@ -59,10 +59,6 @@ class MemoLookup
     {
         if (expression instanceof Reference) {
             String name = ((Reference) expression).getName();
-//
-//            if (visited.contains(name)) {
-//                return Stream.empty();
-//            }
 
             Stream<VersionedItem<Expression>> candidates = memo.getExpressions(name).stream()
                     .filter(e -> !e.get().getArguments().stream()
