@@ -13,27 +13,8 @@
  */
 package com.facebook.presto.sql.optimizer;
 
-import com.facebook.presto.sql.optimizer.engine.Lookup;
-import com.facebook.presto.sql.optimizer.engine.Memo2;
-import com.facebook.presto.sql.optimizer.engine.MemoLookup;
-import com.facebook.presto.sql.optimizer.engine.Rule;
-import com.facebook.presto.sql.optimizer.rule.FlattenIntersect;
-import com.facebook.presto.sql.optimizer.rule.FlattenUnion;
-import com.facebook.presto.sql.optimizer.rule.GetToScan;
-import com.facebook.presto.sql.optimizer.rule.IntersectToUnion;
-import com.facebook.presto.sql.optimizer.rule.MergeFilterAndCrossJoin;
-import com.facebook.presto.sql.optimizer.rule.MergeFilters;
-import com.facebook.presto.sql.optimizer.rule.MergeLimits;
-import com.facebook.presto.sql.optimizer.rule.MergeProjections;
-import com.facebook.presto.sql.optimizer.rule.OrderByLimitToTopN;
-import com.facebook.presto.sql.optimizer.rule.PushAggregationThroughUnion;
-import com.facebook.presto.sql.optimizer.rule.PushFilterIntoScan;
-import com.facebook.presto.sql.optimizer.rule.PushFilterThroughAggregation;
-import com.facebook.presto.sql.optimizer.rule.PushFilterThroughProject;
-import com.facebook.presto.sql.optimizer.rule.PushFilterThroughUnion;
-import com.facebook.presto.sql.optimizer.rule.PushLimitThroughProject;
-import com.facebook.presto.sql.optimizer.rule.PushLimitThroughUnion;
-import com.facebook.presto.sql.optimizer.rule.RemoveIdentityProjection;
+import com.facebook.presto.sql.optimizer.engine.Memo;
+import com.facebook.presto.sql.optimizer.engine.Optimizer;
 import com.facebook.presto.sql.optimizer.tree.Aggregate;
 import com.facebook.presto.sql.optimizer.tree.CrossJoin;
 import com.facebook.presto.sql.optimizer.tree.Expression;
@@ -42,17 +23,8 @@ import com.facebook.presto.sql.optimizer.tree.Get;
 import com.facebook.presto.sql.optimizer.tree.Intersect;
 import com.facebook.presto.sql.optimizer.tree.Limit;
 import com.facebook.presto.sql.optimizer.tree.Project;
-import com.facebook.presto.sql.optimizer.tree.Reference;
 import com.facebook.presto.sql.optimizer.tree.Sort;
 import com.facebook.presto.sql.optimizer.tree.Union;
-import com.google.common.collect.ImmutableList;
-
-import java.util.ArrayDeque;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Queue;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 public class Main
 {
@@ -63,33 +35,11 @@ public class Main
     public static void main(String[] args)
             throws InterruptedException
     {
-        List<Rule> rules = ImmutableList.of(
-                new PushFilterThroughProject(),
-                new PushFilterThroughAggregation(),
-                new PushFilterThroughUnion(),
-                new PushFilterIntoScan(),
-                new MergeFilterAndCrossJoin(),
-                new PushAggregationThroughUnion(),
-                new MergeProjections(),
-                new RemoveIdentityProjection(),
-                new MergeFilters(),
-                new MergeLimits(),
-                new PushLimitThroughUnion(),
-                new PushLimitThroughProject(),
-                new OrderByLimitToTopN(),
-                new IntersectToUnion(),
-                new FlattenUnion(),
-                new FlattenIntersect(),
-                new GetToScan()
-        );
-
-        Memo2 memo = new Memo2(true);
-
-        Expression root =
+//        Expression root =
                 new Project("id",
                         new Get("t"));
 
-//        Expression root =
+        Expression root =
         new Limit(3,
                 new Sort("s0",
                         new Filter("f0",
@@ -129,12 +79,12 @@ public class Main
         );
 
 //        Expression root =
-                new Limit(10,
-                        new Limit(5,
+        new Limit(10,
+                new Limit(5,
 //                                new Project("p",
-                                        new Get("t"))
+                        new Get("t"))
 //                        )
-                );
+        );
 
 //        Expression root =
         new Filter("f1",
@@ -172,61 +122,9 @@ public class Main
         );
 //        );
 
-        optimize(rules, memo, root);
+        Optimizer optimizer = new Optimizer();
+
+        Memo memo = optimizer.optimize(root);
         System.out.println(memo.toGraphviz());
-    }
-
-    private static void optimize(List<Rule> rules, Memo2 memo, Expression root)
-    {
-        String rootClass = memo.insert(root);
-        System.out.println(memo.toGraphviz());
-
-        long previous;
-        long version = memo.getVersion();
-        do {
-            explore(memo, new HashSet<>(), rules, rootClass);
-            previous = version;
-            version = memo.getVersion();
-        }
-        while (previous != version);
-    }
-
-    private static void explore(Memo2 memo, Set<String> explored, List<Rule> rules, String group)
-    {
-        if (explored.contains(group)) {
-            return;
-        }
-        explored.add(group);
-
-        Queue<Expression> queue = new ArrayDeque<>();
-        queue.addAll(memo.getExpressions(group));
-
-        while (!queue.isEmpty()) {
-            Expression expression = queue.poll();
-
-            for (Rule rule : rules) {
-                Lookup lookup = new MemoLookup(memo, group);
-
-                List<Expression> transformed = rule.apply(expression, lookup)
-                        .collect(Collectors.toList());
-
-                for (Expression e : transformed) {
-                    Expression rewritten = memo.transform(expression, e, rule.getClass().getSimpleName());
-                    memo.verify();
-                    if (!(rewritten instanceof Reference)) {
-                        queue.add(rewritten);
-                    }
-                }
-            }
-        }
-
-        List<Reference> references = memo.getExpressions(group).stream()
-                .flatMap(e -> e.getArguments().stream())
-                .map(Reference.class::cast)
-                .collect(Collectors.toList());
-
-        for (Reference reference : references) {
-            explore(memo, explored, rules, reference.getName());
-        }
     }
 }

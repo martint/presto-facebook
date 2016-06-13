@@ -13,11 +13,10 @@
  */
 package com.facebook.presto.sql.optimizer;
 
-import com.facebook.presto.sql.optimizer.engine.Memo2;
+import com.facebook.presto.sql.optimizer.engine.Memo;
 import com.facebook.presto.sql.optimizer.tree.Expression;
 import com.facebook.presto.sql.optimizer.tree.Filter;
 import com.facebook.presto.sql.optimizer.tree.Get;
-import com.google.common.collect.ImmutableMap;
 
 public class Main3
 {
@@ -28,7 +27,7 @@ public class Main3
     public static void main(String[] args)
             throws InterruptedException
     {
-        Memo2 memo = new Memo2();
+        Memo memo = new Memo();
 
         addEquivalentExpressions(
                 memo,
@@ -62,7 +61,7 @@ public class Main3
 
     }
 
-    public static void addEquivalentExpressions(Memo2 memo, Expression first, Expression... rest)
+    public static void addEquivalentExpressions(Memo memo, Expression first, Expression... rest)
     {
         String group = memo.insert(first);
         System.out.println(memo.toGraphviz());

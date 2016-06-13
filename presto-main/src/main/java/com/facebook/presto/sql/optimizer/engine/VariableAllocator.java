@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.optimizer.engine;
 
-public interface VariableAllocator
+interface VariableAllocator
 {
     String newName();
 
