@@ -21,7 +21,7 @@ import com.facebook.presto.sql.optimizer.tree.Expression;
 import com.facebook.presto.sql.optimizer.tree.Filter;
 import com.facebook.presto.sql.optimizer.tree.Get;
 import com.facebook.presto.sql.optimizer.tree.Intersect;
-import com.facebook.presto.sql.optimizer.tree.Limit;
+import com.facebook.presto.sql.optimizer.tree.GlobalLimit;
 import com.facebook.presto.sql.optimizer.tree.Project;
 import com.facebook.presto.sql.optimizer.tree.Sort;
 import com.facebook.presto.sql.optimizer.tree.Union;
@@ -40,12 +40,12 @@ public class Main
                         new Get("t"));
 
         Expression root =
-        new Limit(3,
+        new GlobalLimit(3,
                 new Sort("s0",
                         new Filter("f0",
                                 new Aggregate(Aggregate.Type.SINGLE, "a1",
-                                        new Limit(10,
-                                                new Limit(5,
+                                        new GlobalLimit(10,
+                                                new GlobalLimit(5,
                                                         new Union(
                                                                 new Filter("f1",
                                                                         new Union(
@@ -79,8 +79,8 @@ public class Main
         );
 
 //        Expression root =
-        new Limit(10,
-                new Limit(5,
+        new GlobalLimit(10,
+                new GlobalLimit(5,
 //                                new Project("p",
                         new Get("t"))
 //                        )
@@ -95,7 +95,7 @@ public class Main
 
 //        Expression root =
         new Filter("f",
-                new Limit(5,
+                new GlobalLimit(5,
                         new Project("p",
                                 new Get("t"))));
 

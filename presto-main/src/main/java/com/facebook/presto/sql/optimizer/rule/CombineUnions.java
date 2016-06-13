@@ -16,8 +16,8 @@ package com.facebook.presto.sql.optimizer.rule;
 import com.facebook.presto.sql.optimizer.engine.Lookup;
 import com.facebook.presto.sql.optimizer.engine.Rule;
 import com.facebook.presto.sql.optimizer.tree.Expression;
-import com.facebook.presto.sql.optimizer.tree.Intersect;
 import com.facebook.presto.sql.optimizer.tree.Reference;
+import com.facebook.presto.sql.optimizer.tree.Union;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
@@ -32,20 +32,27 @@ import java.util.stream.Stream;
  * TODO: may need a way to "kill" activation of the rule for any nested unions that were discovered and handled by
  * this rule. Otherwise, we end up with a combinatorial explosion of flattenings
  */
-public class FlattenIntersect
+public class CombineUnions
         implements Rule
 {
+    // Experimental: a mechanism to suppress firing for expressions that have
+    // already been considered. This should be done by the engine
+    private final Set<Union> skip = new HashSet<>();
+
     @Override
     public Stream<Expression> apply(Expression expression, Lookup lookup)
     {
+        if (skip.contains(expression)) {
+            return Stream.empty();
+        }
         if (expression instanceof Reference) {
             throw new UnsupportedOperationException("not yet implemented");
         }
-        else if (expression instanceof Intersect) {
+        else if (expression instanceof Union) {
             return process(expression, lookup).stream()
                     .filter(args -> !ImmutableSet.copyOf(expression.getArguments()).equals(ImmutableSet.copyOf(args))) // don't produce a result if it matches the expression
                     .map(ArrayList::new)
-                    .map(Intersect::new);
+                    .map(Union::new);
         }
 
         return Stream.empty();
@@ -57,7 +64,8 @@ public class FlattenIntersect
         Set<Set<Expression>> result = new HashSet<>();
         lookup.lookup(expression).
                 forEach(member -> {
-                    if (member instanceof Intersect) {
+                    if (member instanceof Union) {
+                        skip.add((Union) member);
                         List<Set<Set<Expression>>> alternatives = new ArrayList<>();
                         for (Expression argument : member.getArguments()) {
                             Set<Set<Expression>> child = process(argument, lookup);

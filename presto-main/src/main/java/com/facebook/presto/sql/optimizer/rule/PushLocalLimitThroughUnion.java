@@ -16,45 +16,56 @@ package com.facebook.presto.sql.optimizer.rule;
 import com.facebook.presto.sql.optimizer.engine.Lookup;
 import com.facebook.presto.sql.optimizer.engine.Rule;
 import com.facebook.presto.sql.optimizer.tree.Expression;
-import com.facebook.presto.sql.optimizer.tree.GlobalLimit;
-import com.facebook.presto.sql.optimizer.tree.Project;
+import com.facebook.presto.sql.optimizer.tree.LocalLimit;
+import com.facebook.presto.sql.optimizer.tree.Union;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
 
-public class PushLimitThroughProject
+public class PushLocalLimitThroughUnion
         implements Rule
 {
     @Override
     public Stream<Expression> apply(Expression expression, Lookup lookup)
     {
         return lookup.lookup(expression)
-                .filter(GlobalLimit.class::isInstance)
-                .map(GlobalLimit.class::cast)
+                .filter(LocalLimit.class::isInstance)
+                .map(LocalLimit.class::cast)
                 .flatMap(parent -> lookup.lookup(parent.getArguments().get(0))
-                        .filter(Project.class::isInstance)
-                        .map(Project.class::cast)
+                        .filter(Union.class::isInstance)
+                        .map(Union.class::cast)
                         .map(child -> process(parent, child, lookup))
                         .filter(Optional::isPresent)
                         .map(Optional::get));
     }
 
-    private Optional<Expression> process(GlobalLimit parent, Project child, Lookup lookup)
+    private Optional<Expression> process(LocalLimit parent, Union child, Lookup lookup)
     {
-        boolean hasLimit = lookup.lookup(child.getArguments().get(0))
-                .filter(GlobalLimit.class::isInstance)
-                .map(GlobalLimit.class::cast)
-                .anyMatch(e -> e.getCount() == parent.getCount());
+        List<Expression> children = new ArrayList<>();
 
-        if (hasLimit) {
-            return Optional.empty();
+        boolean success = false;
+        for (Expression grandChild : child.getArguments()) {
+            boolean hasLimit = lookup.lookup(grandChild)
+                    .filter(LocalLimit.class::isInstance)
+                    .map(LocalLimit.class::cast)
+                    .anyMatch(e -> e.getCount() == parent.getCount());
+
+            success = success || !hasLimit;
+
+            if (hasLimit) {
+                children.add(grandChild);
+            }
+            else {
+                children.add(new LocalLimit(parent.getCount(), grandChild));
+            }
         }
 
-        return Optional.of(
-                new Project(
-                        child.getExpression(),
-                        new GlobalLimit(
-                                parent.getCount(),
-                                child.getArguments().get(0))));
+        if (success) {
+            return Optional.of(child.copyWithArguments(children));
+        }
+
+        return Optional.empty();
     }
 }

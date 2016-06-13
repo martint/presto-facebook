@@ -15,34 +15,30 @@ package com.facebook.presto.sql.optimizer.rule;
 
 import com.facebook.presto.sql.optimizer.engine.Lookup;
 import com.facebook.presto.sql.optimizer.engine.Rule;
-import com.facebook.presto.sql.optimizer.tree.CrossJoin;
 import com.facebook.presto.sql.optimizer.tree.Expression;
-import com.facebook.presto.sql.optimizer.tree.Filter;
-import com.facebook.presto.sql.optimizer.tree.Join;
+import com.facebook.presto.sql.optimizer.tree.Project;
 
 import java.util.stream.Stream;
 
-public class MergeFilterAndCrossJoin
+public class CombineProjections
         implements Rule
 {
     @Override
     public Stream<Expression> apply(Expression expression, Lookup lookup)
     {
         return lookup.lookup(expression)
-                .filter(Filter.class::isInstance)
-                .map(Filter.class::cast)
+                .filter(Project.class::isInstance)
+                .map(Project.class::cast)
                 .flatMap(parent -> lookup.lookup(parent.getArguments().get(0))
-                        .filter(CrossJoin.class::isInstance)
-                        .map(CrossJoin.class::cast)
+                        .filter(Project.class::isInstance)
+                        .map(Project.class::cast)
                         .map(child -> process(parent, child)));
     }
 
-    private Expression process(Filter parent, CrossJoin child)
+    private Expression process(Project parent, Project child)
     {
-        return new Join(
-                Join.Type.INNER,
-                parent.getCriteria(),
-                child.getArguments().get(0),
-                child.getArguments().get(1));
+        return new Project(
+                parent.getExpression() + "/" + child.getExpression(),
+                child.getArguments().get(0));
     }
 }

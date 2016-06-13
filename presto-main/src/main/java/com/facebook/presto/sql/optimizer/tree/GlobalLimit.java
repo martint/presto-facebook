@@ -20,12 +20,12 @@ import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-public class Limit
+public class GlobalLimit
         extends Expression
 {
     private final long count;
 
-    public Limit(long count, Expression argument)
+    public GlobalLimit(long count, Expression argument)
     {
         super(ImmutableList.of(argument));
         this.count = count;
@@ -52,7 +52,7 @@ public class Limit
     public Expression copyWithArguments(List<Expression> arguments)
     {
         checkArgument(arguments.size() == 1);
-        return new Limit(count, arguments.get(0));
+        return new GlobalLimit(count, arguments.get(0));
     }
 
     @Override
@@ -64,7 +64,7 @@ public class Limit
     @Override
     protected boolean shallowEquals(Expression other)
     {
-        Limit that = (Limit) other;
+        GlobalLimit that = (GlobalLimit) other;
         return Objects.equals(count, that.count);
     }
 
