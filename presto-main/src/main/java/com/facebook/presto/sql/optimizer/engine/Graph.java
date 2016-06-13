@@ -29,7 +29,7 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-public class Graph<VID, CID, V, E, C>
+class Graph<VID, CID, V, E, C>
 {
     private final Map<VID, V> nodes = new HashMap<>();
     private final Map<Edge<VID>, E> edges = new HashMap<>();

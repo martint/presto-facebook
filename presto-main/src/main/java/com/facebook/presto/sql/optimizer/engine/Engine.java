@@ -13,15 +13,11 @@
  */
 package com.facebook.presto.sql.optimizer.engine;
 
-import com.facebook.presto.sql.optimizer.tree.Expression;
-
-import java.util.LinkedList;
 import java.util.List;
-import java.util.Queue;
 
 import static java.util.Objects.requireNonNull;
 
-public class Engine
+class Engine
 {
     public Engine(List<Object> rules)
     {
@@ -43,45 +39,45 @@ public class Engine
 //        System.out.println(memo.dump());
 //    }
 
-    private void optimizeEquivalenceClass(Memo memo, EquivalenceClass equivalenceClass, Cost maximumCost, Requirements requirements)
-    {
-        if (memo.isOptimized(equivalenceClass, requirements)) {
-            return;
-        }
+//    private void optimizeEquivalenceClass(Memo memo, EquivalenceClass equivalenceClass, Cost maximumCost, Requirements requirements)
+//    {
+//        if (memo.isOptimized(equivalenceClass, requirements)) {
+//            return;
+//        }
 
-        exploreEquivalenceClass(equivalenceClass, memo);
-    }
+//        exploreEquivalenceClass(equivalenceClass, memo);
+//    }
 
-    private void exploreEquivalenceClass(EquivalenceClass equivalenceClass, Memo memo)
-    {
-        System.out.println(String.format("Explore %s", equivalenceClass));
+//    private void exploreEquivalenceClass(EquivalenceClass equivalenceClass, Memo memo)
+//    {
+//        System.out.println(String.format("Explore %s", equivalenceClass));
 
-        // explore expressions
-        Queue<Expression> expressions = new LinkedList<>(memo.getExpressions(equivalenceClass));
-        while (!expressions.isEmpty()) {
-            Expression expression = expressions.poll();
+    // explore expressions
+//        Queue<Expression> expressions = new LinkedList<>(memo.getExpressions(equivalenceClass));
+//        while (!expressions.isEmpty()) {
+//            Expression expression = expressions.poll();
 
-            for (Object rule : rules) {
-                memo.match(/* TODO: rule.getPattern(), */ expression)
-                        .forEach(match -> {
+//            for (Object rule : rules) {
+//                memo.match(/* TODO: rule.getPattern(), */ expression)
+//                        .forEach(match -> {
 //                            if (rule.canApply(match)) {
-                                System.out.println(String.format("Apply %s(%s)", rule, match));
+//                                System.out.println(String.format("Apply %s(%s)", rule, match));
 //                                for (Expression transformed : rule.apply(match)) {
 //                                    System.out.println(String.format("-> %s", transformed));
 //                                    // TODO: transformed = memo.recordEquivalence(equivalenceClass, transformed);
 //                                    expressions.add(transformed);
 //                                }
 //                            }
-                        });
-            }
-        }
+//                        });
+//            }
+//        }
 
 //        for (Expression expression : memo.getExpressions(equivalenceClass)) {
 //            for (Expression input : expression.getArguments()) {
 //                exploreEquivalenceClass(memo.getEquivalenceClass(input), memo);
 //            }
 //        }
-    }
+//    }
 
     // TODO: how to re-explore potential matches that my be created by exploring children
 

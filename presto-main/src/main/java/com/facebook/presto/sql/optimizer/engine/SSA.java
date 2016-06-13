@@ -22,7 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-public class SSA
+class SSA
 {
     private final Map<String, Expression> assignments = new HashMap<>();
     private final VariableAllocator allocator;

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.optimizer.engine;
 
-public class Cost
+class Cost
 {
     public static final Cost UNBOUNDED = new Cost();
 }

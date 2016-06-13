@@ -28,13 +28,13 @@ import java.util.stream.Stream;
  * those entries to see if the there's a cycle instead of making this implementation
  * non-idempotent.
  */
-public class MemoLookup
+class MemoLookup
         implements Lookup
 {
     private final Set<Expression> visited = new HashSet<>();
-    private final Memo2 memo;
+    private final Memo memo;
 
-    public MemoLookup(Memo2 memo, String group)
+    public MemoLookup(Memo memo, String group)
     {
         this.memo = memo;
         visited.add(new Reference(group));
