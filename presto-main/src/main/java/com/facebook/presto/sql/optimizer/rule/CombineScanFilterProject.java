@@ -17,28 +17,32 @@ import com.facebook.presto.sql.optimizer.engine.Lookup;
 import com.facebook.presto.sql.optimizer.engine.Rule;
 import com.facebook.presto.sql.optimizer.tree.Expression;
 import com.facebook.presto.sql.optimizer.tree.Filter;
-import com.facebook.presto.sql.optimizer.tree.FilteredScan;
+import com.facebook.presto.sql.optimizer.tree.Project;
 import com.facebook.presto.sql.optimizer.tree.Scan;
+import com.facebook.presto.sql.optimizer.tree.ScanFilterProject;
 
 import java.util.stream.Stream;
 
-public class CombineFilterAndScan
+public class CombineScanFilterProject
         implements Rule
 {
     @Override
     public Stream<Expression> apply(Expression expression, Lookup lookup)
     {
         return lookup.lookup(expression)
-                .filter(Filter.class::isInstance)
-                .map(Filter.class::cast)
-                .flatMap(parent -> lookup.lookup(parent.getArguments().get(0))
-                        .filter(Scan.class::isInstance)
-                        .map(Scan.class::cast)
-                        .map(child -> process(parent, child)));
+                .filter(Project.class::isInstance)
+                .map(Project.class::cast)
+                .flatMap(project -> lookup.lookup(project.getArguments().get(0))
+                        .filter(Filter.class::isInstance)
+                        .map(Filter.class::cast)
+                        .flatMap(filter -> lookup.lookup(filter.getArguments().get(0))
+                                .filter(Scan.class::isInstance)
+                                .map(Scan.class::cast)
+                                .map(scan -> process(project, filter, scan))));
     }
 
-    private Expression process(Filter parent, Scan child)
+    private Expression process(Project project, Filter filter, Scan scan)
     {
-        return new FilteredScan(child.getTable(), parent.getCriteria());
+        return new ScanFilterProject(scan.getTable(), filter.getCriteria(), project.getExpression());
     }
 }

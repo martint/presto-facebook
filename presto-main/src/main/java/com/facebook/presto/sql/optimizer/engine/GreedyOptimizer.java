@@ -14,7 +14,7 @@
 package com.facebook.presto.sql.optimizer.engine;
 
 import com.facebook.presto.sql.optimizer.rule.CombineFilterAndCrossJoin;
-import com.facebook.presto.sql.optimizer.rule.CombineFilterAndScan;
+import com.facebook.presto.sql.optimizer.rule.CombineScanFilterProject;
 import com.facebook.presto.sql.optimizer.rule.CombineFilters;
 import com.facebook.presto.sql.optimizer.rule.CombineGlobalLimits;
 import com.facebook.presto.sql.optimizer.rule.CombineProjections;
@@ -25,6 +25,7 @@ import com.facebook.presto.sql.optimizer.rule.OrderByLimitToTopN;
 import com.facebook.presto.sql.optimizer.rule.PushAggregationThroughUnion;
 import com.facebook.presto.sql.optimizer.rule.PushFilterThroughAggregation;
 import com.facebook.presto.sql.optimizer.rule.PushFilterThroughProject;
+import com.facebook.presto.sql.optimizer.rule.PushFilterThroughSort;
 import com.facebook.presto.sql.optimizer.rule.PushFilterThroughUnion;
 import com.facebook.presto.sql.optimizer.rule.PushGlobalLimitThroughUnion;
 import com.facebook.presto.sql.optimizer.rule.PushLimitThroughProject;
@@ -65,6 +66,7 @@ public class GreedyOptimizer
                         new PushFilterThroughProject(),
                         new PushFilterThroughAggregation(),
                         new PushFilterThroughUnion(),
+                        new PushFilterThroughSort(),
                         new PushAggregationThroughUnion(),
                         new CombineFilters(),
                         new CombineGlobalLimits(),
@@ -75,7 +77,7 @@ public class GreedyOptimizer
                         new CombineUnions()
                 ),
                 ImmutableSet.of(
-                        new CombineFilterAndScan(),
+                        new CombineScanFilterProject(),
                         new CombineFilterAndCrossJoin(),
                         new GetToScan())));
     }
@@ -97,7 +99,7 @@ public class GreedyOptimizer
             while (previous != version);
         }
 
-        System.out.println(memo.toGraphviz());
+//        System.out.println(memo.toGraphviz());
         return extract(memo, rootClass, new HashSet<>());
     }
 
