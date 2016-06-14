@@ -40,6 +40,7 @@ public class OrderByLimitToTopN
     private Expression process(GlobalLimit parent, Sort child)
     {
         return new TopN(
+                TopN.Type.GLOBAL,
                 parent.getCount(),
                 child.getCriteria(),
                 child.getArguments().get(0));

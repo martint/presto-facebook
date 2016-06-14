@@ -31,6 +31,8 @@ import com.facebook.presto.sql.optimizer.rule.PushFilterThroughSort;
 import com.facebook.presto.sql.optimizer.rule.PushFilterThroughUnion;
 import com.facebook.presto.sql.optimizer.rule.PushGlobalLimitThroughUnion;
 import com.facebook.presto.sql.optimizer.rule.PushLimitThroughProject;
+import com.facebook.presto.sql.optimizer.rule.PushGlobalTopNThroughUnion;
+import com.facebook.presto.sql.optimizer.rule.PushLocalTopNThroughUnion;
 import com.facebook.presto.sql.optimizer.rule.RemoveIdentityProjection;
 import com.facebook.presto.sql.optimizer.tree.Expression;
 import com.facebook.presto.sql.optimizer.tree.Reference;
@@ -59,6 +61,7 @@ public class CostBasedOptimizer
                 new PushFilterThroughAggregation(),
                 new PushFilterThroughUnion(),
                 new PushFilterThroughSort(),
+                new PushGlobalTopNThroughUnion(),
                 new CombineScanFilterProject(),
                 new CombineFilterAndCrossJoin(),
                 new PushAggregationThroughUnion(),
@@ -68,6 +71,7 @@ public class CostBasedOptimizer
                 new CombineGlobalLimits(),
                 new CombineLocalLimits(),
                 new PushGlobalLimitThroughUnion(),
+                new PushLocalTopNThroughUnion(),
                 new PushLimitThroughProject(),
                 new OrderByLimitToTopN(),
                 new IntersectToUnion(),

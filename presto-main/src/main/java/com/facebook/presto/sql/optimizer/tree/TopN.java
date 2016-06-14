@@ -23,14 +23,26 @@ import static com.google.common.base.Preconditions.checkArgument;
 public class TopN
         extends Expression
 {
+    public enum Type {
+        GLOBAL,
+        LOCAL
+    }
+
+    private final Type type;
     private final long count;
     private final String criteria;
 
-    public TopN(long count, String criteria, Expression argument)
+    public TopN(Type type, long count, String criteria, Expression argument)
     {
         super(ImmutableList.of(argument));
+        this.type = type;
         this.count = count;
         this.criteria = criteria;
+    }
+
+    public Type getType()
+    {
+        return type;
     }
 
     public long getCount()
@@ -53,26 +65,27 @@ public class TopN
     public Expression copyWithArguments(List<Expression> arguments)
     {
         checkArgument(arguments.size() == 1);
-        return new TopN(count, criteria, arguments.get(0));
+        return new TopN(type, count, criteria, arguments.get(0));
     }
 
     @Override
     public String toString()
     {
-        return String.format("(top-n %s %s %s)", count, criteria, getArguments().get(0));
+        return String.format("(top-n %s %s %s %s)", type, count, criteria, getArguments().get(0));
     }
 
     @Override
     protected boolean shallowEquals(Expression other)
     {
         TopN that = (TopN) other;
-        return Objects.equals(count, that.count) &&
+        return Objects.equals(type, that.type) &&
+                Objects.equals(count, that.count) &&
                 Objects.equals(criteria, that.criteria);
     }
 
     @Override
     protected int shallowHashCode()
     {
-        return Objects.hash(count, criteria);
+        return Objects.hash(type, count, criteria);
     }
 }

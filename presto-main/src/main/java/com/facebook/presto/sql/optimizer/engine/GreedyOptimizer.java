@@ -28,8 +28,10 @@ import com.facebook.presto.sql.optimizer.rule.PushFilterThroughProject;
 import com.facebook.presto.sql.optimizer.rule.PushFilterThroughSort;
 import com.facebook.presto.sql.optimizer.rule.PushFilterThroughUnion;
 import com.facebook.presto.sql.optimizer.rule.PushGlobalLimitThroughUnion;
+import com.facebook.presto.sql.optimizer.rule.PushGlobalTopNThroughUnion;
 import com.facebook.presto.sql.optimizer.rule.PushLimitThroughProject;
 import com.facebook.presto.sql.optimizer.rule.PushLocalLimitThroughUnion;
+import com.facebook.presto.sql.optimizer.rule.PushLocalTopNThroughUnion;
 import com.facebook.presto.sql.optimizer.rule.RemoveIdentityProjection;
 import com.facebook.presto.sql.optimizer.rule.UncorrelatedScalarToJoin;
 import com.facebook.presto.sql.optimizer.tree.Assignment;
@@ -80,12 +82,14 @@ public class GreedyOptimizer
                         new PushGlobalLimitThroughUnion(),
                         new PushLocalLimitThroughUnion(),
                         new PushLimitThroughProject(),
-                        new CombineUnions()
+                        new CombineUnions(),
+                        new OrderByLimitToTopN(),
+                        new PushGlobalTopNThroughUnion(),
+                        new PushLocalTopNThroughUnion()
                 ),
                 ImmutableSet.of(
                         new CombineScanFilterProject(),
                         new CombineFilterAndCrossJoin(),
-                        new OrderByLimitToTopN(),
                         new GetToScan())));
     }
 
@@ -111,7 +115,7 @@ public class GreedyOptimizer
                 .map(Assignment::getExpression)
                 .collect(Collectors.toSet());
 
-//        System.out.println(
+        System.out.println(
                 memo.toGraphviz(
                         e -> {
                             if (chosen.contains(e)) {
@@ -129,8 +133,8 @@ public class GreedyOptimizer
                                         "penwidth", "3");
                             }
                             return ImmutableMap.of();
-                        });
-//        );
+                        })
+        );
 
         return new Let(assignments, new Reference(rootClass));
     }
@@ -219,7 +223,7 @@ public class GreedyOptimizer
                         assignments.add(a);
                     }
                 });
-            ;
+        ;
 
         Assignment assignment = new Assignment(group, expression);
         if (!assignments.contains(assignment)) {

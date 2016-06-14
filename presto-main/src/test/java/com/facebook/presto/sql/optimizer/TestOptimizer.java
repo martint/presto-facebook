@@ -26,6 +26,7 @@ import com.facebook.presto.sql.optimizer.rule.PushGlobalLimitThroughUnion;
 import com.facebook.presto.sql.optimizer.rule.PushLocalLimitThroughUnion;
 import com.facebook.presto.sql.optimizer.tree.Aggregate;
 import com.facebook.presto.sql.optimizer.tree.Apply;
+import com.facebook.presto.sql.optimizer.tree.Call;
 import com.facebook.presto.sql.optimizer.tree.CrossJoin;
 import com.facebook.presto.sql.optimizer.tree.EnforceScalar;
 import com.facebook.presto.sql.optimizer.tree.Expression;
@@ -36,6 +37,7 @@ import com.facebook.presto.sql.optimizer.tree.Intersect;
 import com.facebook.presto.sql.optimizer.tree.Join;
 import com.facebook.presto.sql.optimizer.tree.Lambda;
 import com.facebook.presto.sql.optimizer.tree.Project;
+import com.facebook.presto.sql.optimizer.tree.Reference;
 import com.facebook.presto.sql.optimizer.tree.Scan;
 import com.facebook.presto.sql.optimizer.tree.Sort;
 import com.facebook.presto.sql.optimizer.tree.Union;
@@ -47,6 +49,27 @@ import static com.facebook.presto.sql.optimizer.tree.Formatter.format;
 
 public class TestOptimizer
 {
+    @Test
+    public void testApply1()
+            throws Exception
+    {
+        Optimizer optimizer = new GreedyOptimizer();
+
+//        Expression expression =
+        new Apply(
+                new Lambda("x", new Call("not-null", new Reference("x"))),
+                new Get("t"));
+
+        Expression expression =
+                new Apply(
+                        new Lambda("x", new EnforceScalar(new Get("u"))),
+                        new Get("t"));
+
+        System.out.println(format(expression));
+        System.out.println();
+        System.out.println(format(optimizer.optimize(expression)));
+    }
+
     @Test
     public void testSelfJoin()
             throws Exception
@@ -179,6 +202,26 @@ public class TestOptimizer
                         new GlobalLimit(5,
                                 new Sort("s",
                                         new Get("a"))));
+
+        System.out.println(format(expression));
+        System.out.println(format(optimizer.optimize(expression)));
+    }
+
+    @Test
+    public void test1()
+            throws Exception
+    {
+        Optimizer optimizer = new GreedyOptimizer();
+
+        Expression expression =
+                new GlobalLimit(10,
+                        new Sort("s",
+                                new Union(
+                                        new Get("a"),
+                                        new Get("b"),
+                                        new Union(
+                                                new Get("c"),
+                                                new Get("d")))));
 
         System.out.println(format(expression));
         System.out.println(format(optimizer.optimize(expression)));
