@@ -32,13 +32,16 @@ import com.facebook.presto.sql.optimizer.rule.PushLimitThroughProject;
 import com.facebook.presto.sql.optimizer.rule.PushLocalLimitThroughUnion;
 import com.facebook.presto.sql.optimizer.rule.RemoveIdentityProjection;
 import com.facebook.presto.sql.optimizer.tree.Expression;
+import com.facebook.presto.sql.optimizer.tree.Let;
 import com.facebook.presto.sql.optimizer.tree.Reference;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Longs;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -99,7 +102,29 @@ public class GreedyOptimizer
             explore(memo, lookup, new HashSet<>(), batch, rootClass);
         }
 
-        return extract(rootClass, lookup);
+        Map<String, Expression> chosen = extract(rootClass, lookup);
+
+        System.out.println(
+                memo.toGraphviz(
+                        e -> {
+                            if (chosen.values().contains(e)) {
+                                return ImmutableMap.of(
+                                        "fillcolor", "coral",
+                                        "style", "filled");
+                            }
+
+                            return ImmutableMap.of();
+                        },
+                        (from, to) -> {
+                            if (chosen.values().contains(from) || chosen.values().contains(to)) {
+                                return ImmutableMap.of(
+                                        "color", "coral",
+                                        "penwidth", "3");
+                            }
+                            return ImmutableMap.of();
+                        }));
+
+        return new Let(chosen, new Reference(rootClass));
     }
 
     private boolean explore(Memo memo, MemoLookup lookup, Set<String> explored, Set<Rule> rules, String group)
@@ -170,17 +195,15 @@ public class GreedyOptimizer
         return Optional.empty();
     }
 
-    private Expression extract(String group, MemoLookup lookup)
+    private Map<String, Expression> extract(String group, MemoLookup lookup)
     {
         Expression expression = lookup.lookup(new Reference(group))
                 .findFirst()
                 .get();
 
-        List<Expression> children = expression.getArguments().stream()
+        return expression.getArguments().stream()
                 .map(Reference.class::cast)
                 .map(e -> extract(e.getName(), lookup.push(e.getName())))
-                .collect(Collectors.toList());
-
-        return expression.copyWithArguments(children);
+                .reduce(ImmutableMap.of(group, expression), (accumulator, e) -> ImmutableMap.<String, Expression>builder().putAll(accumulator).putAll(e).build());
     }
 }
