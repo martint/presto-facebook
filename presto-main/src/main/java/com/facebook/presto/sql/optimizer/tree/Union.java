@@ -30,18 +30,6 @@ public class Union
     }
 
     @Override
-    public boolean isPhysical()
-    {
-        return true;
-    }
-
-    @Override
-    public boolean isLogical()
-    {
-        return true;
-    }
-
-    @Override
     public Expression copyWithArguments(List<Expression> arguments)
     {
         return new Union(arguments);

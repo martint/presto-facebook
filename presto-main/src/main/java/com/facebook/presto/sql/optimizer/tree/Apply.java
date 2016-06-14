@@ -13,6 +13,49 @@
  */
 package com.facebook.presto.sql.optimizer.tree;
 
+import java.util.List;
+import java.util.Objects;
+
+import static com.facebook.presto.sql.optimizer.engine.CollectionConstructors.list;
+
 public class Apply
+    extends Expression
 {
+    private final Lambda lambda;
+
+    public Apply(Lambda lambda, Expression argument)
+    {
+        super(list(argument));
+        this.lambda = lambda;
+    }
+
+    public Lambda getLambda()
+    {
+        return lambda;
+    }
+
+    @Override
+    public Expression copyWithArguments(List<Expression> arguments)
+    {
+        return new Apply(lambda, arguments.get(0));
+    }
+
+    @Override
+    protected int shallowHashCode()
+    {
+        return lambda.hashCode();
+    }
+
+    @Override
+    protected boolean shallowEquals(Expression other)
+    {
+        Apply that = (Apply) other;
+        return Objects.equals(lambda, that.lambda);
+    }
+
+    @Override
+    public String toString()
+    {
+        return String.format("(apply %s %s)", lambda, getArguments().get(0));
+    }
 }

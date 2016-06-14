@@ -18,61 +18,53 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.Objects;
 
-import static com.google.common.base.Preconditions.checkArgument;
-
-public class ScanFilterProject
+public class SemiJoin
         extends Expression
 {
-    private final String projection;
-    private final String filter;
-    private final String table;
-
-    public ScanFilterProject(String table, String filter, String projection)
+    public enum Type
     {
-        super(ImmutableList.of());
-        this.table = table;
-        this.filter = filter;
-        this.projection = projection;
+        LEFT,
+        INNER
     }
 
-    public String getTable()
+    private final Type type;
+    private final String criteria;
+
+    public SemiJoin(Type type, String criteria, Expression left, Expression right)
     {
-        return table;
+        super(ImmutableList.of(left, right));
+        this.type = type;
+        this.criteria = criteria;
     }
 
-    public String getFilter()
+    public String getCriteria()
     {
-        return filter;
-    }
-
-    public String getProjection()
-    {
-        return projection;
+        return criteria;
     }
 
     @Override
     public Expression copyWithArguments(List<Expression> arguments)
     {
-        checkArgument(arguments.isEmpty());
-        return this;
+        return new SemiJoin(type, criteria, arguments.get(0), arguments.get(1));
     }
 
     @Override
     public String toString()
     {
-        return String.format("(scan-filter-project '%s' %s %s)", table, filter, projection);
+        return String.format("(semi-join %s %s %s)", type, criteria, getArguments());
     }
 
+    @Override
     protected boolean shallowEquals(Expression other)
     {
-        ScanFilterProject that = (ScanFilterProject) other;
-        return Objects.equals(filter, that.filter) &&
-                Objects.equals(table, that.table);
+        SemiJoin that = (SemiJoin) other;
+        return Objects.equals(type, that.type) &&
+                Objects.equals(criteria, that.criteria);
     }
 
     @Override
     protected int shallowHashCode()
     {
-        return Objects.hash(filter, table);
+        return Objects.hash(type, criteria);
     }
 }

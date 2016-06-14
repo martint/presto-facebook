@@ -44,18 +44,6 @@ public class Window
     }
 
     @Override
-    public boolean isPhysical()
-    {
-        return true;
-    }
-
-    @Override
-    public boolean isLogical()
-    {
-        return true;
-    }
-
-    @Override
     public Expression copyWithArguments(List<Expression> arguments)
     {
         checkArgument(arguments.size() == 1);

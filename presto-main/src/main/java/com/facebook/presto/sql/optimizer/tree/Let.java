@@ -36,18 +36,6 @@ public class Let
     }
 
     @Override
-    public boolean isPhysical()
-    {
-        return false;
-    }
-
-    @Override
-    public boolean isLogical()
-    {
-        return true;
-    }
-
-    @Override
     public Expression copyWithArguments(List<Expression> arguments)
     {
         checkArgument(arguments.isEmpty());
