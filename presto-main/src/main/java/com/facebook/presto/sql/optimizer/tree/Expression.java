@@ -22,6 +22,9 @@ import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
+// TODO:
+//  consider representing everything as arguments (filter expressions, sort criteria, etc)
+
 @Immutable
 public abstract class Expression
 {
@@ -38,6 +41,8 @@ public abstract class Expression
     {
         return arguments;
     }
+
+    public abstract String getName();
 
     public abstract Expression copyWithArguments(List<Expression> arguments);
 

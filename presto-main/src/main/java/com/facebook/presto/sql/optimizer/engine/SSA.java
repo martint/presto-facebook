@@ -13,18 +13,18 @@
  */
 package com.facebook.presto.sql.optimizer.engine;
 
+import com.facebook.presto.sql.optimizer.tree.Assignment;
 import com.facebook.presto.sql.optimizer.tree.Expression;
 import com.facebook.presto.sql.optimizer.tree.Let;
 import com.facebook.presto.sql.optimizer.tree.Reference;
 
-import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 class SSA
 {
-    private final Map<String, Expression> assignments = new HashMap<>();
+    private final List<Assignment> assignments = new ArrayList<>();
     private final VariableAllocator allocator;
 
     public SSA(VariableAllocator allocator)
@@ -46,7 +46,7 @@ class SSA
                 .map(this::assignVariable)
                 .collect(Collectors.toList());
 
-        assignments.put(name, expression.copyWithArguments(arguments));
+        assignments.add(new Assignment(name, expression.copyWithArguments(arguments)));
 
         return new Reference(name);
     }

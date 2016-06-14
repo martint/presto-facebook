@@ -37,6 +37,12 @@ public class Sort
     }
 
     @Override
+    public String getName()
+    {
+        return "sort";
+    }
+
+    @Override
     public Expression copyWithArguments(List<Expression> arguments)
     {
         checkArgument(arguments.size() == 1);

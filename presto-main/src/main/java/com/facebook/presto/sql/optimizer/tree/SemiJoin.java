@@ -43,6 +43,12 @@ public class SemiJoin
     }
 
     @Override
+    public String getName()
+    {
+        return "semi-join";
+    }
+
+    @Override
     public Expression copyWithArguments(List<Expression> arguments)
     {
         return new SemiJoin(type, criteria, arguments.get(0), arguments.get(1));

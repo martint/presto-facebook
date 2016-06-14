@@ -37,6 +37,12 @@ public class Filter
     }
 
     @Override
+    public String getName()
+    {
+        return "filter";
+    }
+
+    @Override
     public Expression copyWithArguments(List<Expression> arguments)
     {
         checkArgument(arguments.size() == 1);

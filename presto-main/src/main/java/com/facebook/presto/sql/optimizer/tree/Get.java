@@ -37,6 +37,12 @@ public class Get
     }
 
     @Override
+    public String getName()
+    {
+        return "get";
+    }
+
+    @Override
     public Expression copyWithArguments(List<Expression> arguments)
     {
         checkArgument(arguments.isEmpty());

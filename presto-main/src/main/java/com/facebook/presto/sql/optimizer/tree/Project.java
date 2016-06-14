@@ -37,6 +37,12 @@ public class Project
     }
 
     @Override
+    public String getName()
+    {
+        return "project";
+    }
+
+    @Override
     public Expression copyWithArguments(List<Expression> arguments)
     {
         checkArgument(arguments.size() == 1);

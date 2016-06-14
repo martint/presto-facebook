@@ -24,6 +24,13 @@ public class CrossJoin
     {
         super(arguments);
     }
+
+    @Override
+    public String getName()
+    {
+        return "cross-join";
+    }
+
     public CrossJoin(Expression... arguments)
     {
         super(ImmutableList.copyOf(arguments));

@@ -44,6 +44,12 @@ public class Window
     }
 
     @Override
+    public String getName()
+    {
+        return "window";
+    }
+
+    @Override
     public Expression copyWithArguments(List<Expression> arguments)
     {
         checkArgument(arguments.size() == 1);

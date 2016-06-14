@@ -33,6 +33,7 @@ import com.facebook.presto.sql.optimizer.tree.Filter;
 import com.facebook.presto.sql.optimizer.tree.Get;
 import com.facebook.presto.sql.optimizer.tree.GlobalLimit;
 import com.facebook.presto.sql.optimizer.tree.Intersect;
+import com.facebook.presto.sql.optimizer.tree.Join;
 import com.facebook.presto.sql.optimizer.tree.Lambda;
 import com.facebook.presto.sql.optimizer.tree.Project;
 import com.facebook.presto.sql.optimizer.tree.Scan;
@@ -42,9 +43,26 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.sql.optimizer.engine.CollectionConstructors.list;
 import static com.facebook.presto.sql.optimizer.engine.CollectionConstructors.set;
+import static com.facebook.presto.sql.optimizer.tree.Formatter.format;
 
 public class TestOptimizer
 {
+    @Test
+    public void testSelfJoin()
+            throws Exception
+    {
+        Optimizer optimizer = new GreedyOptimizer();
+
+        Expression expression =
+                new Join(Join.Type.INNER,
+                        "f",
+                        new Get("t"),
+                        new Get("t"));
+
+        System.out.println(format(expression));
+        System.out.println(format(optimizer.optimize(expression)));
+    }
+
     @Test
     public void testPushFilterThroughProject()
             throws Exception
@@ -55,8 +73,8 @@ public class TestOptimizer
                         new Project("p",
                                 new Get("t")));
 
-        System.out.println(expression);
-        System.out.println(optimizer.optimize(expression));
+        System.out.println(format(expression));
+        System.out.println(format(optimizer.optimize(expression)));
     }
 
     @Test
@@ -69,8 +87,8 @@ public class TestOptimizer
                         new GlobalLimit(5,
                                 new Get("t")));
 
-        System.out.println(expression);
-        System.out.println(optimizer.optimize(expression));
+        System.out.println(format(expression));
+        System.out.println(format(optimizer.optimize(expression)));
     }
 
     @Test
@@ -83,8 +101,8 @@ public class TestOptimizer
                         new GlobalLimit(10,
                                 new Get("t")));
 
-        System.out.println(expression);
-        System.out.println(optimizer.optimize(expression));
+        System.out.println(format(expression));
+        System.out.println(format(optimizer.optimize(expression)));
     }
 
     @Test
@@ -97,8 +115,8 @@ public class TestOptimizer
                         new Filter("f2",
                                 new Get("t")));
 
-        System.out.println(expression);
-        System.out.println(optimizer.optimize(expression));
+        System.out.println(format(expression));
+        System.out.println(format(optimizer.optimize(expression)));
     }
 
     @Test
@@ -113,8 +131,8 @@ public class TestOptimizer
                                 new Get("b")),
                         new Get("c"));
 
-        System.out.println(expression);
-        System.out.println(optimizer.optimize(expression));
+        System.out.println(format(expression));
+        System.out.println(format(optimizer.optimize(expression)));
     }
 
     @Test
@@ -128,8 +146,8 @@ public class TestOptimizer
                                 new Get("a"),
                                 new Get("b")));
 
-        System.out.println(expression);
-        System.out.println(optimizer.optimize(expression));
+        System.out.println(format(expression));
+        System.out.println(format(optimizer.optimize(expression)));
     }
 
     @Test
@@ -142,8 +160,8 @@ public class TestOptimizer
                         new Sort("s",
                                 new Get("a")));
 
-        System.out.println(expression);
-        System.out.println(optimizer.optimize(expression));
+        System.out.println(format(expression));
+        System.out.println(format(optimizer.optimize(expression)));
     }
 
     @Test
@@ -162,8 +180,8 @@ public class TestOptimizer
                                 new Sort("s",
                                         new Get("a"))));
 
-        System.out.println(expression);
-        System.out.println(optimizer.optimize(expression));
+        System.out.println(format(expression));
+        System.out.println(format(optimizer.optimize(expression)));
     }
 
     @Test
@@ -176,8 +194,8 @@ public class TestOptimizer
                         new CrossJoin(
                                 new Get("a"),
                                 new Get("b")));
-        System.out.println(expression);
-        System.out.println(optimizer.optimize(expression));
+        System.out.println(format(expression));
+        System.out.println(format(optimizer.optimize(expression)));
     }
 
     @Test
@@ -193,8 +211,8 @@ public class TestOptimizer
                                         new Get("t"))),
                                 new Get("y")));
 
-        System.out.println(expression);
-        System.out.println(optimizer.optimize(expression));
+        System.out.println(format(expression));
+        System.out.println(format(optimizer.optimize(expression)));
     }
 
     @Test
@@ -242,8 +260,8 @@ public class TestOptimizer
                         )
                 );
 
-        System.out.println(expression);
-        System.out.println(optimizer.optimize(expression));
+        System.out.println(format(expression));
+        System.out.println(format(optimizer.optimize(expression)));
     }
 
     @Test
