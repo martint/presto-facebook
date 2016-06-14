@@ -1,1 +1,3 @@
-- Should Expression have "arguments"? Or should there be a FunctionCall that does?
+- Memo is an "environment", with variable bindings. The top-level has no bindings
+   - A lambda results in an environment with a binding of its variable
+   - We can create a sub-memo for each lambda, parameterized by their bindings

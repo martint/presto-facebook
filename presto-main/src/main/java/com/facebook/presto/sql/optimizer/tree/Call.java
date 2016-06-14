@@ -13,55 +13,60 @@
  */
 package com.facebook.presto.sql.optimizer.tree;
 
+import com.google.common.collect.ImmutableList;
+
 import java.util.List;
+import java.util.Objects;
 
-import static com.facebook.presto.sql.optimizer.engine.CollectionConstructors.list;
-
-public class Apply
+public class Call
     extends Expression
 {
-    public Apply(Expression lambda, Expression argument)
+    private String function;
+
+    public Call(String function, Expression... arguments)
     {
-        super(list(lambda, argument));
+        this(function, ImmutableList.copyOf(arguments));
     }
 
-    public Expression getLambda()
+    public Call(String function, List<Expression> arguments)
     {
-        return getArguments().get(0);
+        super(arguments);
+        this.function = function;
     }
 
-    public Expression getInput()
+    public String getFunction()
     {
-        return getArguments().get(1);
+        return function;
     }
 
     @Override
     public String getName()
     {
-        return "apply";
+        return "call";
     }
 
     @Override
     public Expression copyWithArguments(List<Expression> arguments)
     {
-        return new Apply(arguments.get(0), arguments.get(1));
-    }
-
-    @Override
-    protected int shallowHashCode()
-    {
-        return getClass().hashCode();
-    }
-
-    @Override
-    protected boolean shallowEquals(Expression other)
-    {
-        return other instanceof Apply;
+        return new Call(function, arguments);
     }
 
     @Override
     public String toString()
     {
-        return String.format("(apply %s %s)", getArguments().get(0), getArguments().get(1));
+        return String.format("(call '%s' %s)", function, getArguments());
+    }
+
+    @Override
+    protected boolean shallowEquals(Expression other)
+    {
+        Call that = (Call) other;
+        return Objects.equals(function, that.function);
+    }
+
+    @Override
+    protected int shallowHashCode()
+    {
+        return function.hashCode();
     }
 }

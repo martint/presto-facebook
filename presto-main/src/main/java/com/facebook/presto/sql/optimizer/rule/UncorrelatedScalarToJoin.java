@@ -19,11 +19,13 @@ import com.facebook.presto.sql.optimizer.tree.Apply;
 import com.facebook.presto.sql.optimizer.tree.CrossJoin;
 import com.facebook.presto.sql.optimizer.tree.EnforceScalar;
 import com.facebook.presto.sql.optimizer.tree.Expression;
+import com.facebook.presto.sql.optimizer.tree.Lambda;
+import com.facebook.presto.sql.optimizer.tree.Reference;
 
 import java.util.stream.Stream;
 
 public class UncorrelatedScalarToJoin
-    implements Rule
+        implements Rule
 {
     @Override
     public Stream<Expression> apply(Expression expression, Lookup lookup)
@@ -31,15 +33,31 @@ public class UncorrelatedScalarToJoin
         return lookup.lookup(expression)
                 .filter(Apply.class::isInstance)
                 .map(Apply.class::cast)
-                .filter(e -> e.getLambda().getVariable().equals("u") && e.getLambda().getExpression() instanceof EnforceScalar)
-                .map(this::process);
-
+                .flatMap(apply -> lookup.lookup(apply.getLambda())
+                        .map(Lambda.class::cast)
+                        .filter(lambda -> isUncorrelatedScalar(lambda))
+                        .flatMap(lambda -> lookup.lookup(apply.getInput())
+                                .map(i -> process(lambda, i))));
     }
 
-    private Expression process(Apply apply)
+    private boolean isUncorrelatedScalar(Lambda lambda)
     {
-        return new CrossJoin(
-                apply.getArguments().get(0),
-                apply.getLambda().getExpression());
+        // TODO: need to resolve with lookup
+        return lambda.getExpression() instanceof EnforceScalar && !containsReference(lambda.getExpression(), lambda.getVariable());
+    }
+
+    private boolean containsReference(Expression expression, String variable)
+    {
+        if (expression instanceof Reference) {
+            return expression.getName().equals(variable);
+        }
+
+        return expression.getArguments().stream()
+                .anyMatch(argument -> containsReference(argument, variable));
+    }
+
+    private Expression process(Lambda lambda, Expression input)
+    {
+        return new CrossJoin(input, lambda.getExpression());
     }
 }

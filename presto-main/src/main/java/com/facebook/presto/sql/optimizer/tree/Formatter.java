@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.optimizer.engine.CollectionConstructors.list;
@@ -201,24 +200,25 @@ public class Formatter
             return list(expression.getName(), ((Filter) expression).getCriteria(), toList(expression.getArguments().get(0)));
         }
 
-        if (expression instanceof Apply) {
-            return list(expression.getName(), toList(((Apply) expression).getLambda()), toList(expression.getArguments().get(0)));
-        }
-
         if (expression instanceof Lambda) {
             Lambda lambda = (Lambda) expression;
             return list("\\" + lambda.getVariable(), toList(lambda.getExpression()));
         }
 
-        return list("<" + expression.getClass().getSimpleName() + ">");
-    }
+        if (expression instanceof Call) {
+            ImmutableList.Builder<Object> builder = ImmutableList.builder();
+            builder.add(expression.getName());
+            builder.add("'" + ((Call) expression).getFunction() + "'");
+            for (Expression argument : expression.getArguments()) {
+                builder.add(toList(argument));
+            }
+            return builder.build();
+        }
 
-    private static List<Object> toList(Map<String, Expression> assignments)
-    {
         ImmutableList.Builder<Object> builder = ImmutableList.builder();
-
-        for (Map.Entry<String, Expression> assignment : assignments.entrySet()) {
-            builder.add(list(assignment.getKey(), toList(assignment.getValue())));
+        builder.add(expression.getName());
+        for (Expression argument : expression.getArguments()) {
+            builder.add(toList(argument));
         }
 
         return builder.build();
