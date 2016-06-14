@@ -16,63 +16,39 @@ package com.facebook.presto.sql.optimizer.tree;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-public class ScanFilterProject
-        extends Expression
+public class EnforceScalar
+    extends Expression
 {
-    private final String projection;
-    private final String filter;
-    private final String table;
-
-    public ScanFilterProject(String table, String filter, String projection)
+    public EnforceScalar(Expression argument)
     {
-        super(ImmutableList.of());
-        this.table = table;
-        this.filter = filter;
-        this.projection = projection;
-    }
-
-    public String getTable()
-    {
-        return table;
-    }
-
-    public String getFilter()
-    {
-        return filter;
-    }
-
-    public String getProjection()
-    {
-        return projection;
+        super(ImmutableList.of(argument));
     }
 
     @Override
     public Expression copyWithArguments(List<Expression> arguments)
     {
-        checkArgument(arguments.isEmpty());
-        return this;
+        checkArgument(arguments.size() == 1);
+        return new EnforceScalar(arguments.get(0));
     }
 
     @Override
     public String toString()
     {
-        return String.format("(scan-filter-project '%s' %s %s)", table, filter, projection);
+        return String.format("(enforce-scalar %s)", getArguments().get(0));
     }
 
+    @Override
     protected boolean shallowEquals(Expression other)
     {
-        ScanFilterProject that = (ScanFilterProject) other;
-        return Objects.equals(filter, that.filter) &&
-                Objects.equals(table, that.table);
+        return other instanceof EnforceScalar;
     }
 
     @Override
     protected int shallowHashCode()
     {
-        return Objects.hash(filter, table);
+        return getClass().hashCode();
     }
 }

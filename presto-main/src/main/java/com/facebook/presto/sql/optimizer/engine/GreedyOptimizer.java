@@ -31,6 +31,7 @@ import com.facebook.presto.sql.optimizer.rule.PushGlobalLimitThroughUnion;
 import com.facebook.presto.sql.optimizer.rule.PushLimitThroughProject;
 import com.facebook.presto.sql.optimizer.rule.PushLocalLimitThroughUnion;
 import com.facebook.presto.sql.optimizer.rule.RemoveIdentityProjection;
+import com.facebook.presto.sql.optimizer.rule.UncorrelatedScalarToJoin;
 import com.facebook.presto.sql.optimizer.tree.Expression;
 import com.facebook.presto.sql.optimizer.tree.Let;
 import com.facebook.presto.sql.optimizer.tree.Reference;
@@ -62,7 +63,8 @@ public class GreedyOptimizer
     {
         this(ImmutableList.of(
                 ImmutableSet.of(
-                        new IntersectToUnion()
+                        new IntersectToUnion(),
+                        new UncorrelatedScalarToJoin()
                 ),
                 ImmutableSet.of(
                         new RemoveIdentityProjection(),

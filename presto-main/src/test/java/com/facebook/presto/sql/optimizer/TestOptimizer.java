@@ -25,12 +25,15 @@ import com.facebook.presto.sql.optimizer.rule.PushFilterThroughProject;
 import com.facebook.presto.sql.optimizer.rule.PushGlobalLimitThroughUnion;
 import com.facebook.presto.sql.optimizer.rule.PushLocalLimitThroughUnion;
 import com.facebook.presto.sql.optimizer.tree.Aggregate;
+import com.facebook.presto.sql.optimizer.tree.Apply;
 import com.facebook.presto.sql.optimizer.tree.CrossJoin;
+import com.facebook.presto.sql.optimizer.tree.EnforceScalar;
 import com.facebook.presto.sql.optimizer.tree.Expression;
 import com.facebook.presto.sql.optimizer.tree.Filter;
 import com.facebook.presto.sql.optimizer.tree.Get;
 import com.facebook.presto.sql.optimizer.tree.GlobalLimit;
 import com.facebook.presto.sql.optimizer.tree.Intersect;
+import com.facebook.presto.sql.optimizer.tree.Lambda;
 import com.facebook.presto.sql.optimizer.tree.Project;
 import com.facebook.presto.sql.optimizer.tree.Scan;
 import com.facebook.presto.sql.optimizer.tree.Sort;
@@ -173,6 +176,23 @@ public class TestOptimizer
                         new CrossJoin(
                                 new Get("a"),
                                 new Get("b")));
+        System.out.println(expression);
+        System.out.println(optimizer.optimize(expression));
+    }
+
+    @Test
+    public void testApply()
+            throws Exception
+    {
+        Optimizer optimizer = new GreedyOptimizer();
+
+        Expression expression =
+                new Filter("f",
+                        new Apply(new Lambda("u",
+                                new EnforceScalar(
+                                        new Get("t"))),
+                                new Get("y")));
+
         System.out.println(expression);
         System.out.println(optimizer.optimize(expression));
     }

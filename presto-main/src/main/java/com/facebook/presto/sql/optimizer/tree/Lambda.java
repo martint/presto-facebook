@@ -13,52 +13,58 @@
  */
 package com.facebook.presto.sql.optimizer.tree;
 
-import com.google.common.collect.ImmutableList;
-
 import java.util.List;
 import java.util.Objects;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.facebook.presto.sql.optimizer.engine.CollectionConstructors.list;
 
-public class Project
+public class Lambda
     extends Expression
 {
-    private final String expression;
+    private final String variable;
+    private final Expression expression;
 
-    public Project(String expression, Expression argument)
+    public Lambda(String variable, Expression expression)
     {
-        super(ImmutableList.of(argument));
+        super(list());
         this.expression = expression;
+        this.variable = variable;
     }
 
-    public String getExpression()
+    public Expression getExpression()
     {
         return expression;
     }
 
-    @Override
-    public Expression copyWithArguments(List<Expression> arguments)
+    public String getVariable()
     {
-        checkArgument(arguments.size() == 1);
-        return new Project(expression, arguments.get(0));
+        return variable;
     }
 
     @Override
     public String toString()
     {
-        return String.format("(project %s %s)", expression, getArguments().get(0));
+        return String.format("(\\%s %s)", variable, expression);
     }
 
     @Override
-    protected boolean shallowEquals(Expression other)
+    public Expression copyWithArguments(List<Expression> arguments)
     {
-        Project that = (Project) other;
-        return Objects.equals(expression, that.expression);
+        return this;
     }
 
     @Override
     protected int shallowHashCode()
     {
-        return expression.hashCode();
+        return Objects.hash(variable, expression);
+    }
+
+    @Override
+    protected boolean shallowEquals(Expression other)
+    {
+        Lambda that = (Lambda) other;
+
+        return Objects.equals(variable, that.variable) &&
+                Objects.equals(expression, that.variable);
     }
 }

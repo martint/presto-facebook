@@ -34,10 +34,6 @@ public abstract class Expression
         this.arguments = ImmutableList.copyOf(arguments);
     }
 
-    public abstract boolean isPhysical();
-
-    public abstract boolean isLogical();
-
     public final List<Expression> getArguments()
     {
         return arguments;

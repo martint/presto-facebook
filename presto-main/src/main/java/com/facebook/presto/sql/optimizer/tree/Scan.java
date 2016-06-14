@@ -37,18 +37,6 @@ public class Scan
     }
 
     @Override
-    public boolean isPhysical()
-    {
-        return true;
-    }
-
-    @Override
-    public boolean isLogical()
-    {
-        return false;
-    }
-
-    @Override
     public Expression copyWithArguments(List<Expression> arguments)
     {
         checkArgument(arguments.isEmpty());

@@ -32,18 +32,6 @@ public class Reference
     }
 
     @Override
-    public boolean isPhysical()
-    {
-        throw new UnsupportedOperationException("not yet implemented");
-    }
-
-    @Override
-    public boolean isLogical()
-    {
-        throw new UnsupportedOperationException("not yet implemented");
-    }
-
-    @Override
     public Expression copyWithArguments(List<Expression> arguments)
     {
         checkArgument(arguments.isEmpty());
