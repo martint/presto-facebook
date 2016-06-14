@@ -25,6 +25,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -79,7 +81,7 @@ public class Memo
 
     /**
      * Records a transformation between "from" and "to".
-     *
+     * <p>
      * Returns the rewritten "to", if any.
      */
     public Optional<Expression> transform(Expression from, Expression to, String reason)
@@ -136,6 +138,12 @@ public class Memo
         }
     }
 
+    public String getGroup(Expression expression)
+    {
+        checkArgument(expressionMembership.containsKey(expression), "Unknown expression: %s", expression);
+        return expressionMembership.get(expression);
+    }
+
     public List<VersionedItem<Expression>> getExpressions(String group)
     {
         Set<Expression> canonical = expressionMembership.keySet().stream()
@@ -167,7 +175,7 @@ public class Memo
     /**
      * Inserts the children of the given expression and rewrites it in terms
      * of references to the corresponding groups.
-     *
+     * <p>
      * It does *not* insert the top-level expression.
      */
     private Expression insertChildrenAndRewrite(Expression expression)
@@ -413,26 +421,35 @@ public class Memo
         private final Type type;
         private final long version;
         private final String label;
+        private final Object from;
+        private final Object to;
 
         public enum Type
         {
             CONTAINS, REFERENCES, MERGED_WITH, REWRITTEN_TO, TRANSFORMED
         }
 
-        public Edge(Type type, long version)
+        public Edge(Type type, Object from, Object to, long version)
         {
-            this(type, version, null);
+            this(type, from, to, version, null);
         }
 
-        public Edge(Type type, long version, String label)
+        public Edge(Type type, Object from, Object to, long version, String label)
         {
             this.type = type;
+            this.from = from;
+            this.to = to;
             this.version = version;
             this.label = label;
         }
     }
 
     public String toGraphviz()
+    {
+        return toGraphviz(e -> new HashMap<>(), (a, b) -> new HashMap<>());
+    }
+
+    public String toGraphviz(Function<Expression, Map<String, String>> nodeCustomizer, BiFunction<Object, Object, Map<String, String>> edgeCustomizer)
     {
         Set<Integer> groupIds = new HashSet<>();
 
@@ -479,7 +496,7 @@ public class Memo
                 int expressionId = ids.get(versioned.getKey());
 
                 clusters.union(groupId, expressionId);
-                graph.addEdge(groupId, ids.get(versioned.getKey()), new Edge(Edge.Type.CONTAINS, versioned.getValue()));
+                graph.addEdge(groupId, ids.get(versioned.getKey()), new Edge(Edge.Type.CONTAINS, group, versioned.getKey(), versioned.getValue()));
             }
         }
 
@@ -487,7 +504,7 @@ public class Memo
         for (Map.Entry<String, Map<Expression, Long>> entry : incomingReferences.entrySet()) {
             String group = entry.getKey();
             for (Map.Entry<Expression, Long> versioned : entry.getValue().entrySet()) {
-                graph.addEdge(ids.get(versioned.getKey()), ids.get(group), new Edge(Edge.Type.REFERENCES, versioned.getValue()));
+                graph.addEdge(ids.get(versioned.getKey()), ids.get(group), new Edge(Edge.Type.REFERENCES, versioned.getKey(), group, versioned.getValue()));
             }
         }
 
@@ -502,7 +519,7 @@ public class Memo
             clusters.union(sourceId, targetId);
             ranks.union(sourceId, targetId);
 
-            graph.addEdge(sourceId, targetId, new Edge(Edge.Type.MERGED_WITH, entry.getValue().getVersion()));
+            graph.addEdge(sourceId, targetId, new Edge(Edge.Type.MERGED_WITH, source, target, entry.getValue().getVersion()));
         }
 
         // rewrites
@@ -516,7 +533,7 @@ public class Memo
             clusters.union(fromId, toId);
             ranks.union(fromId, toId);
 
-            graph.addEdge(fromId, toId, new Edge(Edge.Type.REWRITTEN_TO, entry.getValue().getVersion()));
+            graph.addEdge(fromId, toId, new Edge(Edge.Type.REWRITTEN_TO, from, to, entry.getValue().getVersion()));
         }
 
         // transformations
@@ -532,7 +549,7 @@ public class Memo
                 else {
                     toId = ids.get(edge.getKey());
                 }
-                graph.addEdge(fromId, toId, new Edge(Edge.Type.TRANSFORMED, edge.getValue().getVersion(), edge.getValue().get()));
+                graph.addEdge(fromId, toId, new Edge(Edge.Type.TRANSFORMED, from, edge.getKey(), edge.getValue().getVersion(), edge.getValue().get()));
             }
         }
 
@@ -569,6 +586,10 @@ public class Memo
                         attributes.put("style", "filled");
                     }
 
+                    if (node.type == Node.Type.EXPRESSION) {
+                        attributes.putAll(nodeCustomizer.apply((Expression) node.payload));
+                    }
+
                     return attributes;
                 },
                 (from, to, edge) -> {
@@ -596,6 +617,10 @@ public class Memo
                             attributes.put("color", "blue");
                             attributes.put("penwidth", "2");
                             break;
+                    }
+
+                    if (edge.type == Edge.Type.CONTAINS || edge.type == Edge.Type.REFERENCES) {
+                        attributes.putAll(edgeCustomizer.apply(edge.from, edge.to));
                     }
 
                     return attributes;
