@@ -28,6 +28,12 @@ public class EnforceScalar
     }
 
     @Override
+    public String getName()
+    {
+        return "enforce-scalar";
+    }
+
+    @Override
     public Expression copyWithArguments(List<Expression> arguments)
     {
         checkArgument(arguments.size() == 1);

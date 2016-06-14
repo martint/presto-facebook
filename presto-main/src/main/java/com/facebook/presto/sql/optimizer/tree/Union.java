@@ -24,6 +24,13 @@ public class Union
     {
         super(arguments);
     }
+
+    @Override
+    public String getName()
+    {
+        return "union";
+    }
+
     public Union(Expression... arguments)
     {
         super(ImmutableList.copyOf(arguments));

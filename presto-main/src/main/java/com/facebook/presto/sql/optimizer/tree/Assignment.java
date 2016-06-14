@@ -13,20 +13,15 @@
  */
 package com.facebook.presto.sql.optimizer.tree;
 
-import java.util.List;
 import java.util.Objects;
 
-import static com.facebook.presto.sql.optimizer.engine.CollectionConstructors.list;
-
-public class Lambda
-    extends Expression
+public class Assignment
 {
     private final String variable;
     private final Expression expression;
 
-    public Lambda(String variable, Expression expression)
+    public Assignment(String variable, Expression expression)
     {
-        super(list());
         this.expression = expression;
         this.variable = variable;
     }
@@ -42,35 +37,28 @@ public class Lambda
     }
 
     @Override
-    public String toString()
+    public boolean equals(Object o)
     {
-        return String.format("(\\%s %s)", variable, expression);
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        Assignment that = (Assignment) o;
+        return Objects.equals(variable, that.variable) &&
+                Objects.equals(expression, that.expression);
     }
 
     @Override
-    public String getName()
-    {
-        return "lambda";
-    }
-
-    @Override
-    public Expression copyWithArguments(List<Expression> arguments)
-    {
-        return this;
-    }
-
-    @Override
-    protected int shallowHashCode()
+    public int hashCode()
     {
         return Objects.hash(variable, expression);
     }
 
     @Override
-    protected boolean shallowEquals(Expression other)
+    public String toString()
     {
-        Lambda that = (Lambda) other;
-
-        return Objects.equals(variable, that.variable) &&
-                Objects.equals(expression, that.variable);
+        return String.format("(%s %s)", variable, expression);
     }
 }

@@ -37,6 +37,12 @@ public class LocalLimit
     }
 
     @Override
+    public String getName()
+    {
+        return "local-limit";
+    }
+
+    @Override
     public Expression copyWithArguments(List<Expression> arguments)
     {
         checkArgument(arguments.size() == 1);

@@ -35,6 +35,12 @@ public class Apply
     }
 
     @Override
+    public String getName()
+    {
+        return "apply";
+    }
+
+    @Override
     public Expression copyWithArguments(List<Expression> arguments)
     {
         return new Apply(lambda, arguments.get(0));

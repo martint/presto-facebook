@@ -32,6 +32,7 @@ import com.facebook.presto.sql.optimizer.rule.PushLimitThroughProject;
 import com.facebook.presto.sql.optimizer.rule.PushLocalLimitThroughUnion;
 import com.facebook.presto.sql.optimizer.rule.RemoveIdentityProjection;
 import com.facebook.presto.sql.optimizer.rule.UncorrelatedScalarToJoin;
+import com.facebook.presto.sql.optimizer.tree.Assignment;
 import com.facebook.presto.sql.optimizer.tree.Expression;
 import com.facebook.presto.sql.optimizer.tree.Let;
 import com.facebook.presto.sql.optimizer.tree.Reference;
@@ -40,9 +41,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Longs;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -104,12 +105,16 @@ public class GreedyOptimizer
             explore(memo, lookup, new HashSet<>(), batch, rootClass);
         }
 
-        Map<String, Expression> chosen = extract(rootClass, lookup);
+        List<Assignment> assignments = extract(rootClass, lookup);
 
-        System.out.println(
+        Set<Expression> chosen = assignments.stream()
+                .map(Assignment::getExpression)
+                .collect(Collectors.toSet());
+
+//        System.out.println(
                 memo.toGraphviz(
                         e -> {
-                            if (chosen.values().contains(e)) {
+                            if (chosen.contains(e)) {
                                 return ImmutableMap.of(
                                         "fillcolor", "coral",
                                         "style", "filled");
@@ -118,15 +123,16 @@ public class GreedyOptimizer
                             return ImmutableMap.of();
                         },
                         (from, to) -> {
-                            if (chosen.values().contains(from) || chosen.values().contains(to)) {
+                            if (chosen.contains(from) || chosen.contains(to)) {
                                 return ImmutableMap.of(
                                         "color", "coral",
                                         "penwidth", "3");
                             }
                             return ImmutableMap.of();
-                        }));
+                        });
+//        );
 
-        return new Let(chosen, new Reference(rootClass));
+        return new Let(assignments, new Reference(rootClass));
     }
 
     private boolean explore(Memo memo, MemoLookup lookup, Set<String> explored, Set<Rule> rules, String group)
@@ -197,15 +203,29 @@ public class GreedyOptimizer
         return Optional.empty();
     }
 
-    private Map<String, Expression> extract(String group, MemoLookup lookup)
+    private List<Assignment> extract(String group, MemoLookup lookup)
     {
         Expression expression = lookup.lookup(new Reference(group))
                 .findFirst()
                 .get();
 
-        return expression.getArguments().stream()
+        List<Assignment> assignments = new ArrayList<>();
+        expression.getArguments().stream()
                 .map(Reference.class::cast)
                 .map(e -> extract(e.getName(), lookup.push(e.getName())))
-                .reduce(ImmutableMap.of(group, expression), (accumulator, e) -> ImmutableMap.<String, Expression>builder().putAll(accumulator).putAll(e).build());
+                .flatMap(List::stream)
+                .forEach(a -> {
+                    if (!assignments.contains(a)) { // TODO: potentially inefficient -- need an ordered set
+                        assignments.add(a);
+                    }
+                });
+            ;
+
+        Assignment assignment = new Assignment(group, expression);
+        if (!assignments.contains(assignment)) {
+            assignments.add(assignment);
+        }
+
+        return assignments;
     }
 }

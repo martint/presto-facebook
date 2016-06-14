@@ -37,6 +37,12 @@ public class GlobalLimit
     }
 
     @Override
+    public String getName()
+    {
+        return "global-limit";
+    }
+
+    @Override
     public Expression copyWithArguments(List<Expression> arguments)
     {
         checkArgument(arguments.size() == 1);

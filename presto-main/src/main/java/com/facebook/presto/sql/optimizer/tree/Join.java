@@ -39,9 +39,20 @@ public class Join
         this.criteria = criteria;
     }
 
+    public Type getType()
+    {
+        return type;
+    }
+
     public String getCriteria()
     {
         return criteria;
+    }
+
+    @Override
+    public String getName()
+    {
+        return "join";
     }
 
     @Override

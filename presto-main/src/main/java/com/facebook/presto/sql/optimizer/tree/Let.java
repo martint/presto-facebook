@@ -17,7 +17,6 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -25,14 +24,20 @@ import static com.google.common.base.Preconditions.checkArgument;
 public class Let
     extends Expression
 {
-    private final Map<String, Expression> assignments;
+    private final List<Assignment> assignments;
     private final Expression expression;
 
-    public Let(Map<String, Expression> assignments, Expression expression)
+    public Let(List<Assignment> assignments, Expression expression)
     {
         super(ImmutableList.of());
         this.assignments = assignments;
         this.expression = expression;
+    }
+
+    @Override
+    public String getName()
+    {
+        return "let";
     }
 
     @Override
@@ -42,7 +47,7 @@ public class Let
         return this;
     }
 
-    public Map<String, Expression> getAssignments()
+    public List<Assignment> getAssignments()
     {
         return assignments;
     }
@@ -55,7 +60,7 @@ public class Let
     @Override
     public String toString()
     {
-        return String.format("(let (%s) %s)", Joiner.on(" ").withKeyValueSeparator("=").join(assignments), expression);
+        return String.format("(let (%s) %s)", Joiner.on(" ").join(assignments), expression);
     }
 
     @Override

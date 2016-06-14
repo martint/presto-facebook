@@ -24,6 +24,13 @@ public class Intersect
     {
         super(arguments);
     }
+
+    @Override
+    public String getName()
+    {
+        return "intersect";
+    }
+
     public Intersect(Expression... arguments)
     {
         super(ImmutableList.copyOf(arguments));

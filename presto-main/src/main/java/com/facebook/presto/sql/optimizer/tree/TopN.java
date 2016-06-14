@@ -44,6 +44,12 @@ public class TopN
     }
 
     @Override
+    public String getName()
+    {
+        return "top-n";
+    }
+
+    @Override
     public Expression copyWithArguments(List<Expression> arguments)
     {
         checkArgument(arguments.size() == 1);

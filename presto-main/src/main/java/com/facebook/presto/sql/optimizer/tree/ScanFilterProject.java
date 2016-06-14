@@ -51,6 +51,12 @@ public class ScanFilterProject
     }
 
     @Override
+    public String getName()
+    {
+        return "scan-filter-project";
+    }
+
+    @Override
     public Expression copyWithArguments(List<Expression> arguments)
     {
         checkArgument(arguments.isEmpty());

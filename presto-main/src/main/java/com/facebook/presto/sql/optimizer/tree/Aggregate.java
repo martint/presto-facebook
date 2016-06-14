@@ -51,6 +51,12 @@ public class Aggregate
     }
 
     @Override
+    public String getName()
+    {
+        return "aggregate";
+    }
+
+    @Override
     public Expression copyWithArguments(List<Expression> arguments)
     {
         checkArgument(arguments.size() == 1);
