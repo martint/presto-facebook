@@ -96,17 +96,78 @@ public class GreedyOptimizer
                         .limit(1));
 
         for (Set<Rule> batch : batches) {
-            long previous;
-            long version = memo.getVersion();
-            do {
-                explore(memo, lookup, new HashSet<>(), batch, rootClass);
-                previous = version;
-                version = memo.getVersion();
-            }
-            while (previous != version);
+            explore(memo, lookup, new HashSet<>(), batch, rootClass);
         }
 
         return extract(rootClass, lookup);
+    }
+
+    private boolean explore(Memo memo, MemoLookup lookup, Set<String> explored, Set<Rule> rules, String group)
+    {
+        if (explored.contains(group)) {
+            return false;
+        }
+        explored.add(group);
+
+        Expression expression = lookup.lookup(new Reference(group))
+                .findFirst()
+                .get();
+
+        boolean changed = false;
+
+        boolean childrenChanged;
+        boolean progress;
+        do {
+            Optional<Expression> rewritten = applyRules(rules, memo, lookup, expression);
+
+            progress = false;
+            if (rewritten.isPresent()) {
+                progress = true;
+                expression = rewritten.get();
+            }
+
+            childrenChanged = expression.getArguments().stream()
+                    .map(Reference.class::cast)
+                    .map(Reference::getName)
+                    .map(name -> explore(memo, lookup.push(name), explored, rules, name))
+                    .anyMatch(v -> v);
+
+            changed = changed || progress || childrenChanged;
+        }
+        while (progress || childrenChanged);
+
+        return changed;
+    }
+
+    private Optional<Expression> applyRules(Set<Rule> rules, Memo memo, MemoLookup lookup, Expression expression)
+    {
+        boolean changed = false;
+
+        boolean progress;
+        do {
+            progress = false;
+            for (Rule rule : rules) {
+                List<Expression> transformed = rule.apply(expression, lookup)
+                        .collect(Collectors.toList());
+
+                checkState(transformed.size() <= 1, "Expected one expression");
+                if (!transformed.isEmpty()) {
+                    Optional<Expression> rewritten = memo.transform(expression, transformed.get(0), rule.getClass().getSimpleName());
+                    if (rewritten.isPresent()) {
+                        changed = true;
+                        progress = true;
+                        expression = rewritten.get();
+                    }
+                }
+            }
+        }
+        while (progress);
+
+        if (changed) {
+            return Optional.of(expression);
+        }
+
+        return Optional.empty();
     }
 
     private Expression extract(String group, MemoLookup lookup)
@@ -121,46 +182,5 @@ public class GreedyOptimizer
                 .collect(Collectors.toList());
 
         return expression.copyWithArguments(children);
-    }
-
-    private void explore(Memo memo, MemoLookup lookup, Set<String> explored, Set<Rule> rules, String group)
-    {
-        if (explored.contains(group)) {
-            return;
-        }
-        explored.add(group);
-
-        Expression expression = lookup.lookup(new Reference(group))
-                .findFirst()
-                .get();
-
-        expression.getArguments().stream()
-                .map(Reference.class::cast)
-                .map(Reference::getName)
-                .forEach(name -> explore(memo, lookup.push(name), explored, rules, name));
-
-        boolean madeProgress;
-        do {
-            madeProgress = false;
-            for (Rule rule : rules) {
-                List<Expression> transformed = rule.apply(expression, lookup)
-                        .collect(Collectors.toList());
-
-                checkState(transformed.size() <= 1, "Expected one expression");
-                if (!transformed.isEmpty()) {
-                    Optional<Expression> rewritten = memo.transform(expression, transformed.get(0), rule.getClass().getSimpleName());
-                    if (rewritten.isPresent()) {
-                        madeProgress = true;
-                        expression = rewritten.get();
-                    }
-                }
-            }
-        }
-        while (madeProgress);
-
-//        expression.getArguments().stream()
-//                .map(Reference.class::cast)
-//                .map(Reference::getName)
-//                .forEach(name -> explore(memo, explored, rules, name));
     }
 }

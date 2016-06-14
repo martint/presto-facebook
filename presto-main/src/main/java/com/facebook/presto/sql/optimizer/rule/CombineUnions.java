@@ -37,14 +37,14 @@ public class CombineUnions
 {
     // Experimental: a mechanism to suppress firing for expressions that have
     // already been considered. This should be done by the engine
-    private final Set<Union> skip = new HashSet<>();
+//    private final Set<Union> skip = new HashSet<>();
 
     @Override
     public Stream<Expression> apply(Expression expression, Lookup lookup)
     {
-        if (skip.contains(expression)) {
-            return Stream.empty();
-        }
+//        if (skip.contains(expression)) {
+//            return Stream.empty();
+//        }
         if (expression instanceof Reference) {
             throw new UnsupportedOperationException("not yet implemented");
         }
@@ -65,7 +65,7 @@ public class CombineUnions
         lookup.lookup(expression).
                 forEach(member -> {
                     if (member instanceof Union) {
-                        skip.add((Union) member);
+//                        skip.add((Union) member);
                         List<Set<Set<Expression>>> alternatives = new ArrayList<>();
                         for (Expression argument : member.getArguments()) {
                             Set<Set<Expression>> child = process(argument, lookup);
