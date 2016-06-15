@@ -128,6 +128,7 @@ public class Formatter
                     ((Aggregate) expression).getFunction(),
                     toList(expression.getArguments().get(0)));
         }
+
         if (expression instanceof Union || expression instanceof Intersect) {
             ImmutableList.Builder<Object> builder = ImmutableList.builder();
             builder.add(expression.getName());
@@ -143,10 +144,6 @@ public class Formatter
 
         if (expression instanceof Get) {
             return list(expression.getName(), "'" + ((Get) expression).getTable() + "'");
-        }
-
-        if (expression instanceof CrossJoin) {
-            return list(expression.getName(), toList(expression.getArguments().get(0)), toList(expression.getArguments().get(1)));
         }
 
         if (expression instanceof Sort) {
@@ -174,10 +171,6 @@ public class Formatter
             return list(expression.getName(), ((LocalLimit) expression).getCount(), toList(expression.getArguments().get(0)));
         }
 
-        if (expression instanceof Reference) {
-            return expression.getName();
-        }
-
         if (expression instanceof Scan) {
             return list(expression.getName(), "'" + ((Scan) expression).getTable() + "'");
         }
@@ -190,10 +183,6 @@ public class Formatter
                     scan.getFilter(),
                     scan.getProjection(),
                     "'" + scan.getTable() + "'");
-        }
-
-        if (expression instanceof EnforceScalar) {
-            return list(expression.getName(), toList(expression.getArguments().get(0)));
         }
 
         if (expression instanceof Filter) {
@@ -245,16 +234,20 @@ public class Formatter
                         new Assignment("e", new Get("w"))),
                 new Reference("e"));
 
-//        Expression expression =
-        new GlobalLimit(10,
-                new Join(Join.Type.FULL, "j1",
-                        new Join(Join.Type.INNER, "j2",
-                                new Get("t"),
-                                new Get("u")),
-                        new LocalLimit(10, new Get("v"))));
-
         System.out.println(Formatter.format(expression));
         System.out.println();
+
+        System.out.println(Formatter.format(
+                new GlobalLimit(10,
+                        new Join(Join.Type.FULL, "j1",
+                                new Join(Join.Type.INNER, "j2",
+                                        new Get("t"),
+                                        new Get("u")),
+                                new LocalLimit(10,
+                                        new CrossJoin(
+                                                new Get("v"),
+                                                new EnforceScalar(
+                                                        new Get("w"))))))));
 
         List<Object> list = list(1, 2, 3, 47,
                 list(
