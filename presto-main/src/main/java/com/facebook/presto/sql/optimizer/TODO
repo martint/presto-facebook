@@ -1,3 +1,20 @@
 - Memo is an "environment", with variable bindings. The top-level has no bindings
    - A lambda results in an environment with a binding of its variable
    - We can create a sub-memo for each lambda, parameterized by their bindings
+
+
+(filter
+    (\x (+ x (enforce-scalar (get 'u'))))
+    (get 'u'))
+
+
+
+memo ()
+   $0 = (get 'u')
+   $1 = (filter $4 $0)
+
+
+memo (x)
+   $2 = (get 'u')           <<< is this the same as $0?
+   $3 = (enforce-scalar $2)
+   $4 = (call '+' x $3)

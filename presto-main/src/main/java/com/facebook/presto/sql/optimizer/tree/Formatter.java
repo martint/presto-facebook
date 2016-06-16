@@ -220,6 +220,39 @@ public class Formatter
 
     public static void main(String[] args)
     {
+//        System.out.println(0x1.fffffffffffffp-2 + 0.5);
+//        System.out.println(0.1f);
+//        System.out.println((double) 0.1f);
+//        System.out.println(0.1d);
+
+        double a = -3.499;
+
+        long longBits = Double.doubleToRawLongBits(a);
+        long exponent = ((longBits & 0x7ff0000000000000L) >> (53 - 1)) - 1023;
+        long shift = 53 - 2 - exponent;
+
+        // a is a finite number such that pow(2,-64) <= ulp(a) < 1
+        long r = ((longBits & 0xfffffffffffffL) | (0x10000000000000L));
+        if (longBits < 0) {
+            r = -r;
+        }
+        // In the comments below each Java expression evaluates to the value
+        // the corresponding mathematical expression:
+        // (r) evaluates to a / ulp(a)
+        // (r >> shift) evaluates to floor(a * 2)
+        // ((r >> shift) + 1) evaluates to floor((a + 1/2) * 2)
+        // (((r >> shift) + 1) >> 1) evaluates to floor(a + 1/2)
+        int x = 1;
+        if (a < 0) {
+            x = 0;
+        }
+        long result = ((r >> shift) + x) >> 1;
+        System.out.println(result);
+
+        if (true) {
+            return;
+        }
+
         Expression expression =
                 new Let(
                         list(
@@ -286,5 +319,14 @@ public class Formatter
         System.out.println();
 
         System.out.println(format(list(1, list(list(2, list(3, 7)), list(4, 5)), 6)));
+        System.out.println();
+
+        System.out.println(format(list(
+                "if",
+                list("and", list(">", "x", "5"), list("<", "y", "3")),
+                "foo",
+                "bar"
+        )));
+        System.out.println();
     }
 }
