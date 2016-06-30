@@ -99,6 +99,8 @@ public class GreedyOptimizer
 
         String rootClass = memo.insert(expression);
 
+        System.out.println(memo.toGraphviz());
+
         MemoLookup lookup = new MemoLookup(
                 memo,
                 rootClass,
@@ -135,6 +137,8 @@ public class GreedyOptimizer
                             return ImmutableMap.of();
                         })
         );
+
+        System.out.println(memo.dump());
 
         return new Let(assignments, new Reference(rootClass));
     }
@@ -223,7 +227,6 @@ public class GreedyOptimizer
                         assignments.add(a);
                     }
                 });
-        ;
 
         Assignment assignment = new Assignment(group, expression);
         if (!assignments.contains(assignment)) {

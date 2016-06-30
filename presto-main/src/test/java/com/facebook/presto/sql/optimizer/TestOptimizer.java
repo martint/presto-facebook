@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.optimizer;
 
+import com.facebook.presto.sql.optimizer.engine.CostBasedOptimizer;
 import com.facebook.presto.sql.optimizer.engine.GreedyOptimizer;
 import com.facebook.presto.sql.optimizer.engine.Optimizer;
 import com.facebook.presto.sql.optimizer.rule.CombineFilterAndCrossJoin;
@@ -408,8 +409,10 @@ public class TestOptimizer
                         )
                 );
 
-        System.out.println("before: " + expression);
-        System.out.println("after:  " + optimizer.optimize(expression));
+//        System.out.println("before: " + expression);
+//        System.out.println("after:  " + optimizer.optimize(expression));
+
+        new CostBasedOptimizer().optimize(expression);
 //        Memo memo = optimizer.optimize(expression);
 //        System.out.println(memo.toGraphviz());
     }

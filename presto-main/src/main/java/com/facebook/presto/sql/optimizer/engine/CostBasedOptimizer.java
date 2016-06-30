@@ -30,8 +30,8 @@ import com.facebook.presto.sql.optimizer.rule.PushFilterThroughProject;
 import com.facebook.presto.sql.optimizer.rule.PushFilterThroughSort;
 import com.facebook.presto.sql.optimizer.rule.PushFilterThroughUnion;
 import com.facebook.presto.sql.optimizer.rule.PushGlobalLimitThroughUnion;
-import com.facebook.presto.sql.optimizer.rule.PushLimitThroughProject;
 import com.facebook.presto.sql.optimizer.rule.PushGlobalTopNThroughUnion;
+import com.facebook.presto.sql.optimizer.rule.PushLimitThroughProject;
 import com.facebook.presto.sql.optimizer.rule.PushLocalTopNThroughUnion;
 import com.facebook.presto.sql.optimizer.rule.RemoveIdentityProjection;
 import com.facebook.presto.sql.optimizer.tree.Expression;
@@ -46,6 +46,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 public class CostBasedOptimizer
+    implements Optimizer
 {
     private final List<Rule> rules;
 
@@ -81,7 +82,7 @@ public class CostBasedOptimizer
         ));
     }
 
-    public Memo optimize(Expression expression)
+    public Expression optimize(Expression expression)
     {
         Memo memo = new Memo(true);
 
@@ -97,7 +98,9 @@ public class CostBasedOptimizer
         }
         while (previous != version);
 
-        return memo;
+        System.out.println(memo.toGraphviz());
+        return null;
+//        return memo;
     }
 
     private void explore(Memo memo, Set<String> explored, List<Rule> rules, String group, MemoLookup lookup)

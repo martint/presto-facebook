@@ -13,15 +13,14 @@
  */
 package com.facebook.presto.sql.optimizer;
 
-import com.facebook.presto.sql.optimizer.engine.Memo;
 import com.facebook.presto.sql.optimizer.engine.CostBasedOptimizer;
 import com.facebook.presto.sql.optimizer.tree.Aggregate;
 import com.facebook.presto.sql.optimizer.tree.CrossJoin;
 import com.facebook.presto.sql.optimizer.tree.Expression;
 import com.facebook.presto.sql.optimizer.tree.Filter;
 import com.facebook.presto.sql.optimizer.tree.Get;
-import com.facebook.presto.sql.optimizer.tree.Intersect;
 import com.facebook.presto.sql.optimizer.tree.GlobalLimit;
+import com.facebook.presto.sql.optimizer.tree.Intersect;
 import com.facebook.presto.sql.optimizer.tree.Project;
 import com.facebook.presto.sql.optimizer.tree.Sort;
 import com.facebook.presto.sql.optimizer.tree.Union;
@@ -124,7 +123,7 @@ public class Main
 
         CostBasedOptimizer optimizer = new CostBasedOptimizer();
 
-        Memo memo = optimizer.optimize(root);
-        System.out.println(memo.toGraphviz());
+//        Memo memo = optimizer.optimize(root);
+//        System.out.println(memo.toGraphviz());
     }
 }
