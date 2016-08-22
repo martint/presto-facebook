@@ -27,7 +27,7 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-public class DisjointSets<T>
+class DisjointSets<T>
 {
     private static final int INITIAL_SIZE = 10;
 
