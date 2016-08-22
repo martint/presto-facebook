@@ -96,8 +96,8 @@ public class Memo
         if (to instanceof Reference) {
             // TODO: expression caused a change
 
-            if (!((Reference) to).getName().equals(group)) {
-                mergeInto(group, ((Reference) to).getName());
+            if (!to.getName().equals(group)) {
+                mergeInto(group, to.getName());
             }
             Expression target = new Reference(group);
             transformations.computeIfAbsent(canonicalize(from), e -> new HashMap<>())
@@ -153,7 +153,7 @@ public class Memo
         return expressionsByGroup.get(group)
                 .keySet().stream()
                 .filter(e -> canonical.contains(e)) // pick only active expressions -- TODO: need a more efficient way to do this
-                .map(e -> new VersionedItem<Expression>(e, expressions.get(e)))
+                .map(e -> new VersionedItem<>(e, expressions.get(e)))
                 .collect(Collectors.toList());
     }
 
@@ -187,7 +187,7 @@ public class Memo
                     .map(argument -> {
                         if (argument instanceof Reference) {
                             // TODO: make sure group exists
-                            return canonicalize(((Reference) argument).getName());
+                            return canonicalize(argument.getName());
                         }
 
                         return insertRecursive(argument);
@@ -544,7 +544,7 @@ public class Memo
             for (Map.Entry<Expression, VersionedItem<String>> edge : entry.getValue().entrySet()) {
                 int toId;
                 if (edge.getKey() instanceof Reference) {
-                    toId = ids.get(((Reference) edge.getKey()).getName());
+                    toId = ids.get(edge.getKey().getName());
                 }
                 else {
                     toId = ids.get(edge.getKey());
