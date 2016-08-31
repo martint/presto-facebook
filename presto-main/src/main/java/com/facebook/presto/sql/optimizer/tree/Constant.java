@@ -16,44 +16,41 @@ package com.facebook.presto.sql.optimizer.tree;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Objects;
 
-import static com.google.common.base.Preconditions.checkArgument;
-
-public class Filter
-    extends Expression
+public class Constant
+        extends Expression
 {
-    public Filter(Expression input, Expression criteria)
-    {
-        super(ImmutableList.of(input, criteria));
-    }
+    private final Object value;
 
-    public Lambda getCriteria()
+    public Constant(Object value)
     {
-        return (Lambda) getArguments().get(1);
+        super(ImmutableList.of());
+        this.value = value;
     }
 
     @Override
     public String getName()
     {
-        return "filter";
+        return value.toString();
     }
 
     @Override
     public Expression copyWithArguments(List<Expression> arguments)
     {
-        checkArgument(arguments.size() == 2);
-        return new Filter(arguments.get(0), arguments.get(1));
-    }
-
-    @Override
-    protected boolean shallowEquals(Expression other)
-    {
-        return other instanceof Filter;
+        return this;
     }
 
     @Override
     protected int shallowHashCode()
     {
-        return getClass().hashCode();
+        return value.hashCode();
+    }
+
+    @Override
+    protected boolean shallowEquals(Expression other)
+    {
+        Constant that = (Constant) other;
+        return Objects.equals(value, that.value);
     }
 }

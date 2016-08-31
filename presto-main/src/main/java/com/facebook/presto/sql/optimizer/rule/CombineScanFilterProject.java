@@ -19,7 +19,6 @@ import com.facebook.presto.sql.optimizer.tree.Expression;
 import com.facebook.presto.sql.optimizer.tree.Filter;
 import com.facebook.presto.sql.optimizer.tree.Project;
 import com.facebook.presto.sql.optimizer.tree.Scan;
-import com.facebook.presto.sql.optimizer.tree.ScanFilterProject;
 
 import java.util.stream.Stream;
 
@@ -43,6 +42,7 @@ public class CombineScanFilterProject
 
     private Expression process(Project project, Filter filter, Scan scan)
     {
-        return new ScanFilterProject(scan.getTable(), filter.getCriteria(), project.getExpression());
+        throw new UnsupportedOperationException("not yet implemented");
+//        return new ScanFilterProject(scan.getTable(), filter.getCriteria(), project.getExpression());
     }
 }

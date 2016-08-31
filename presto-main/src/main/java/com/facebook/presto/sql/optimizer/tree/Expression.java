@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.optimizer.tree;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.concurrent.Immutable;
@@ -49,6 +50,12 @@ public abstract class Expression
     protected abstract int shallowHashCode();
 
     protected abstract boolean shallowEquals(Expression other);
+
+    @Override
+    public String toString()
+    {
+        return "(" + getName() + " " + Joiner.on(" ").join(arguments) + ")";
+    }
 
     public final boolean equals(Object other)
     {

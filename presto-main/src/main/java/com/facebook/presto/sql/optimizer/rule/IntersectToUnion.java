@@ -16,9 +16,11 @@ package com.facebook.presto.sql.optimizer.rule;
 import com.facebook.presto.sql.optimizer.engine.Lookup;
 import com.facebook.presto.sql.optimizer.engine.Rule;
 import com.facebook.presto.sql.optimizer.tree.Aggregate;
+import com.facebook.presto.sql.optimizer.tree.Constant;
 import com.facebook.presto.sql.optimizer.tree.Expression;
 import com.facebook.presto.sql.optimizer.tree.Filter;
 import com.facebook.presto.sql.optimizer.tree.Intersect;
+import com.facebook.presto.sql.optimizer.tree.Lambda;
 import com.facebook.presto.sql.optimizer.tree.Project;
 import com.facebook.presto.sql.optimizer.tree.Union;
 
@@ -39,13 +41,14 @@ public class IntersectToUnion
 
     private Expression process(Intersect expression)
     {
-        return new Filter("f",
+        return new Filter(
                 new Aggregate(
                         Aggregate.Type.SINGLE,
                         "a",
                         new Union(
                                 expression.getArguments().stream()
                                         .map(e -> new Project("x" + expression.hashCode(), e))
-                                        .collect(Collectors.toList()))));
+                                        .collect(Collectors.toList()))),
+                new Lambda("r", new Constant(Boolean.TRUE)));
     }
 }

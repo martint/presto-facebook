@@ -37,8 +37,10 @@ public class CombineFilters
 
     private Expression process(Filter parent, Filter child)
     {
-        return new Filter(
-                parent.getCriteria() + "&" + child.getCriteria(),
-                child.getArguments().get(0));
+        throw new UnsupportedOperationException("not yet implemented");
+        // TODO: rewrite lambdas in terms of same argument name
+//        return new Filter(
+//                parent.getCriteria() + "&" + child.getCriteria(),
+//                child.getArguments().get(0));
     }
 }

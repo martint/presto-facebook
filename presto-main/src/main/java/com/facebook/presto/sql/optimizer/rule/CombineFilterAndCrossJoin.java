@@ -18,7 +18,6 @@ import com.facebook.presto.sql.optimizer.engine.Rule;
 import com.facebook.presto.sql.optimizer.tree.CrossJoin;
 import com.facebook.presto.sql.optimizer.tree.Expression;
 import com.facebook.presto.sql.optimizer.tree.Filter;
-import com.facebook.presto.sql.optimizer.tree.Join;
 
 import java.util.stream.Stream;
 
@@ -39,10 +38,11 @@ public class CombineFilterAndCrossJoin
 
     private Expression process(Filter parent, CrossJoin child)
     {
-        return new Join(
-                Join.Type.INNER,
-                parent.getCriteria(),
-                child.getArguments().get(0),
-                child.getArguments().get(1));
+        throw new UnsupportedOperationException("not yet implemented");
+//        return new Join(
+//                Join.Type.INNER,
+//                parent.getCriteria(),
+//                child.getArguments().get(0),
+//                child.getArguments().get(1));
     }
 }

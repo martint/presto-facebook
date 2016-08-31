@@ -15,7 +15,6 @@ package com.facebook.presto.sql.optimizer;
 
 import com.facebook.presto.sql.optimizer.engine.Memo;
 import com.facebook.presto.sql.optimizer.tree.Expression;
-import com.facebook.presto.sql.optimizer.tree.Filter;
 import com.facebook.presto.sql.optimizer.tree.Get;
 
 public class Main3
@@ -29,20 +28,20 @@ public class Main3
     {
         Memo memo = new Memo();
 
-        addEquivalentExpressions(
-                memo,
-                new Filter("a1",
-                        new Filter("a2",
-                                new Filter("a3",
-                                        new Get("t")))),
-                new Filter("a1",
-                        new Filter("a2",
-                                new Filter("a3",
-                                        new Get("u")))),
-                new Filter("b1",
-                        new Filter("b2",
-                                new Filter("b3",
-                                        new Get("v")))));
+//        addEquivalentExpressions(
+//                memo,
+//                new Filter("a1",
+//                        new Filter("a2",
+//                                new Filter("a3",
+//                                        new Get("t")))),
+//                new Filter("a1",
+//                        new Filter("a2",
+//                                new Filter("a3",
+//                                        new Get("u")))),
+//                new Filter("b1",
+//                        new Filter("b2",
+//                                new Filter("b3",
+//                                        new Get("v")))));
 
         addEquivalentExpressions(
                 memo,
@@ -50,15 +49,15 @@ public class Main3
                 new Get("u")
         );
 
-        addEquivalentExpressions(
-                memo,
-                new Filter("a2",
-                        new Filter("a3",
-                                new Get("u"))),
-                new Filter("b2",
-                        new Filter("b3",
-                                new Get("v"))));
-
+//        addEquivalentExpressions(
+//                memo,
+//                new Filter("a2",
+//                        new Filter("a3",
+//                                new Get("u"))),
+//                new Filter("b2",
+//                        new Filter("b3",
+//                                new Get("v"))));
+//
     }
 
     public static void addEquivalentExpressions(Memo memo, Expression first, Expression... rest)

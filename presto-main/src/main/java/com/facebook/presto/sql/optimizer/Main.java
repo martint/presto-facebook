@@ -14,15 +14,9 @@
 package com.facebook.presto.sql.optimizer;
 
 import com.facebook.presto.sql.optimizer.engine.CostBasedOptimizer;
-import com.facebook.presto.sql.optimizer.tree.Aggregate;
-import com.facebook.presto.sql.optimizer.tree.CrossJoin;
-import com.facebook.presto.sql.optimizer.tree.Expression;
-import com.facebook.presto.sql.optimizer.tree.Filter;
 import com.facebook.presto.sql.optimizer.tree.Get;
 import com.facebook.presto.sql.optimizer.tree.GlobalLimit;
-import com.facebook.presto.sql.optimizer.tree.Intersect;
 import com.facebook.presto.sql.optimizer.tree.Project;
-import com.facebook.presto.sql.optimizer.tree.Sort;
 import com.facebook.presto.sql.optimizer.tree.Union;
 
 public class Main
@@ -38,44 +32,44 @@ public class Main
                 new Project("id",
                         new Get("t"));
 
-        Expression root =
-        new GlobalLimit(3,
-                new Sort("s0",
-                        new Filter("f0",
-                                new Aggregate(Aggregate.Type.SINGLE, "a1",
-                                        new GlobalLimit(10,
-                                                new GlobalLimit(5,
-                                                        new Union(
-                                                                new Filter("f1",
-                                                                        new Union(
-                                                                                new Project("p1",
-                                                                                        new Get("t")
-                                                                                ),
-                                                                                new Get("v"))
-
-                                                                ),
-                                                                new Filter("f2",
-                                                                        new CrossJoin(
-                                                                                new Get("u"),
-                                                                                new Project("p2",
-                                                                                        new Get("t")
-                                                                                )
-                                                                        )
-                                                                ),
-                                                                new Intersect(
-                                                                        new Get("w"),
-                                                                        new Get("x"),
-                                                                        new Intersect(
-                                                                                new Get("y"),
-                                                                                new Get("z"))
-                                                                )
-                                                        )
-                                                )
-                                        )
-                                )
-                        )
-                )
-        );
+//        Expression root =
+//        new GlobalLimit(3,
+//                new Sort("s0",
+//                        new Filter("f0",
+//                                new Aggregate(Aggregate.Type.SINGLE, "a1",
+//                                        new GlobalLimit(10,
+//                                                new GlobalLimit(5,
+//                                                        new Union(
+//                                                                new Filter("f1",
+//                                                                        new Union(
+//                                                                                new Project("p1",
+//                                                                                        new Get("t")
+//                                                                                ),
+//                                                                                new Get("v"))
+//
+//                                                                ),
+//                                                                new Filter("f2",
+//                                                                        new CrossJoin(
+//                                                                                new Get("u"),
+//                                                                                new Project("p2",
+//                                                                                        new Get("t")
+//                                                                                )
+//                                                                        )
+//                                                                ),
+//                                                                new Intersect(
+//                                                                        new Get("w"),
+//                                                                        new Get("x"),
+//                                                                        new Intersect(
+//                                                                                new Get("y"),
+//                                                                                new Get("z"))
+//                                                                )
+//                                                        )
+//                                                )
+//                                        )
+//                                )
+//                        )
+//                )
+//        );
 
 //        Expression root =
         new GlobalLimit(10,
@@ -86,17 +80,17 @@ public class Main
         );
 
 //        Expression root =
-        new Filter("f1",
-                new Filter("f2",
-                        new Get("t")
-                )
-        );
+//        new Filter("f1",
+//                new Filter("f2",
+//                        new Get("t")
+//                )
+//        );
 
 //        Expression root =
-        new Filter("f",
-                new GlobalLimit(5,
-                        new Project("p",
-                                new Get("t"))));
+//        new Filter("f",
+//                new GlobalLimit(5,
+//                        new Project("p",
+//                                new Get("t"))));
 
 //        Expression root =
         new Union(
