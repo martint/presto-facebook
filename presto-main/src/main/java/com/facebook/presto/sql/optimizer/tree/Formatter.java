@@ -31,7 +31,7 @@ public class Formatter
     public static String format(Expression expression)
     {
         StringWriter out = new StringWriter();
-        ListFormatter.format(new PrintWriter(out, true), toList(expression), 0);
+//        ListFormatter.format(new PrintWriter(out, true), toList(expression), 0);
         return out.toString();
     }
 

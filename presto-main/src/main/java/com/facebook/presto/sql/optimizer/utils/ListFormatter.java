@@ -15,9 +15,9 @@ package com.facebook.presto.sql.optimizer.utils;
 
 import com.google.common.base.Strings;
 
-import java.io.PrintWriter;
-import java.io.StringWriter;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.optimizer.engine.CollectionConstructors.list;
 
@@ -27,63 +27,61 @@ public class ListFormatter
     {
     }
 
-    private static String format(Object list)
+    public static String format(Object item)
     {
-        StringWriter out = new StringWriter();
-        format(new PrintWriter(out, true), list, 0);
-        return out.toString();
+        return formatItem(item, 0).lines.stream().collect(Collectors.joining("\n"));
     }
 
-    public static int format(PrintWriter out, Object item, int indent)
+    private static Block formatItem(Object item, int indent)
     {
-        if (item instanceof List) {
-            return format(out, (List<Object>) item, indent);
+        if (!(item instanceof List)) {
+            return Block.of(item.toString());
         }
-        else {
-            String value = item.toString();
-            out.print(item);
-            return value.length();
-        }
-    }
 
-    private static int format(PrintWriter out, List<Object> list, int continuationIndent)
-    {
-        out.print("(");
-        continuationIndent++;
+        List<Object> list = (List<Object>) item;
 
-        if (!list.isEmpty()) {
-            int nextIndent = format(out, list.get(0), continuationIndent);
+        List<String> result = new ArrayList<>();
+        StringBuilder currentLine = new StringBuilder();
 
-            boolean chop = depth(list.get(0)) > 1;
-            if (list.size() > 1) {
-                continuationIndent = addSpacing(out, continuationIndent, nextIndent, chop);
-                format(out, list.get(1), continuationIndent);
+        int maxDepth = depth(item) - 1;
+
+        int offset = 0;
+        boolean chop = false;
+        currentLine.append("(");
+        offset++;
+        for (int i = 0; i < list.size(); i++) {
+            Object element = list.get(i);
+
+            Block block = formatItem(element, indent);
+
+            if (chop) {
+                result.add(currentLine.toString());
+                currentLine = new StringBuilder(indent(indent + offset));
+            }
+            else if (i != 0) {
+                currentLine.append(" ");
+                offset++;
             }
 
-            chop = chop || list.size() > 2 && list.subList(1, list.size()).stream().anyMatch(i -> depth(i) > 1);
+            currentLine.append(block.lines.get(0));
+            for (int j = 1; j < block.lines.size(); j++) {
+                result.add(currentLine.toString());
+                currentLine = new StringBuilder(indent(indent + offset) + block.lines.get(j));
+            }
 
-            for (int i = 2; i < list.size(); i++) {
-                continuationIndent = addSpacing(out, continuationIndent, nextIndent, chop);
-                format(out, list.get(i), continuationIndent);
+            if (i == 0 && depth(element) > 0 || i >= 1 && maxDepth >= 2) {
+                chop = true;
+            }
+
+            if (!chop) {
+                offset += block.lines.get(0).length();
             }
         }
-        out.print(")");
 
-        return continuationIndent;
-    }
+        currentLine.append(")");
+        result.add(currentLine.toString());
 
-    private static int addSpacing(PrintWriter out, int continuationIndent, int nextIndent, boolean chop)
-    {
-        if (chop) {
-            out.println();
-            out.print(indent(continuationIndent));
-        }
-        else {
-            out.print(" ");
-            continuationIndent++;
-            continuationIndent += nextIndent;
-        }
-        return continuationIndent;
+        return new Block(result);
     }
 
     private static int depth(Object item)
@@ -92,7 +90,7 @@ public class ListFormatter
             return 1 + ((List<?>) item).stream()
                     .map(ListFormatter::depth)
                     .max(Integer::compare)
-                    .get();
+                    .orElse(0);
         }
 
         return 0;
@@ -103,53 +101,74 @@ public class ListFormatter
         return Strings.repeat(" ", indent);
     }
 
+    private static class Block
+    {
+        private final List<String> lines;
+
+        public static Block of(List<String> lines)
+        {
+            return new Block(lines);
+        }
+
+        public static Block of(String value)
+        {
+            return new Block(list(value));
+        }
+
+        private Block(List<String> lines)
+        {
+            this.lines = lines;
+        }
+    }
+
+    private static void process(Object object)
+    {
+        System.out.println(object);
+        System.out.println();
+        System.out.println(format(object));
+        System.out.println();
+        System.out.println("--------------------");
+    }
+
     public static void main(String[] args)
     {
-        List<Object> list = list(1, 2, 3, 47,
-                list(
-                        list(list(4, 5), list(6, 7)),
-                        list(list(4, 5), list(6, 7))),
-                9);
+        process(list(1, list(list(2, list(3, 7)), list(4, 5)), 6));
 
-        System.out.println(format(list));
-        System.out.println();
+        process(list(1, 222, 33, 4444, 5, list(list(6, 7), list(8, 9))));
+        process(list(list(1, 2), list(3, 4), list(5, 6)));
+        process(list(list(list(1, 2), list(3, 4)), 5, 6));
 
-        System.out.println(format(list(1, 2, 3, 4)));
-        System.out.println();
+        process(
+                list("lambda",
+                        list("r"),
+                        list("let",
+                                list(
+                                        list("v1", 1),
+                                        list("v2", list("add", list("v1", 2))),
+                                        list("v3", list("sub", list("v2", "r")))),
+                                "v3")));
 
-        System.out.println(format(list(list(1, 2), list(3, 4), list(5, 6))));
-        System.out.println();
+        process(
+                list(1, 2, 3, 47,
+                        list(
+                                list(list(4, 5), list(6, 7)),
+                                list(list(4, 5), list(6, 7))),
+                        9));
 
-        System.out.println(format(list(list(list(1, 2), list(3, 4)), 5, 6)));
-        System.out.println();
+        process(list(1, 2, 3, 4));
 
-        System.out.println(format(list(1, 2, 3, 4, 5, list(6, 7), list(8, 9))));
-        System.out.println();
+        process(list(1, 2, 3, 4, 5, list(6, 7), list(8, 9)));
 
-        System.out.println(format(list(1, 2, 3, 4, 5, list(list(6, 7), list(8, 9)))));
-        System.out.println();
+        process(list());
+        process(list(1));
+        process(list(1, 2));
+        process(list(1, 2, 3));
 
-        System.out.println(format(list()));
-        System.out.println();
-
-        System.out.println(format(list(1)));
-        System.out.println();
-
-        System.out.println(format(list(1, 2)));
-        System.out.println();
-
-        System.out.println(format(list(1, 2, 3)));
-        System.out.println();
-
-        System.out.println(format(list(1, list(list(2, list(3, 7)), list(4, 5)), 6)));
-        System.out.println();
-
-        System.out.println(format(list(
+        process(list(
                 "if",
                 list("and", list(">", "x", "5"), list("<", "y", "3")),
                 "foo",
                 "bar"
-        )));
-        System.out.println();
+        ));
     }
 }
