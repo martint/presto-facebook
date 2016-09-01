@@ -13,12 +13,11 @@
  */
 package com.facebook.presto.sql.optimizer.tree;
 
-import com.google.common.base.Strings;
+import com.facebook.presto.sql.optimizer.utils.ListFormatter;
 import com.google.common.collect.ImmutableList;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.util.List;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.optimizer.engine.CollectionConstructors.list;
@@ -32,79 +31,8 @@ public class Formatter
     public static String format(Expression expression)
     {
         StringWriter out = new StringWriter();
-        format(new PrintWriter(out, true), toList(expression), 0);
+        ListFormatter.format(new PrintWriter(out, true), toList(expression), 0);
         return out.toString();
-    }
-
-    private static String format(Object list)
-    {
-        StringWriter out = new StringWriter();
-        format(new PrintWriter(out, true), list, 0);
-        return out.toString();
-    }
-
-    private static int format(PrintWriter out, Object item, int indent)
-    {
-        if (item instanceof List) {
-            return format(out, (List<Object>) item, indent);
-        }
-        else {
-            String value = item.toString();
-            out.print(item);
-            return value.length();
-        }
-    }
-
-    private static int format(PrintWriter out, List<Object> list, int continuationIndent)
-    {
-        out.print("(");
-        continuationIndent++;
-
-        if (!list.isEmpty()) {
-            int nextIndent = format(out, list.get(0), continuationIndent);
-
-            boolean chop = depth(list.get(0)) > 1;
-            if (list.size() > 1) {
-                continuationIndent = addSpacing(out, continuationIndent, nextIndent, chop);
-                format(out, list.get(1), continuationIndent);
-            }
-
-            chop = chop || list.size() > 2 && list.subList(1, list.size()).stream().anyMatch(i -> depth(i) > 1);
-
-            for (int i = 2; i < list.size(); i++) {
-                continuationIndent = addSpacing(out, continuationIndent, nextIndent, chop);
-                format(out, list.get(i), continuationIndent);
-            }
-        }
-        out.print(")");
-
-        return continuationIndent;
-    }
-
-    private static int addSpacing(PrintWriter out, int continuationIndent, int nextIndent, boolean chop)
-    {
-        if (chop) {
-            out.println();
-            out.print(indent(continuationIndent));
-        }
-        else {
-            out.print(" ");
-            continuationIndent++;
-            continuationIndent += nextIndent;
-        }
-        return continuationIndent;
-    }
-
-    private static int depth(Object item)
-    {
-        if (item instanceof List) {
-            return 1 + ((List<?>) item).stream()
-                    .map(Formatter::depth)
-                    .max(Integer::compare)
-                    .get();
-        }
-
-        return 0;
     }
 
     private static Object toList(Expression expression)
@@ -213,46 +141,8 @@ public class Formatter
         return builder.build();
     }
 
-    private static String indent(int indent)
-    {
-        return Strings.repeat(" ", indent);
-    }
-
     public static void main(String[] args)
     {
-//        System.out.println(0x1.fffffffffffffp-2 + 0.5);
-//        System.out.println(0.1f);
-//        System.out.println((double) 0.1f);
-//        System.out.println(0.1d);
-
-        double a = -3.499;
-
-        long longBits = Double.doubleToRawLongBits(a);
-        long exponent = ((longBits & 0x7ff0000000000000L) >> (53 - 1)) - 1023;
-        long shift = 53 - 2 - exponent;
-
-        // a is a finite number such that pow(2,-64) <= ulp(a) < 1
-        long r = ((longBits & 0xfffffffffffffL) | (0x10000000000000L));
-        if (longBits < 0) {
-            r = -r;
-        }
-        // In the comments below each Java expression evaluates to the value
-        // the corresponding mathematical expression:
-        // (r) evaluates to a / ulp(a)
-        // (r >> shift) evaluates to floor(a * 2)
-        // ((r >> shift) + 1) evaluates to floor((a + 1/2) * 2)
-        // (((r >> shift) + 1) >> 1) evaluates to floor(a + 1/2)
-        int x = 1;
-        if (a < 0) {
-            x = 0;
-        }
-        long result = ((r >> shift) + x) >> 1;
-        System.out.println(result);
-
-        if (true) {
-            return;
-        }
-
         Expression expression =
                 new Let(
                         list(
@@ -282,51 +172,5 @@ public class Formatter
                                                 new EnforceScalar(
                                                         new Get("w"))))))));
 
-        List<Object> list = list(1, 2, 3, 47,
-                list(
-                        list(list(4, 5), list(6, 7)),
-                        list(list(4, 5), list(6, 7))),
-                9);
-
-        System.out.println(format(list));
-        System.out.println();
-
-        System.out.println(format(list(1, 2, 3, 4)));
-        System.out.println();
-
-        System.out.println(format(list(list(1, 2), list(3, 4), list(5, 6))));
-        System.out.println();
-
-        System.out.println(format(list(list(list(1, 2), list(3, 4)), 5, 6)));
-        System.out.println();
-
-        System.out.println(format(list(1, 2, 3, 4, 5, list(6, 7), list(8, 9))));
-        System.out.println();
-
-        System.out.println(format(list(1, 2, 3, 4, 5, list(list(6, 7), list(8, 9)))));
-        System.out.println();
-
-        System.out.println(format(list()));
-        System.out.println();
-
-        System.out.println(format(list(1)));
-        System.out.println();
-
-        System.out.println(format(list(1, 2)));
-        System.out.println();
-
-        System.out.println(format(list(1, 2, 3)));
-        System.out.println();
-
-        System.out.println(format(list(1, list(list(2, list(3, 7)), list(4, 5)), 6)));
-        System.out.println();
-
-        System.out.println(format(list(
-                "if",
-                list("and", list(">", "x", "5"), list("<", "y", "3")),
-                "foo",
-                "bar"
-        )));
-        System.out.println();
     }
 }
