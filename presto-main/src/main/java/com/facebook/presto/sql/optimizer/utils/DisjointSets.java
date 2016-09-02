@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.optimizer.engine;
+package com.facebook.presto.sql.optimizer.utils;
 
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
@@ -27,7 +27,7 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-class DisjointSets<T>
+public class DisjointSets<T>
 {
     private static final int INITIAL_SIZE = 10;
 

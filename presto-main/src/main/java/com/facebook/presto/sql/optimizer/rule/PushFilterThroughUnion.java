@@ -41,7 +41,7 @@ public class PushFilterThroughUnion
     {
         return new Union(
                 child.getArguments().stream()
-                        .map(grandChild -> new Filter(parent.getCriteria(), grandChild))
+                        .map(grandChild -> new Filter(grandChild, parent.getCriteria()))
                         .collect(Collectors.toList()));
     }
 }

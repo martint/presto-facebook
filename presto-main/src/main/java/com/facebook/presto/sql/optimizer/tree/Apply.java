@@ -15,7 +15,7 @@ package com.facebook.presto.sql.optimizer.tree;
 
 import java.util.List;
 
-import static com.facebook.presto.sql.optimizer.engine.CollectionConstructors.list;
+import static com.facebook.presto.sql.optimizer.utils.CollectionConstructors.list;
 
 public class Apply
     extends Expression

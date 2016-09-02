@@ -39,7 +39,8 @@ public class PushFilterThroughProject
     private Expression process(Filter parent, Project child)
     {
         return new Project(child.getExpression(),
-                new Filter(parent.getCriteria(),
-                        child.getArguments().get(0)));
+                new Filter(
+                        child.getArguments().get(0),
+                        parent.getCriteria()));
     }
 }

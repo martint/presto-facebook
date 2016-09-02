@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
 
-import static com.facebook.presto.sql.optimizer.engine.CollectionConstructors.list;
+import static com.facebook.presto.sql.optimizer.utils.CollectionConstructors.list;
 
 public class PushGlobalTopNThroughUnion
         implements Rule

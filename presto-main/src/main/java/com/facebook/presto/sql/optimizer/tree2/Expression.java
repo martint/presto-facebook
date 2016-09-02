@@ -11,23 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.optimizer.engine;
+package com.facebook.presto.sql.optimizer.tree2;
 
-interface VariableAllocator
+public abstract class Expression
 {
-    String newName();
+    public abstract int hashCode();
+    public abstract boolean equals(Object other);
 
-    static VariableAllocator simpleAllocator()
-    {
-        return new VariableAllocator() {
-            private int count;
-
-            @Override
-            public String newName()
-            {
-                ++count;
-                return "$" + count;
-            }
-        };
-    }
+    public abstract Object terms();
 }

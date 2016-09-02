@@ -41,7 +41,8 @@ public class PushFilterThroughAggregation
         return new Aggregate(
                 child.getType(),
                 child.getFunction(),
-                new Filter(parent.getCriteria(),
-                        child.getArguments().get(0)));
+                new Filter(
+                        child.getArguments().get(0),
+                        parent.getCriteria()));
     }
 }

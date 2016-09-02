@@ -13,14 +13,12 @@
  */
 package com.facebook.presto.sql.optimizer.tree;
 
-import com.facebook.presto.sql.optimizer.utils.ListFormatter;
 import com.google.common.collect.ImmutableList;
 
-import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.sql.optimizer.engine.CollectionConstructors.list;
+import static com.facebook.presto.sql.optimizer.utils.CollectionConstructors.list;
 
 public class Formatter
 {

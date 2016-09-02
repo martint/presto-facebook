@@ -39,7 +39,8 @@ public class PushFilterThroughSort
     private Expression process(Filter parent, Sort child)
     {
         return new Sort(child.getCriteria(),
-                new Filter(parent.getCriteria(),
-                        child.getArguments().get(0)));
+                new Filter(
+                        child.getArguments().get(0),
+                        parent.getCriteria()));
     }
 }

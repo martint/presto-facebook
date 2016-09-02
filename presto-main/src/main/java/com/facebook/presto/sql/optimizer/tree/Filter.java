@@ -22,7 +22,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 public class Filter
     extends Expression
 {
-    public Filter(Expression input, Expression criteria)
+    public Filter(Expression input, Lambda criteria)
     {
         super(ImmutableList.of(input, criteria));
     }
@@ -42,7 +42,7 @@ public class Filter
     public Expression copyWithArguments(List<Expression> arguments)
     {
         checkArgument(arguments.size() == 2);
-        return new Filter(arguments.get(0), arguments.get(1));
+        return new Filter(arguments.get(0), (Lambda) arguments.get(1));
     }
 
     @Override

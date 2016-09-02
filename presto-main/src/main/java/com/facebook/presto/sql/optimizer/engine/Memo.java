@@ -15,6 +15,7 @@ package com.facebook.presto.sql.optimizer.engine;
 
 import com.facebook.presto.sql.optimizer.tree.Expression;
 import com.facebook.presto.sql.optimizer.tree.Reference;
+import com.facebook.presto.sql.optimizer.utils.DisjointSets;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 

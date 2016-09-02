@@ -16,7 +16,7 @@ package com.facebook.presto.sql.optimizer.tree;
 import java.util.List;
 import java.util.Objects;
 
-import static com.facebook.presto.sql.optimizer.engine.CollectionConstructors.list;
+import static com.facebook.presto.sql.optimizer.utils.CollectionConstructors.list;
 
 public class Lambda
     extends Expression
