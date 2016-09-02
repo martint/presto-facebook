@@ -11,10 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.optimizer.engine;
+package com.facebook.presto.sql.optimizer.engine2;
 
-import com.facebook.presto.sql.optimizer.tree.Expression;
-import com.facebook.presto.sql.optimizer.tree.Reference;
+import com.facebook.presto.sql.optimizer.tree2.Expression;
+import com.facebook.presto.sql.optimizer.tree2.Reference;
 import com.facebook.presto.sql.optimizer.utils.DisjointSets;
 import com.facebook.presto.sql.optimizer.utils.Graph;
 import com.google.common.base.Joiner;

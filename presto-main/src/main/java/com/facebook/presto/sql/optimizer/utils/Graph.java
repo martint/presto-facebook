@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.optimizer.engine;
+package com.facebook.presto.sql.optimizer.utils;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.HashMultimap;
@@ -29,7 +29,7 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-class Graph<VID, CID, V, E, C>
+public class Graph<VID, CID, V, E, C>
 {
     private final Map<VID, V> nodes = new HashMap<>();
     private final Map<Edge<VID>, E> edges = new HashMap<>();
