@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.sql.optimizer.engine2;
 
+import com.facebook.presto.sql.optimizer.tree2.Call;
 import com.facebook.presto.sql.optimizer.tree2.Expression;
+import com.facebook.presto.sql.optimizer.tree2.Lambda;
 import com.facebook.presto.sql.optimizer.tree2.Reference;
 import com.facebook.presto.sql.optimizer.utils.DisjointSets;
 import com.facebook.presto.sql.optimizer.utils.Graph;
@@ -98,8 +100,9 @@ public class Memo
         if (to instanceof Reference) {
             // TODO: expression caused a change
 
-            if (!to.getName().equals(group)) {
-                mergeInto(group, to.getName());
+            Reference reference = (Reference) to;
+            if (!reference.getName().equals(group)) {
+                mergeInto(group, reference.getName());
             }
             Expression target = new Reference(group);
             transformations.computeIfAbsent(canonicalize(from), e -> new HashMap<>())
@@ -184,12 +187,14 @@ public class Memo
     {
         Expression result = expression;
 
-        if (!expression.getArguments().isEmpty()) {
-            List<Expression> arguments = expression.getArguments().stream()
+        if (expression instanceof Call) {
+            Call call = (Call) expression;
+
+            List<Expression> arguments = call.getArguments().stream()
                     .map(argument -> {
                         if (argument instanceof Reference) {
                             // TODO: make sure group exists
-                            return canonicalize(argument.getName());
+                            return canonicalize(((Reference) argument).getName());
                         }
 
                         return insertRecursive(argument);
@@ -197,7 +202,15 @@ public class Memo
                     .map(Reference::new)
                     .collect(Collectors.toList());
 
-            result = expression.copyWithArguments(arguments);
+            result = call.copyWithArguments(arguments);
+        }
+        else if (expression instanceof Lambda)
+        {
+            Lambda lambda = (Lambda) expression;
+
+            checkArgument(!(lambda.getBody() instanceof LambdaBodyReference), "Lambda with a body reference not supported");
+
+            return new Lambda(lambda.getVariable(), new LambdaBodyReference(insertRecursive(lambda.getBody())));
         }
 
         return result;
@@ -206,16 +219,21 @@ public class Memo
     private void insert(Expression expression, String group)
     {
         checkArgument(!(expression instanceof Reference), "Cannot add a reference %s to %s", expression, group);
-        checkArgument(expression.getArguments().stream().allMatch(Reference.class::isInstance), "Expected all arguments to be references: %s", expression);
+
+        if (expression instanceof Call) {
+            checkArgument(((Call) expression).getArguments().stream().allMatch(Reference.class::isInstance), "Expected all arguments to be references: %s", expression);
+        }
 
         expressionMembership.put(expression, group);
         expressions.put(expression, version++);
         expressionsByGroup.get(group).put(expression, version++);
 
-        expression.getArguments().stream()
-                .map(Reference.class::cast)
-                .map(Reference::getName)
-                .forEach(child -> incomingReferences.get(child).putIfAbsent(expression, version++));
+        if (expression instanceof Call) {
+            ((Call) expression).getArguments().stream()
+                    .map(Reference.class::cast)
+                    .map(Reference::getName)
+                    .forEach(child -> incomingReferences.get(child).putIfAbsent(expression, version++));
+        }
     }
 
     private String createGroup()
@@ -240,16 +258,19 @@ public class Memo
 
     private Expression canonicalize(Expression expression)
     {
-        checkArgument(expression.getArguments().stream().allMatch(Reference.class::isInstance), "Expected all arguments to be references");
+        checkArgument(expression instanceof Call, "Only Call supported currently");
 
-        List<Expression> newArguments = expression.getArguments().stream()
+        Call call = (Call) expression;
+        checkArgument(call.getArguments().stream().allMatch(Reference.class::isInstance), "Expected all arguments to be references");
+
+        List<Expression> newArguments = call.getArguments().stream()
                 .map(Reference.class::cast)
                 .map(Reference::getName)
                 .map(this::canonicalize)
                 .map(Reference::new)
                 .collect(Collectors.toList());
 
-        return expression.copyWithArguments(newArguments);
+        return call.copyWithArguments(newArguments);
     }
 
     private void mergeInto(String targetGroup, String group)
@@ -301,11 +322,13 @@ public class Memo
             checkState(group.equals(canonicalize(group)),
                     "Expression not marked as belonging to canonical group: %s (%s vs %s)  ", expression, group, canonicalize(group));
 
-            expression.getArguments().stream()
-                    .peek(e -> checkState((e instanceof Reference), "All expression arguments must be references: %s", expression))
-                    .map(Reference.class::cast)
-                    .peek(r -> checkState(r.getName().equals(canonicalize(r.getName())),
-                            "Expression arguments must reference canonical groups: %s, %s vs %s", expression, r.getName(), canonicalize(r.getName())));
+            if (expression instanceof Call) {
+                ((Call) expression).getArguments().stream()
+                        .peek(e -> checkState((e instanceof Reference), "All expression arguments must be references: %s", expression))
+                        .map(Reference.class::cast)
+                        .peek(r -> checkState(r.getName().equals(canonicalize(r.getName())),
+                                "Expression arguments must reference canonical groups: %s, %s vs %s", expression, r.getName(), canonicalize(r.getName())));
+            }
         }
     }
 
@@ -546,7 +569,7 @@ public class Memo
             for (Map.Entry<Expression, VersionedItem<String>> edge : entry.getValue().entrySet()) {
                 int toId;
                 if (edge.getKey() instanceof Reference) {
-                    toId = ids.get(edge.getKey().getName());
+                    toId = ids.get(((Reference) edge.getKey()).getName());
                 }
                 else {
                     toId = ids.get(edge.getKey());

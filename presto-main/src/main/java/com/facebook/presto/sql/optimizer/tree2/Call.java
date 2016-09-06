@@ -27,6 +27,11 @@ public class Call
     private final String name;
     private final List<Expression> arguments;
 
+    public static Call call(String name, Expression... arguments)
+    {
+        return new Call(name, ImmutableList.copyOf(arguments));
+    }
+
     public Call(String name, List<Expression> arguments)
     {
         requireNonNull(name, "name is null");
@@ -34,6 +39,16 @@ public class Call
 
         this.name = name;
         this.arguments = arguments;
+    }
+
+    public List<Expression> getArguments()
+    {
+        return arguments;
+    }
+
+    public Call copyWithArguments(List<Expression> arguments)
+    {
+        return new Call(name, arguments);
     }
 
     @Override

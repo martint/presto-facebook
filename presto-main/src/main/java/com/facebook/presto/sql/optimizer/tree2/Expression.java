@@ -13,10 +13,18 @@
  */
 package com.facebook.presto.sql.optimizer.tree2;
 
+import com.facebook.presto.sql.optimizer.utils.ListFormatter;
+
 public abstract class Expression
 {
     public abstract int hashCode();
     public abstract boolean equals(Object other);
 
     public abstract Object terms();
+
+    @Override
+    public String toString()
+    {
+        return ListFormatter.format(terms());
+    }
 }

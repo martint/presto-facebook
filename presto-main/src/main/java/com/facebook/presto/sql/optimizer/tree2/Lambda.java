@@ -21,11 +21,16 @@ import java.util.Objects;
 import static com.facebook.presto.sql.optimizer.utils.CollectionConstructors.list;
 import static java.util.Objects.requireNonNull;
 
-public class Lambda
+public final class Lambda
         extends Expression
 {
     private final String variable;
     private final Expression body;
+
+    public static Lambda lambda(String variable, Expression body)
+    {
+        return new Lambda(variable, body);
+    }
 
     public Lambda(String variable, Expression body)
     {
@@ -34,6 +39,16 @@ public class Lambda
 
         this.variable = variable;
         this.body = body;
+    }
+
+    public String getVariable()
+    {
+        return variable;
+    }
+
+    public Expression getBody()
+    {
+        return body;
     }
 
     @Override

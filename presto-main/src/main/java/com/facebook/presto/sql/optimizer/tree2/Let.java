@@ -21,7 +21,7 @@ import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 
-public class Let
+public final class Let
         extends Expression
 {
     private final List<Assignment> assignments;

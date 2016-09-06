@@ -15,10 +15,15 @@ package com.facebook.presto.sql.optimizer.tree2;
 
 import java.util.Objects;
 
-public class Value
+public final class Value
         extends Expression
 {
     private final Object value;
+
+    public static Value value(Object value)
+    {
+        return new Value(value);
+    }
 
     public Value(Object value)
     {

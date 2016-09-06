@@ -13,20 +13,29 @@
  */
 package com.facebook.presto.sql.optimizer.tree2;
 
-import java.util.List;
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
-public class Reference
+public final class Reference
         extends Expression
 {
     private final String name;
+
+    public static Reference variable(String name)
+    {
+        return new Reference(name);
+    }
 
     public Reference(String name)
     {
         requireNonNull(name, "name is null");
         this.name = name;
+    }
+
+    public String getName()
+    {
+        return name;
     }
 
     @Override
