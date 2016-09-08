@@ -41,11 +41,11 @@ public class Memo
     private final boolean debug;
 
     private long version;
-    private long groupCounter;
+    private long nextGroupId;
 
     private final Set<Long> roots = new HashSet<>();
     private final Map<Long, Long> groupVersions = new HashMap<>();
-    private final Map<Expression, Long> expressions = new HashMap<>();
+    private final Map<Expression, Long> expressionVersions = new HashMap<>();
 
     private final Map<Long, Map<Expression, Long>> expressionsByGroup = new HashMap<>();
     private final Map<Expression, Long> expressionMembership = new HashMap<>();
@@ -159,13 +159,13 @@ public class Memo
         return expressionsByGroup.get(group)
                 .keySet().stream()
                 .filter(e -> canonical.contains(e)) // pick only active expressions -- TODO: need a more efficient way to do this
-                .map(e -> new VersionedItem<>(e, expressions.get(e)))
+                .map(e -> new VersionedItem<>(e, expressionVersions.get(e)))
                 .collect(Collectors.toList());
     }
 
     private long insertRecursive(Expression expression)
     {
-        checkArgument(!(expression instanceof GroupReference), "Expression cannot be a Reference: %s", expression);
+        checkArgument(!(expression instanceof GroupReference), "Expression cannot be a Group Reference: %s", expression);
 
         Expression rewritten = insertChildrenAndRewrite(expression);
 
@@ -209,9 +209,6 @@ public class Memo
         else if (expression instanceof Lambda)
         {
             Lambda lambda = (Lambda) expression;
-
-//            checkArgument(!(lambda.getBody() instanceof LambdaBodyReference), "Lambda with a body reference not supported");
-
             result = new Lambda(lambda.getVariable(), new GroupReference(insertRecursive(lambda.getBody())));
         }
 
@@ -227,7 +224,7 @@ public class Memo
         }
 
         expressionMembership.put(expression, group);
-        expressions.put(expression, version++);
+        expressionVersions.put(expression, version++);
         expressionsByGroup.get(group).put(expression, version++);
 
         if (expression instanceof Call) {
@@ -246,7 +243,7 @@ public class Memo
 
     private long createGroup()
     {
-        long group = groupCounter++;
+        long group = nextGroupId++;
 
         incomingReferences.put(group, new HashMap<>());
         expressionsByGroup.put(group, new HashMap<>());
@@ -491,7 +488,7 @@ public class Memo
             ids.put(group, ids.size());
             groupIds.add(ids.get(group));
         }
-        for (Expression expression : expressions.keySet()) {
+        for (Expression expression : expressionVersions.keySet()) {
             ids.put(expression, ids.size());
         }
 
@@ -510,7 +507,7 @@ public class Memo
             graph.addNode(id, new Node(Node.Type.GROUP, group, active, entry.getValue()));
         }
 
-        for (Map.Entry<Expression, Long> entry : expressions.entrySet()) {
+        for (Map.Entry<Expression, Long> entry : expressionVersions.entrySet()) {
             Expression expression = entry.getKey();
             int id = ids.get(expression);
 
