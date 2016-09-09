@@ -14,11 +14,11 @@
 package com.facebook.presto.sql.optimizer.engine2;
 
 import com.facebook.presto.sql.optimizer.tree2.Expression;
-import com.facebook.presto.sql.optimizer.tree2.Value;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.sql.optimizer.tree2.Call.call;
 import static com.facebook.presto.sql.optimizer.tree2.Lambda.lambda;
+import static com.facebook.presto.sql.optimizer.tree2.Value.value;
 
 public class TestOptimizer
 {
@@ -30,8 +30,8 @@ public class TestOptimizer
 
         Expression expression =
                 call("logical-filter",
-                        call("get", new Value("t")),
-                        lambda("r", new Value(true)));
+                        call("get", value("t")),
+                        lambda(value(true)));
 
         System.out.println(expression.toString());
         System.out.println();
@@ -46,8 +46,8 @@ public class TestOptimizer
 
         Expression expression =
                 call("logical-filter",
-                        call("get", new Value("t")),
-                        lambda("r", new Value(false)));
+                        call("get", value("t")),
+                        lambda(value(false)));
 
         System.out.println(expression.toString());
         System.out.println();
@@ -63,9 +63,9 @@ public class TestOptimizer
         Expression expression =
                 call("logical-filter",
                         call("logical-filter",
-                                call("get", new Value("t")),
-                                lambda("r", new Value("x"))),
-                        lambda("r", new Value("y")));
+                                call("get", value("t")),
+                                lambda(value("x"))),
+                        lambda(value("y")));
 
         System.out.println(expression.toString());
         System.out.println();

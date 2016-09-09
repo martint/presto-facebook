@@ -16,7 +16,6 @@ package com.facebook.presto.sql.optimizer.engine2;
 import com.facebook.presto.sql.optimizer.tree2.Call;
 import com.facebook.presto.sql.optimizer.tree2.Expression;
 import com.facebook.presto.sql.optimizer.tree2.Lambda;
-import com.facebook.presto.sql.optimizer.tree2.Reference;
 import com.facebook.presto.sql.optimizer.utils.DisjointSets;
 import com.facebook.presto.sql.optimizer.utils.Graph;
 import com.google.common.base.Joiner;
@@ -33,6 +32,8 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.sql.optimizer.engine2.GroupReference.group;
+import static com.facebook.presto.sql.optimizer.tree2.Lambda.lambda;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -208,8 +209,7 @@ public class Memo
         }
         else if (expression instanceof Lambda)
         {
-            Lambda lambda = (Lambda) expression;
-            result = new Lambda(lambda.getVariable(), new GroupReference(insertRecursive(lambda.getBody())));
+            result = lambda(group(insertRecursive(((Lambda) expression).getBody())));
         }
 
         return result;
@@ -276,8 +276,7 @@ public class Memo
             return call.copyWithArguments(newArguments);
         }
         else if (expression instanceof Lambda) {
-            Lambda lambda = (Lambda) expression;
-            return new Lambda(lambda.getVariable(), canonicalize(lambda.getBody()));
+            return lambda(canonicalize(((Lambda) expression).getBody()));
         }
 
         return expression;

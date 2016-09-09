@@ -18,12 +18,12 @@ import com.facebook.presto.sql.optimizer.engine2.Rule;
 import com.facebook.presto.sql.optimizer.tree2.Call;
 import com.facebook.presto.sql.optimizer.tree2.Expression;
 import com.facebook.presto.sql.optimizer.tree2.Lambda;
-import com.facebook.presto.sql.optimizer.tree2.Value;
 
 import java.util.Optional;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.sql.optimizer.engine2.Patterns.isCall;
+import static com.facebook.presto.sql.optimizer.tree2.Value.value;
 import static com.facebook.presto.sql.optimizer.utils.CollectionConstructors.list;
 
 public class RemoveRedundantFilter
@@ -45,11 +45,11 @@ public class RemoveRedundantFilter
 
     private Optional<Expression> process(Call filter, Expression body)
     {
-        if (body.equals(new Value(true))) {
+        if (body.equals(value(true))) {
             return Optional.of(filter.getArguments().get(0));
         }
-        else if (body.equals(new Value(false))) {
-            return Optional.of(new Value(list()));
+        else if (body.equals(value(false))) {
+            return Optional.of(value(list()));
         }
 
         return Optional.empty();

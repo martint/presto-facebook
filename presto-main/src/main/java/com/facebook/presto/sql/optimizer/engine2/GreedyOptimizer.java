@@ -256,7 +256,7 @@ public class GreedyOptimizer
                 body = new Let(extract(reference.getId(), lookup.push(reference.getId())), reference);
             }
 
-            expression = new Lambda(lambda.getVariable(), body);
+            expression = new Lambda(body);
         }
         else {
             getChildren(expression).stream()

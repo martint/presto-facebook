@@ -17,25 +17,37 @@ import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
+/**
+ * A reference to a lambda binding variable encoded as a De Bruijn index.
+ *
+ * The level represents the number of nested scope levels the reference
+ * points to. Thus, level = 0 is a reference to the immediately enclosing
+ * lambda.
+ */
 public final class ScopeReference
         extends Expression
 {
-    private final int level;
+    private final int index;
 
-    public static ScopeReference reference(int level)
+    public static ScopeReference localReference()
     {
-        return new ScopeReference(level);
+        return reference(0);
     }
 
-    public ScopeReference(int level)
+    public static ScopeReference reference(int index)
     {
-        checkArgument(level >= 0, "level must be >= 0");
-        this.level = level;
+        return new ScopeReference(index);
     }
 
-    public int getLevel()
+    public ScopeReference(int index)
     {
-        return level;
+        checkArgument(index >= 0, "level must be >= 0");
+        this.index = index;
+    }
+
+    public int getIndex()
+    {
+        return index;
     }
 
     @Override
@@ -48,18 +60,18 @@ public final class ScopeReference
             return false;
         }
         ScopeReference that = (ScopeReference) o;
-        return level == that.level;
+        return index == that.index;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(level);
+        return Objects.hash(index);
     }
 
     @Override
     public Object terms()
     {
-        return "%" + level;
+        return "%" + index;
     }
 }

@@ -18,32 +18,23 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.Objects;
 
-import static com.facebook.presto.sql.optimizer.utils.CollectionConstructors.list;
 import static java.util.Objects.requireNonNull;
 
 public final class Lambda
         extends Expression
 {
-    private final String variable;
     private final Expression body;
 
-    public static Lambda lambda(String variable, Expression body)
+    public static Lambda lambda(Expression body)
     {
-        return new Lambda(variable, body);
+        return new Lambda(body);
     }
 
-    public Lambda(String variable, Expression body)
+    public Lambda(Expression body)
     {
-        requireNonNull(variable, "variable is null");
         requireNonNull(body, "body is null");
 
-        this.variable = variable;
         this.body = body;
-    }
-
-    public String getVariable()
-    {
-        return variable;
     }
 
     public Expression getBody()
@@ -54,7 +45,7 @@ public final class Lambda
     @Override
     public int hashCode()
     {
-        return Objects.hash(variable, body);
+        return Objects.hash(body);
     }
 
     @Override
@@ -67,13 +58,12 @@ public final class Lambda
             return false;
         }
         Lambda lambda = (Lambda) o;
-        return Objects.equals(variable, lambda.variable) &&
-                Objects.equals(body, lambda.body);
+        return Objects.equals(body, lambda.body);
     }
 
     @Override
     public List<Object> terms()
     {
-        return ImmutableList.of("lambda", list(variable), body.terms());
+        return ImmutableList.of("lambda", body.terms());
     }
 }

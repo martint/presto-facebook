@@ -22,6 +22,11 @@ public class GroupReference
 {
     private final long id;
 
+    public static GroupReference group(long id)
+    {
+        return new GroupReference(id);
+    }
+
     public GroupReference(long id)
     {
         this.id = id;

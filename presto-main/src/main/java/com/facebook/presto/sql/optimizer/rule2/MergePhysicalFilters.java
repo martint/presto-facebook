@@ -50,9 +50,8 @@ public class MergePhysicalFilters
     {
         return call("physical-filter",
                 source,
-                lambda("r",
-                        call("and",
-                                childLambda.getBody(),
+                lambda(call("and",
+                        childLambda.getBody(),
                                 parentLambda.getBody())));
     }
 }

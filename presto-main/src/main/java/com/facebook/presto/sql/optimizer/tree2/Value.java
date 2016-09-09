@@ -25,7 +25,7 @@ public final class Value
         return new Value(value);
     }
 
-    public Value(Object value)
+    private Value(Object value)
     {
         this.value = value;
     }

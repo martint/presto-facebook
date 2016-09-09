@@ -6,6 +6,8 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.sql.optimizer.tree2.Call.call;
 import static com.facebook.presto.sql.optimizer.tree2.Lambda.lambda;
 import static com.facebook.presto.sql.optimizer.tree2.Reference.variable;
+import static com.facebook.presto.sql.optimizer.tree2.ScopeReference.localReference;
+import static com.facebook.presto.sql.optimizer.tree2.ScopeReference.reference;
 import static com.facebook.presto.sql.optimizer.tree2.Value.value;
 
 public class TestMemo
@@ -46,8 +48,8 @@ public class TestMemo
         Expression expression =
                 call("filter",
                         call("get", value("t")),
-                        lambda("x", call(">",
-                                variable("x"),
+                        lambda(call(">",
+                                localReference(),
                                 call("scalar",
                                         call("get", value("u"))))));
 
@@ -58,8 +60,7 @@ public class TestMemo
     public void testLambda1()
             throws Exception
     {
-        Expression expression =
-                        lambda("x", variable("x"));
+        Expression expression = lambda(localReference());
 
         process(expression);
 
