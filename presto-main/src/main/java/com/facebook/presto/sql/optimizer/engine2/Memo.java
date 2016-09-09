@@ -112,7 +112,7 @@ public class Memo
                 verify();
             }
 
-            return Optional.empty();
+            return Optional.ofNullable(to);
         }
         else {
             Expression rewritten = insertChildrenAndRewrite(to);
@@ -150,7 +150,7 @@ public class Memo
         return expressionMembership.get(expression);
     }
 
-    public List<VersionedItem<Expression>> getExpressions(String group)
+    public List<VersionedItem<Expression>> getExpressions(long group)
     {
         Set<Expression> canonical = expressionMembership.keySet().stream()
                 .map(this::canonicalize)
@@ -262,19 +262,25 @@ public class Memo
 
     private Expression canonicalize(Expression expression)
     {
-        checkArgument(expression instanceof Call, "Only Call supported currently");
+        if (expression instanceof Call) {
+            Call call = (Call) expression;
+            checkArgument(call.getArguments().stream().allMatch(GroupReference.class::isInstance), "Expected all arguments to be references for: %s", expression);
 
-        Call call = (Call) expression;
-        checkArgument(call.getArguments().stream().allMatch(Reference.class::isInstance), "Expected all arguments to be references");
+            List<Expression> newArguments = call.getArguments().stream()
+                    .map(GroupReference.class::cast)
+                    .map(GroupReference::getId)
+                    .map(this::canonicalize)
+                    .map(GroupReference::new)
+                    .collect(Collectors.toList());
 
-        List<Expression> newArguments = call.getArguments().stream()
-                .map(GroupReference.class::cast)
-                .map(GroupReference::getId)
-                .map(this::canonicalize)
-                .map(GroupReference::new)
-                .collect(Collectors.toList());
+            return call.copyWithArguments(newArguments);
+        }
+        else if (expression instanceof Lambda) {
+            Lambda lambda = (Lambda) expression;
+            return new Lambda(lambda.getVariable(), canonicalize(lambda.getBody()));
+        }
 
-        return call.copyWithArguments(newArguments);
+        return expression;
     }
 
     private void mergeInto(long targetGroup, long group)
@@ -287,6 +293,7 @@ public class Memo
 
         // move all expressions to the target group
         for (Expression expression : expressionsByGroup.get(group).keySet()) {
+            // TODO: canonicalize expression in case they have a recursive reference to the group that was just merged?
             expressionsByGroup.get(targetGroup).put(expression, version++);
             expressionMembership.put(expression, targetGroup);
         }
@@ -374,22 +381,26 @@ public class Memo
     {
         StringBuilder builder = new StringBuilder();
 
+        builder.append("== Roots ==\n");
+        builder.append(Joiner.on(", ").join(roots.stream().map(r -> "$" + r).iterator()) + "\n");
+        builder.append('\n');
+
         builder.append("== Groups ==\n");
         for (Map.Entry<Long, Map<Expression, Long>> entry : expressionsByGroup.entrySet()) {
-            builder.append(entry.getKey() + ": " + entry.getValue() + "\n");
+            builder.append("$" + entry.getKey() + ": " + entry.getValue() + "\n");
         }
         builder.append('\n');
 
         builder.append("== Expressions ==\n");
         for (Map.Entry<Expression, Long> entry : expressionMembership.entrySet()) {
-            builder.append(entry.getKey() + " ∈ " + entry.getValue() + "\n");
+            builder.append(entry.getKey() + " ∈ $" + entry.getValue() + "\n");
         }
         builder.append('\n');
 
         builder.append("== References ==\n");
         for (Map.Entry<Long, Map<Expression, Long>> entry : incomingReferences.entrySet()) {
             for (Map.Entry<Expression, Long> versioned : entry.getValue().entrySet()) {
-                builder.append(versioned.getKey() + " -> " + entry.getKey() + " [" + versioned.getValue() + "]\n");
+                builder.append(versioned.getKey() + " -> $" + entry.getKey() + " [" + versioned.getValue() + "]\n");
             }
         }
         builder.append('\n');
@@ -573,8 +584,8 @@ public class Memo
 
             for (Map.Entry<Expression, VersionedItem<String>> edge : entry.getValue().entrySet()) {
                 int toId;
-                if (edge.getKey() instanceof Reference) {
-                    toId = ids.get(((Reference) edge.getKey()).getName());
+                if (edge.getKey() instanceof GroupReference) {
+                    toId = ids.get(((GroupReference) edge.getKey()).getId());
                 }
                 else {
                     toId = ids.get(edge.getKey());

@@ -13,35 +13,29 @@
  */
 package com.facebook.presto.sql.optimizer.tree2;
 
-import com.google.common.collect.ImmutableList;
-
-import java.util.List;
 import java.util.Objects;
 
-import static java.util.Objects.requireNonNull;
+import static com.google.common.base.Preconditions.checkArgument;
 
-public class Assignment
+public final class ScopeReference
+        extends Expression
 {
-    private final String variable;
-    private final Expression expression;
+    private final int level;
 
-    public Assignment(String variable, Expression expression)
+    public static ScopeReference reference(int level)
     {
-        requireNonNull(variable, "variable is null");
-        requireNonNull(expression, "expression is null");
-
-        this.variable = variable;
-        this.expression = expression;
+        return new ScopeReference(level);
     }
 
-    public String getVariable()
+    public ScopeReference(int level)
     {
-        return variable;
+        checkArgument(level >= 0, "level must be >= 0");
+        this.level = level;
     }
 
-    public Expression getExpression()
+    public int getLevel()
     {
-        return expression;
+        return level;
     }
 
     @Override
@@ -53,19 +47,19 @@ public class Assignment
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        Assignment that = (Assignment) o;
-        return Objects.equals(variable, that.variable) &&
-                Objects.equals(expression, that.expression);
+        ScopeReference that = (ScopeReference) o;
+        return level == that.level;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(variable, expression);
+        return Objects.hash(level);
     }
 
-    public List<Object> terms()
+    @Override
+    public Object terms()
     {
-        return ImmutableList.of(variable, expression.terms());
+        return "%" + level;
     }
 }
