@@ -21,7 +21,7 @@ import com.facebook.presto.sql.optimizer.tree2.Expression;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.sql.optimizer.engine2.Patterns.isCall;
-import static com.facebook.presto.sql.optimizer.tree2.Call.call;
+import static com.facebook.presto.sql.optimizer.tree2.Expressions.call;
 
 public class GetToScan
         implements Rule

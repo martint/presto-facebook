@@ -20,12 +20,7 @@ public final class Value
 {
     private final Object value;
 
-    public static Value value(Object value)
-    {
-        return new Value(value);
-    }
-
-    private Value(Object value)
+    Value(Object value)
     {
         this.value = value;
     }

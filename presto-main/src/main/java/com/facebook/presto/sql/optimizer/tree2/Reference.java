@@ -22,12 +22,7 @@ public final class Reference
 {
     private final String name;
 
-    public static Reference variable(String name)
-    {
-        return new Reference(name);
-    }
-
-    public Reference(String name)
+    Reference(String name)
     {
         requireNonNull(name, "name is null");
         this.name = name;

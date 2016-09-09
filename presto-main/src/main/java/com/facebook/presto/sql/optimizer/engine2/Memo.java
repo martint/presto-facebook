@@ -33,7 +33,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.optimizer.engine2.GroupReference.group;
-import static com.facebook.presto.sql.optimizer.tree2.Lambda.lambda;
+import static com.facebook.presto.sql.optimizer.tree2.Expressions.lambda;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 

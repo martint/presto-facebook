@@ -29,17 +29,7 @@ public final class ScopeReference
 {
     private final int index;
 
-    public static ScopeReference localReference()
-    {
-        return reference(0);
-    }
-
-    public static ScopeReference reference(int index)
-    {
-        return new ScopeReference(index);
-    }
-
-    public ScopeReference(int index)
+    ScopeReference(int index)
     {
         checkArgument(index >= 0, "level must be >= 0");
         this.index = index;

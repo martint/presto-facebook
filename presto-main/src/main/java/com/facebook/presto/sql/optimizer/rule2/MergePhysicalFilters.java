@@ -22,8 +22,8 @@ import com.facebook.presto.sql.optimizer.tree2.Lambda;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.sql.optimizer.engine2.Patterns.isCall;
-import static com.facebook.presto.sql.optimizer.tree2.Call.call;
-import static com.facebook.presto.sql.optimizer.tree2.Lambda.lambda;
+import static com.facebook.presto.sql.optimizer.tree2.Expressions.call;
+import static com.facebook.presto.sql.optimizer.tree2.Expressions.lambda;
 
 public class MergePhysicalFilters
         implements Rule

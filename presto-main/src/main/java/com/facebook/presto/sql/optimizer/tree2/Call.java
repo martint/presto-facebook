@@ -27,11 +27,6 @@ public class Call
     private final String name;
     private final List<Expression> arguments;
 
-    public static Call call(String name, Expression... arguments)
-    {
-        return new Call(name, ImmutableList.copyOf(arguments));
-    }
-
     public Call(String name, List<Expression> arguments)
     {
         requireNonNull(name, "name is null");

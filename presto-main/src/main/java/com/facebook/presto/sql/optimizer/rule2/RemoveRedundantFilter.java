@@ -23,7 +23,7 @@ import java.util.Optional;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.sql.optimizer.engine2.Patterns.isCall;
-import static com.facebook.presto.sql.optimizer.tree2.Value.value;
+import static com.facebook.presto.sql.optimizer.tree2.Expressions.value;
 import static com.facebook.presto.sql.optimizer.utils.CollectionConstructors.list;
 
 public class RemoveRedundantFilter

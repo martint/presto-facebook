@@ -27,7 +27,7 @@ public final class Let
     private final List<Assignment> assignments;
     private final Expression body;
 
-    public Let(List<Assignment> assignments, Expression body)
+    Let(List<Assignment> assignments, Expression body)
     {
         requireNonNull(assignments, "assignments is null");
         requireNonNull(body, "body is null");

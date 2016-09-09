@@ -25,12 +25,7 @@ public final class Lambda
 {
     private final Expression body;
 
-    public static Lambda lambda(Expression body)
-    {
-        return new Lambda(body);
-    }
-
-    public Lambda(Expression body)
+    Lambda(Expression body)
     {
         requireNonNull(body, "body is null");
 

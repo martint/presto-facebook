@@ -20,8 +20,6 @@ import com.facebook.presto.sql.optimizer.rule2.RemoveRedundantFilter;
 import com.facebook.presto.sql.optimizer.tree2.Assignment;
 import com.facebook.presto.sql.optimizer.tree2.Expression;
 import com.facebook.presto.sql.optimizer.tree2.Lambda;
-import com.facebook.presto.sql.optimizer.tree2.Let;
-import com.facebook.presto.sql.optimizer.tree2.Reference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -35,6 +33,9 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.optimizer.engine2.Utils.getChildren;
+import static com.facebook.presto.sql.optimizer.tree2.Expressions.lambda;
+import static com.facebook.presto.sql.optimizer.tree2.Expressions.let;
+import static com.facebook.presto.sql.optimizer.tree2.Expressions.variable;
 import static com.google.common.base.Preconditions.checkState;
 
 public class GreedyOptimizer
@@ -142,7 +143,7 @@ public class GreedyOptimizer
 
         System.out.println(memo.dump());
 
-        return new Let(assignments, new Reference("$" + rootClass));
+        return let(assignments, variable("$" + rootClass));
     }
 
     private boolean explore(Memo memo, MemoLookup lookup, Set<Long> explored, Set<Rule> rules, long group)
@@ -253,10 +254,10 @@ public class GreedyOptimizer
 
             if (body instanceof GroupReference) {
                 GroupReference reference = (GroupReference) body;
-                body = new Let(extract(reference.getId(), lookup.push(reference.getId())), reference);
+                body = let(extract(reference.getId(), lookup.push(reference.getId())), reference);
             }
 
-            expression = new Lambda(body);
+            expression = lambda(body);
         }
         else {
             getChildren(expression).stream()

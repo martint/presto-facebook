@@ -16,9 +16,10 @@ package com.facebook.presto.sql.optimizer.engine2;
 import com.facebook.presto.sql.optimizer.tree2.Expression;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.sql.optimizer.tree2.Call.call;
-import static com.facebook.presto.sql.optimizer.tree2.Lambda.lambda;
-import static com.facebook.presto.sql.optimizer.tree2.Value.value;
+import static com.facebook.presto.sql.optimizer.tree2.Expressions.call;
+import static com.facebook.presto.sql.optimizer.tree2.Expressions.lambda;
+import static com.facebook.presto.sql.optimizer.tree2.Expressions.localReference;
+import static com.facebook.presto.sql.optimizer.tree2.Expressions.value;
 
 public class TestOptimizer
 {
@@ -64,8 +65,8 @@ public class TestOptimizer
                 call("logical-filter",
                         call("logical-filter",
                                 call("get", value("t")),
-                                lambda(value("x"))),
-                        lambda(value("y")));
+                                lambda(call("deref", localReference(), value("x")))),
+                        lambda(call("deref", localReference(), value("y"))));
 
         System.out.println(expression.toString());
         System.out.println();
