@@ -17,56 +17,65 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
+
+import static java.util.Objects.requireNonNull;
 
 public class Call
-    extends Expression
+        extends Expression
 {
-    private String function;
+    private final String name;
+    private final List<Expression> arguments;
 
-    public Call(String function, Expression... arguments)
+    public Call(String name, List<Expression> arguments)
     {
-        this(function, ImmutableList.copyOf(arguments));
+        requireNonNull(name, "name is null");
+        requireNonNull(arguments, "arguments is null");
+
+        this.name = name;
+        this.arguments = arguments;
     }
 
-    public Call(String function, List<Expression> arguments)
-    {
-        super(arguments);
-        this.function = function;
-    }
-
-    public String getFunction()
-    {
-        return function;
-    }
-
-    @Override
     public String getName()
     {
-        return "call";
+        return name;
+    }
+
+    public List<Expression> getArguments()
+    {
+        return arguments;
+    }
+
+    public Call copyWithArguments(List<Expression> arguments)
+    {
+        return new Call(name, arguments);
     }
 
     @Override
-    public Expression copyWithArguments(List<Expression> arguments)
+    public boolean equals(Object o)
     {
-        return new Call(function, arguments);
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        Call call = (Call) o;
+        return Objects.equals(name, call.name) &&
+                Objects.equals(arguments, call.arguments);
+    }
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(name, arguments);
     }
 
     @Override
-    public String toString()
+    public List<Object> terms()
     {
-        return String.format("(call '%s' %s)", function, getArguments());
-    }
-
-    @Override
-    protected boolean shallowEquals(Expression other)
-    {
-        Call that = (Call) other;
-        return Objects.equals(function, that.function);
-    }
-
-    @Override
-    protected int shallowHashCode()
-    {
-        return function.hashCode();
+        return ImmutableList.builder()
+                .add(name)
+                .addAll(arguments.stream().map(Expression::terms).collect(Collectors.toList()))
+                .build();
     }
 }

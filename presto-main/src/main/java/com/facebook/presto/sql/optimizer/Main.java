@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.sql.optimizer;
 
-import com.facebook.presto.sql.optimizer.engine.CostBasedOptimizer;
-import com.facebook.presto.sql.optimizer.tree.Get;
-import com.facebook.presto.sql.optimizer.tree.GlobalLimit;
-import com.facebook.presto.sql.optimizer.tree.Project;
-import com.facebook.presto.sql.optimizer.tree.Union;
+import com.facebook.presto.sql.optimizer.old.engine.CostBasedOptimizer;
+import com.facebook.presto.sql.optimizer.old.tree.Get;
+import com.facebook.presto.sql.optimizer.old.tree.GlobalLimit;
+import com.facebook.presto.sql.optimizer.old.tree.Project;
+import com.facebook.presto.sql.optimizer.old.tree.Union;
 
 public class Main
 {

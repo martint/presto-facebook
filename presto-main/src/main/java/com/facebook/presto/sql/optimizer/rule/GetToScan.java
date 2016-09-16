@@ -15,11 +15,13 @@ package com.facebook.presto.sql.optimizer.rule;
 
 import com.facebook.presto.sql.optimizer.engine.Lookup;
 import com.facebook.presto.sql.optimizer.engine.Rule;
+import com.facebook.presto.sql.optimizer.tree.Call;
 import com.facebook.presto.sql.optimizer.tree.Expression;
-import com.facebook.presto.sql.optimizer.tree.Get;
-import com.facebook.presto.sql.optimizer.tree.Scan;
 
 import java.util.stream.Stream;
+
+import static com.facebook.presto.sql.optimizer.engine.Patterns.isCall;
+import static com.facebook.presto.sql.optimizer.tree.Expressions.call;
 
 public class GetToScan
         implements Rule
@@ -27,14 +29,14 @@ public class GetToScan
     @Override
     public Stream<Expression> apply(Expression expression, Lookup lookup)
     {
-        return lookup.lookup(expression)
-                .filter(Get.class::isInstance)
-                .map(Get.class::cast)
+        return lookup.resolve(expression)
+                .filter(isCall("get"))
+                .map(Call.class::cast)
                 .map(this::process);
     }
 
-    private Scan process(Get expression)
+    private Call process(Call call)
     {
-        return new Scan(expression.getTable());
+        return call("scan", call.getArguments().get(0));
     }
 }

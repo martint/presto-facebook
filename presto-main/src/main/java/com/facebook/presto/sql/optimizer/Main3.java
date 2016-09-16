@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.sql.optimizer;
 
-import com.facebook.presto.sql.optimizer.engine.Memo;
-import com.facebook.presto.sql.optimizer.tree.Expression;
-import com.facebook.presto.sql.optimizer.tree.Get;
+import com.facebook.presto.sql.optimizer.old.engine.Memo;
+import com.facebook.presto.sql.optimizer.old.tree.Expression;
+import com.facebook.presto.sql.optimizer.old.tree.Get;
 
 public class Main3
 {

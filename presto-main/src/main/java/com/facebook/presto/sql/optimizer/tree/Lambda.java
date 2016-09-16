@@ -13,64 +13,52 @@
  */
 package com.facebook.presto.sql.optimizer.tree;
 
+import com.google.common.collect.ImmutableList;
+
 import java.util.List;
 import java.util.Objects;
 
-import static com.facebook.presto.sql.optimizer.utils.CollectionConstructors.list;
+import static java.util.Objects.requireNonNull;
 
-public class Lambda
-    extends Expression
+public final class Lambda
+        extends Expression
 {
-    private final String variable;
-    private final Expression expression;
+    private final Expression body;
 
-    public Lambda(String variable, Expression expression)
+    Lambda(Expression body)
     {
-        super(list());
-        this.expression = expression;
-        this.variable = variable;
+        requireNonNull(body, "body is null");
+
+        this.body = body;
     }
 
-    public Expression getExpression()
+    public Expression getBody()
     {
-        return expression;
-    }
-
-    public String getVariable()
-    {
-        return variable;
+        return body;
     }
 
     @Override
-    public String toString()
+    public int hashCode()
     {
-        return String.format("(\\%s %s)", variable, expression);
+        return Objects.hash(body);
     }
 
     @Override
-    public String getName()
+    public boolean equals(Object o)
     {
-        return "lambda";
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        Lambda lambda = (Lambda) o;
+        return Objects.equals(body, lambda.body);
     }
 
     @Override
-    public Expression copyWithArguments(List<Expression> arguments)
+    public List<Object> terms()
     {
-        return this;
-    }
-
-    @Override
-    protected int shallowHashCode()
-    {
-        return Objects.hash(variable, expression);
-    }
-
-    @Override
-    protected boolean shallowEquals(Expression other)
-    {
-        Lambda that = (Lambda) other;
-
-        return Objects.equals(variable, that.variable) &&
-                Objects.equals(expression, that.variable);
+        return ImmutableList.of("lambda", body.terms());
     }
 }

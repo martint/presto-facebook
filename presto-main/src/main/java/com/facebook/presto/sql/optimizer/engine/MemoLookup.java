@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.optimizer.engine;
 
 import com.facebook.presto.sql.optimizer.tree.Expression;
-import com.facebook.presto.sql.optimizer.tree.Reference;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.Set;
@@ -23,7 +22,7 @@ import java.util.stream.Stream;
 
 /**
  * A lookup that avoids re-visiting the same entries (due to cycles in the memo)
- *
+ * <p>
  * Expressions can only be looked up once.
  * TODO: maybe add the "stack" as an argument to the lookup method and check against
  * those entries to see if the there's a cycle instead of making this implementation
@@ -34,20 +33,20 @@ class MemoLookup
         implements Lookup
 {
     private final Memo memo;
-    private final Set<String> visited;
+    private final Set<Long> visited;
     private final Function<Stream<VersionedItem<Expression>>, Stream<VersionedItem<Expression>>> selector;
 
-    public MemoLookup(Memo memo, String group)
+    public MemoLookup(Memo memo, long group)
     {
         this(memo, group, Function.identity());
     }
 
-    public MemoLookup(Memo memo, String group, Function<Stream<VersionedItem<Expression>>, Stream<VersionedItem<Expression>>> selector)
+    public MemoLookup(Memo memo, long group, Function<Stream<VersionedItem<Expression>>, Stream<VersionedItem<Expression>>> selector)
     {
         this(memo, selector, ImmutableSet.of(group));
     }
 
-    private MemoLookup(Memo memo, Function<Stream<VersionedItem<Expression>>, Stream<VersionedItem<Expression>>> selector, Set<String> visited)
+    private MemoLookup(Memo memo, Function<Stream<VersionedItem<Expression>>, Stream<VersionedItem<Expression>>> selector, Set<Long> visited)
     {
         this.memo = memo;
         this.visited = ImmutableSet.copyOf(visited);
@@ -55,15 +54,16 @@ class MemoLookup
     }
 
     @Override
-    public Stream<Expression> lookup(Expression expression)
+    public Stream<Expression> resolve(Expression expression)
     {
-        if (expression instanceof Reference) {
-            String name = ((Reference) expression).getName();
+        if (expression instanceof GroupReference) {
+            long group = ((GroupReference) expression).getId();
 
-            Stream<VersionedItem<Expression>> candidates = memo.getExpressions(name).stream()
-                    .filter(e -> !e.get().getArguments().stream()
-                            .map(Reference.class::cast)
-                            .map(Reference::getName)
+            // remove expressions that reference any group that has already been visited to avoid unbounded recursion
+            Stream<VersionedItem<Expression>> candidates = memo.getExpressions(group).stream()
+                    .filter(item -> !Utils.getChildren(item.get()).stream()
+                            .map(GroupReference.class::cast)
+                            .map(GroupReference::getId)
                             .anyMatch(visited::contains));
 
             return selector.apply(candidates).map(VersionedItem::get);
@@ -72,9 +72,9 @@ class MemoLookup
         return Stream.of(expression);
     }
 
-    public MemoLookup push(String group)
+    public MemoLookup push(long group)
     {
-        Set<String> visited = ImmutableSet.<String>builder()
+        Set<Long> visited = ImmutableSet.<Long>builder()
                 .addAll(this.visited)
                 .add(group)
                 .build();

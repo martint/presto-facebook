@@ -13,7 +13,12 @@
  */
 package com.facebook.presto.sql.optimizer.tree;
 
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
 import java.util.Objects;
+
+import static java.util.Objects.requireNonNull;
 
 public class Assignment
 {
@@ -22,18 +27,21 @@ public class Assignment
 
     public Assignment(String variable, Expression expression)
     {
-        this.expression = expression;
-        this.variable = variable;
-    }
+        requireNonNull(variable, "variable is null");
+        requireNonNull(expression, "expression is null");
 
-    public Expression getExpression()
-    {
-        return expression;
+        this.variable = variable;
+        this.expression = expression;
     }
 
     public String getVariable()
     {
         return variable;
+    }
+
+    public Expression getExpression()
+    {
+        return expression;
     }
 
     @Override
@@ -56,9 +64,8 @@ public class Assignment
         return Objects.hash(variable, expression);
     }
 
-    @Override
-    public String toString()
+    public List<Object> terms()
     {
-        return String.format("(%s %s)", variable, expression);
+        return ImmutableList.of(variable, expression.terms());
     }
 }

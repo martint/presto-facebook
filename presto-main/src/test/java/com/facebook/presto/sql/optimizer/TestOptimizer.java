@@ -13,35 +13,35 @@
  */
 package com.facebook.presto.sql.optimizer;
 
-import com.facebook.presto.sql.optimizer.engine.GreedyOptimizer;
-import com.facebook.presto.sql.optimizer.engine.Optimizer;
-import com.facebook.presto.sql.optimizer.rule.CombineGlobalLimits;
-import com.facebook.presto.sql.optimizer.rule.CombineLocalLimits;
-import com.facebook.presto.sql.optimizer.rule.CombineUnions;
-import com.facebook.presto.sql.optimizer.rule.OrderByLimitToTopN;
-import com.facebook.presto.sql.optimizer.rule.PushFilterThroughProject;
-import com.facebook.presto.sql.optimizer.rule.PushGlobalLimitThroughUnion;
-import com.facebook.presto.sql.optimizer.rule.PushLocalLimitThroughUnion;
-import com.facebook.presto.sql.optimizer.tree.Apply;
-import com.facebook.presto.sql.optimizer.tree.Call;
-import com.facebook.presto.sql.optimizer.tree.Constant;
-import com.facebook.presto.sql.optimizer.tree.EnforceScalar;
-import com.facebook.presto.sql.optimizer.tree.Expression;
-import com.facebook.presto.sql.optimizer.tree.Filter;
-import com.facebook.presto.sql.optimizer.tree.Get;
-import com.facebook.presto.sql.optimizer.tree.GlobalLimit;
-import com.facebook.presto.sql.optimizer.tree.Join;
-import com.facebook.presto.sql.optimizer.tree.Lambda;
-import com.facebook.presto.sql.optimizer.tree.Project;
-import com.facebook.presto.sql.optimizer.tree.Reference;
-import com.facebook.presto.sql.optimizer.tree.Scan;
-import com.facebook.presto.sql.optimizer.tree.Sort;
-import com.facebook.presto.sql.optimizer.tree.Union;
+import com.facebook.presto.sql.optimizer.old.engine.GreedyOptimizer;
+import com.facebook.presto.sql.optimizer.old.engine.Optimizer;
+import com.facebook.presto.sql.optimizer.old.rule.CombineGlobalLimits;
+import com.facebook.presto.sql.optimizer.old.rule.CombineLocalLimits;
+import com.facebook.presto.sql.optimizer.old.rule.CombineUnions;
+import com.facebook.presto.sql.optimizer.old.rule.OrderByLimitToTopN;
+import com.facebook.presto.sql.optimizer.old.rule.PushFilterThroughProject;
+import com.facebook.presto.sql.optimizer.old.rule.PushGlobalLimitThroughUnion;
+import com.facebook.presto.sql.optimizer.old.rule.PushLocalLimitThroughUnion;
+import com.facebook.presto.sql.optimizer.old.tree.Apply;
+import com.facebook.presto.sql.optimizer.old.tree.Call;
+import com.facebook.presto.sql.optimizer.old.tree.Constant;
+import com.facebook.presto.sql.optimizer.old.tree.EnforceScalar;
+import com.facebook.presto.sql.optimizer.old.tree.Expression;
+import com.facebook.presto.sql.optimizer.old.tree.Filter;
+import com.facebook.presto.sql.optimizer.old.tree.Get;
+import com.facebook.presto.sql.optimizer.old.tree.GlobalLimit;
+import com.facebook.presto.sql.optimizer.old.tree.Join;
+import com.facebook.presto.sql.optimizer.old.tree.Lambda;
+import com.facebook.presto.sql.optimizer.old.tree.Project;
+import com.facebook.presto.sql.optimizer.old.tree.Reference;
+import com.facebook.presto.sql.optimizer.old.tree.Scan;
+import com.facebook.presto.sql.optimizer.old.tree.Sort;
+import com.facebook.presto.sql.optimizer.old.tree.Union;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.sql.optimizer.utils.CollectionConstructors.list;
 import static com.facebook.presto.sql.optimizer.utils.CollectionConstructors.set;
-import static com.facebook.presto.sql.optimizer.tree.Formatter.format;
+import static com.facebook.presto.sql.optimizer.old.tree.Formatter.format;
 
 public class TestOptimizer
 {

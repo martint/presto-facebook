@@ -13,72 +13,18 @@
  */
 package com.facebook.presto.sql.optimizer.tree;
 
-import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableList;
+import com.facebook.presto.sql.optimizer.utils.ListFormatter;
 
-import javax.annotation.concurrent.Immutable;
-
-import java.util.List;
-import java.util.Objects;
-
-import static java.util.Objects.requireNonNull;
-
-// TODO:
-//  consider representing everything as arguments (filter expressions, sort criteria, etc)
-
-@Immutable
 public abstract class Expression
 {
-    private final List<Expression> arguments;
-    private int hashCode;
+    public abstract int hashCode();
+    public abstract boolean equals(Object other);
 
-    public Expression(List<Expression> arguments)
-    {
-        requireNonNull(arguments, "arguments is null");
-        this.arguments = ImmutableList.copyOf(arguments);
-    }
-
-    public final List<Expression> getArguments()
-    {
-        return arguments;
-    }
-
-    public abstract String getName();
-
-    public abstract Expression copyWithArguments(List<Expression> arguments);
-
-    protected abstract int shallowHashCode();
-
-    protected abstract boolean shallowEquals(Expression other);
+    public abstract Object terms();
 
     @Override
     public String toString()
     {
-        return "(" + getName() + " " + Joiner.on(" ").join(arguments) + ")";
-    }
-
-    public final boolean equals(Object other)
-    {
-        if (this == other) {
-            return true;
-        }
-        if (other == null || getClass() != other.getClass()) {
-            return false;
-        }
-
-        Expression that = (Expression) other;
-        return shallowEquals(that) &&
-                Objects.equals(arguments, that.getArguments());
-    }
-
-    public final int hashCode()
-    {
-        int hash = hashCode;
-        if (hash == 0) {
-            hash = Objects.hash(arguments, shallowHashCode());
-            hashCode = hash;
-        }
-
-        return hash;
+        return ListFormatter.format(terms());
     }
 }

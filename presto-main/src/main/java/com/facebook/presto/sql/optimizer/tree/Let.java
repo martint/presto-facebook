@@ -13,66 +13,56 @@
  */
 package com.facebook.presto.sql.optimizer.tree;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Objects.requireNonNull;
 
-public class Let
-    extends Expression
+public final class Let
+        extends Expression
 {
     private final List<Assignment> assignments;
-    private final Expression expression;
+    private final Expression body;
 
-    public Let(List<Assignment> assignments, Expression expression)
+    Let(List<Assignment> assignments, Expression body)
     {
-        super(ImmutableList.of());
+        requireNonNull(assignments, "assignments is null");
+        requireNonNull(body, "body is null");
+
         this.assignments = assignments;
-        this.expression = expression;
+        this.body = body;
     }
 
     @Override
-    public String getName()
+    public boolean equals(Object o)
     {
-        return "let";
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        Let let = (Let) o;
+        return Objects.equals(assignments, let.assignments) &&
+                Objects.equals(body, let.body);
     }
 
     @Override
-    public Expression copyWithArguments(List<Expression> arguments)
+    public int hashCode()
     {
-        checkArgument(arguments.isEmpty());
-        return this;
-    }
-
-    public List<Assignment> getAssignments()
-    {
-        return assignments;
-    }
-
-    public Expression getExpression()
-    {
-        return expression;
+        return Objects.hash(assignments, body);
     }
 
     @Override
-    public String toString()
+    public List<Object> terms()
     {
-        return String.format("(let (%s) %s)", Joiner.on(" ").join(assignments), expression);
-    }
-
-    @Override
-    protected boolean shallowEquals(Expression other)
-    {
-        Let that = (Let) other;
-        return Objects.equals(assignments, that.assignments) &&
-                Objects.equals(expression, that.expression);    }
-
-    @Override
-    protected int shallowHashCode()
-    {
-        return Objects.hash(assignments, expression);
+        return ImmutableList.builder()
+                .add("let")
+                .add(assignments.stream().map(Assignment::terms).collect(Collectors.toList()))
+                .add(body.terms())
+                .build();
     }
 }

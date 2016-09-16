@@ -13,29 +13,19 @@
  */
 package com.facebook.presto.sql.optimizer.tree;
 
-import com.google.common.collect.ImmutableList;
-
-import java.util.List;
 import java.util.Objects;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Objects.requireNonNull;
 
-public class Reference
-    extends Expression
+public final class Reference
+        extends Expression
 {
-    private String name;
+    private final String name;
 
-    public Reference(String name)
+    Reference(String name)
     {
-        super(ImmutableList.of());
+        requireNonNull(name, "name is null");
         this.name = name;
-    }
-
-    @Override
-    public Expression copyWithArguments(List<Expression> arguments)
-    {
-        checkArgument(arguments.isEmpty());
-        return this;
     }
 
     public String getName()
@@ -44,21 +34,27 @@ public class Reference
     }
 
     @Override
-    public String toString()
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        Reference reference = (Reference) o;
+        return Objects.equals(name, reference.name);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(name);
+    }
+
+    @Override
+    public Object terms()
     {
         return name;
-    }
-
-    @Override
-    protected boolean shallowEquals(Expression other)
-    {
-        Reference that = (Reference) other;
-        return Objects.equals(name, that.name);
-    }
-
-    @Override
-    protected int shallowHashCode()
-    {
-        return name.hashCode();
     }
 }

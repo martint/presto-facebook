@@ -13,31 +13,13 @@
  */
 package com.facebook.presto.sql.optimizer.engine;
 
-import com.facebook.presto.sql.optimizer.rule.CombineFilterAndCrossJoin;
-import com.facebook.presto.sql.optimizer.rule.CombineFilters;
-import com.facebook.presto.sql.optimizer.rule.CombineGlobalLimits;
-import com.facebook.presto.sql.optimizer.rule.CombineProjections;
-import com.facebook.presto.sql.optimizer.rule.CombineScanFilterProject;
-import com.facebook.presto.sql.optimizer.rule.CombineUnions;
 import com.facebook.presto.sql.optimizer.rule.GetToScan;
-import com.facebook.presto.sql.optimizer.rule.IntersectToUnion;
-import com.facebook.presto.sql.optimizer.rule.OrderByLimitToTopN;
-import com.facebook.presto.sql.optimizer.rule.PushAggregationThroughUnion;
-import com.facebook.presto.sql.optimizer.rule.PushFilterThroughAggregation;
-import com.facebook.presto.sql.optimizer.rule.PushFilterThroughProject;
-import com.facebook.presto.sql.optimizer.rule.PushFilterThroughSort;
-import com.facebook.presto.sql.optimizer.rule.PushFilterThroughUnion;
-import com.facebook.presto.sql.optimizer.rule.PushGlobalLimitThroughUnion;
-import com.facebook.presto.sql.optimizer.rule.PushGlobalTopNThroughUnion;
-import com.facebook.presto.sql.optimizer.rule.PushLimitThroughProject;
-import com.facebook.presto.sql.optimizer.rule.PushLocalLimitThroughUnion;
-import com.facebook.presto.sql.optimizer.rule.PushLocalTopNThroughUnion;
-import com.facebook.presto.sql.optimizer.rule.RemoveIdentityProjection;
-import com.facebook.presto.sql.optimizer.rule.UncorrelatedScalarToJoin;
+import com.facebook.presto.sql.optimizer.rule.LogicalToPhysicalFilter;
+import com.facebook.presto.sql.optimizer.rule.MergePhysicalFilters;
+import com.facebook.presto.sql.optimizer.rule.RemoveRedundantFilter;
 import com.facebook.presto.sql.optimizer.tree.Assignment;
 import com.facebook.presto.sql.optimizer.tree.Expression;
-import com.facebook.presto.sql.optimizer.tree.Let;
-import com.facebook.presto.sql.optimizer.tree.Reference;
+import com.facebook.presto.sql.optimizer.tree.Lambda;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -50,56 +32,75 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.sql.optimizer.engine.Utils.getChildren;
+import static com.facebook.presto.sql.optimizer.tree.Expressions.lambda;
+import static com.facebook.presto.sql.optimizer.tree.Expressions.let;
+import static com.facebook.presto.sql.optimizer.tree.Expressions.variable;
 import static com.google.common.base.Preconditions.checkState;
 
 public class GreedyOptimizer
         implements Optimizer
 {
+    private final boolean debug;
+
     private final List<Set<Rule>> batches;
 
-    public GreedyOptimizer(List<Set<Rule>> batches)
+    public GreedyOptimizer(boolean debug, List<Set<Rule>> batches)
     {
+        this.debug = debug;
         this.batches = ImmutableList.copyOf(batches);
     }
 
-    public GreedyOptimizer()
+    public GreedyOptimizer(boolean debug)
     {
-        this(ImmutableList.of(
+        this(debug, ImmutableList.of(
                 ImmutableSet.of(
-                        new IntersectToUnion(),
-                        new UncorrelatedScalarToJoin()
+                        new RemoveRedundantFilter()
                 ),
                 ImmutableSet.of(
-                        new RemoveIdentityProjection(),
-                        new PushFilterThroughProject(),
-                        new PushFilterThroughAggregation(),
-                        new PushFilterThroughUnion(),
-                        new PushFilterThroughSort(),
-                        new PushAggregationThroughUnion(),
-                        new CombineFilters(),
-                        new CombineGlobalLimits(),
-                        new CombineProjections(),
-                        new PushGlobalLimitThroughUnion(),
-                        new PushLocalLimitThroughUnion(),
-                        new PushLimitThroughProject(),
-                        new CombineUnions(),
-                        new OrderByLimitToTopN(),
-                        new PushGlobalTopNThroughUnion(),
-                        new PushLocalTopNThroughUnion()
-                ),
-                ImmutableSet.of(
-                        new CombineScanFilterProject(),
-                        new CombineFilterAndCrossJoin(),
-                        new GetToScan())));
+                        new GetToScan(),
+                        new LogicalToPhysicalFilter(),
+                        new MergePhysicalFilters()
+                )
+        ));
+
+//                ImmutableSet.of(
+//                        new IntersectToUnion(),
+//                        new UncorrelatedScalarToJoin()
+//                ),
+//                ImmutableSet.of(
+//                        new RemoveIdentityProjection(),
+//                        new PushFilterThroughProject(),
+//                        new PushFilterThroughAggregation(),
+//                        new PushFilterThroughUnion(),
+//                        new PushFilterThroughSort(),
+//                        new PushAggregationThroughUnion(),
+//                        new CombineFilters(),
+//                        new CombineGlobalLimits(),
+//                        new CombineProjections(),
+//                        new PushGlobalLimitThroughUnion(),
+//                        new PushLocalLimitThroughUnion(),
+//                        new PushLimitThroughProject(),
+//                        new CombineUnions(),
+//                        new OrderByLimitToTopN(),
+//                        new PushGlobalTopNThroughUnion(),
+//                        new PushLocalTopNThroughUnion()
+//                ),
+//                ImmutableSet.of(
+//                        new CombineScanFilterProject(),
+//                        new CombineFilterAndCrossJoin(),
+//                        new GetToScan())));
+//        ));
     }
 
     public Expression optimize(Expression expression)
     {
         Memo memo = new Memo(true);
 
-        String rootClass = memo.insert(expression);
+        long rootClass = memo.insert(expression);
 
         System.out.println(memo.toGraphviz());
+        memo.dump();
 
         MemoLookup lookup = new MemoLookup(
                 memo,
@@ -110,6 +111,8 @@ public class GreedyOptimizer
         for (Set<Rule> batch : batches) {
             explore(memo, lookup, new HashSet<>(), batch, rootClass);
         }
+
+        System.out.println(memo.toGraphviz());
 
         List<Assignment> assignments = extract(rootClass, lookup);
 
@@ -140,17 +143,17 @@ public class GreedyOptimizer
 
         System.out.println(memo.dump());
 
-        return new Let(assignments, new Reference(rootClass));
+        return let(assignments, variable("$" + rootClass));
     }
 
-    private boolean explore(Memo memo, MemoLookup lookup, Set<String> explored, Set<Rule> rules, String group)
+    private boolean explore(Memo memo, MemoLookup lookup, Set<Long> explored, Set<Rule> rules, long group)
     {
         if (explored.contains(group)) {
             return false;
         }
         explored.add(group);
 
-        Expression expression = lookup.lookup(new Reference(group))
+        Expression expression = lookup.resolve(new GroupReference(group))
                 .findFirst()
                 .get();
 
@@ -167,10 +170,10 @@ public class GreedyOptimizer
                 expression = rewritten.get();
             }
 
-            childrenChanged = expression.getArguments().stream()
-                    .map(Reference.class::cast)
-                    .map(Reference::getName)
-                    .map(name -> explore(memo, lookup.push(name), explored, rules, name))
+            childrenChanged = getChildren(expression).stream()
+                    .map(GroupReference.class::cast)
+                    .map(GroupReference::getId)
+                    .map(id -> explore(memo, lookup.push(id), explored, rules, id))
                     .anyMatch(v -> v);
 
             changed = changed || progress || childrenChanged;
@@ -188,16 +191,42 @@ public class GreedyOptimizer
         do {
             progress = false;
             for (Rule rule : rules) {
+                if (debug) {
+                    System.out.println("***** Rule: " + rule.getClass().getSimpleName() + " *****");
+                    System.out.println(expression);
+                    System.out.println();
+                }
+
                 List<Expression> transformed = rule.apply(expression, lookup)
                         .collect(Collectors.toList());
 
+                if (debug) {
+                    System.out.println("=>");
+                    for (Expression e : transformed) {
+                        System.out.println(e);
+                    }
+                }
                 checkState(transformed.size() <= 1, "Expected one expression");
                 if (!transformed.isEmpty()) {
                     Optional<Expression> rewritten = memo.transform(expression, transformed.get(0), rule.getClass().getSimpleName());
+
                     if (rewritten.isPresent()) {
                         changed = true;
                         progress = true;
                         expression = rewritten.get();
+
+                        if (expression instanceof GroupReference) {
+                            // This could happen if the expression was determined to be equivalent to its child (i.e., a no op such as a TRUE filter)
+                            // In that case, find the active expression in the given group and continue processing
+                            expression = lookup.resolve(expression)
+                                    .findFirst()
+                                    .get();
+                        }
+
+                        if (debug) {
+                            System.out.println(memo.dump());
+                            System.out.println();
+                        }
                     }
                 }
             }
@@ -211,24 +240,38 @@ public class GreedyOptimizer
         return Optional.empty();
     }
 
-    private List<Assignment> extract(String group, MemoLookup lookup)
+    private List<Assignment> extract(long group, MemoLookup lookup)
     {
-        Expression expression = lookup.lookup(new Reference(group))
+        Expression expression = lookup.resolve(new GroupReference(group))
                 .findFirst()
                 .get();
 
         List<Assignment> assignments = new ArrayList<>();
-        expression.getArguments().stream()
-                .map(Reference.class::cast)
-                .map(e -> extract(e.getName(), lookup.push(e.getName())))
-                .flatMap(List::stream)
-                .forEach(a -> {
-                    if (!assignments.contains(a)) { // TODO: potentially inefficient -- need an ordered set
-                        assignments.add(a);
-                    }
-                });
 
-        Assignment assignment = new Assignment(group, expression);
+        if (expression instanceof Lambda) {
+            Lambda lambda = (Lambda) expression;
+            Expression body = lambda.getBody();
+
+            if (body instanceof GroupReference) {
+                GroupReference reference = (GroupReference) body;
+                body = let(extract(reference.getId(), lookup.push(reference.getId())), reference);
+            }
+
+            expression = lambda(body);
+        }
+        else {
+            getChildren(expression).stream()
+                    .map(GroupReference.class::cast)
+                    .map(e -> extract(e.getId(), lookup.push(e.getId())))
+                    .flatMap(List::stream)
+                    .forEach(a -> {
+                        if (!assignments.contains(a)) { // TODO: potentially inefficient -- need an ordered set
+                            assignments.add(a);
+                        }
+                    });
+        }
+
+        Assignment assignment = new Assignment("$" + group, expression);
         if (!assignments.contains(assignment)) {
             assignments.add(assignment);
         }
