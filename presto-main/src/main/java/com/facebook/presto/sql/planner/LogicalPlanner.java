@@ -28,6 +28,7 @@ import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.RelationType;
 import com.facebook.presto.sql.analyzer.Scope;
+import com.facebook.presto.sql.optimizer.LegacyToNew;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
@@ -112,6 +113,8 @@ public class LogicalPlanner
     public Plan plan(Analysis analysis, Stage stage)
     {
         PlanNode root = planStatement(analysis, analysis.getStatement());
+
+        System.out.println(LegacyToNew.translate(root));
 
         if (stage.ordinal() >= Stage.OPTIMIZED.ordinal()) {
             for (PlanOptimizer optimizer : planOptimizers) {

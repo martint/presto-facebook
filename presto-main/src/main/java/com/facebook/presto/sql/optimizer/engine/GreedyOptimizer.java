@@ -171,6 +171,7 @@ public class GreedyOptimizer
             }
 
             childrenChanged = getChildren(expression).stream()
+                    .filter(GroupReference.class::isInstance)
                     .map(GroupReference.class::cast)
                     .map(GroupReference::getId)
                     .map(id -> explore(memo, lookup.push(id), explored, rules, id))
@@ -261,6 +262,7 @@ public class GreedyOptimizer
         }
         else {
             getChildren(expression).stream()
+                    .filter(GroupReference.class::isInstance)
                     .map(GroupReference.class::cast)
                     .map(e -> extract(e.getId(), lookup.push(e.getId())))
                     .flatMap(List::stream)

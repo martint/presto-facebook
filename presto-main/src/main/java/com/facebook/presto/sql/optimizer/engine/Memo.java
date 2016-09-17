@@ -16,6 +16,8 @@ package com.facebook.presto.sql.optimizer.engine;
 import com.facebook.presto.sql.optimizer.tree.Call;
 import com.facebook.presto.sql.optimizer.tree.Expression;
 import com.facebook.presto.sql.optimizer.tree.Lambda;
+import com.facebook.presto.sql.optimizer.tree.ScopeReference;
+import com.facebook.presto.sql.optimizer.tree.Value;
 import com.facebook.presto.sql.optimizer.utils.DisjointSets;
 import com.facebook.presto.sql.optimizer.utils.Graph;
 import com.google.common.base.Joiner;
@@ -197,18 +199,19 @@ public class Memo
                     .map(argument -> {
                         if (argument instanceof GroupReference) {
                             // TODO: make sure group exists
-                            return canonicalize(((GroupReference) argument).getId());
+                            return new GroupReference(canonicalize(((GroupReference) argument).getId()));
+                        }
+                        else if (argument instanceof Value || argument instanceof ScopeReference) {
+                            return argument;
                         }
 
-                        return insertRecursive(argument);
+                        return new GroupReference(insertRecursive(argument));
                     })
-                    .map(GroupReference::new)
                     .collect(Collectors.toList());
 
             result = call.copyWithArguments(arguments);
         }
-        else if (expression instanceof Lambda)
-        {
+        else if (expression instanceof Lambda) {
             result = lambda(group(insertRecursive(((Lambda) expression).getBody())));
         }
 
@@ -220,7 +223,7 @@ public class Memo
         checkArgument(!(expression instanceof GroupReference), "Cannot add a group reference %s to %s", expression, group);
 
         if (expression instanceof Call) {
-            checkArgument(((Call) expression).getArguments().stream().allMatch(GroupReference.class::isInstance), "Expected all arguments to be group references: %s", expression);
+            checkArgument(((Call) expression).getArguments().stream().allMatch(e -> e instanceof GroupReference || e instanceof Value || e instanceof ScopeReference), "Expected all arguments to be group references, values or variable references: %s", expression);
         }
 
         expressionMembership.put(expression, group);
@@ -229,6 +232,7 @@ public class Memo
 
         if (expression instanceof Call) {
             ((Call) expression).getArguments().stream()
+                    .filter(GroupReference.class::isInstance)
                     .map(GroupReference.class::cast)
                     .map(GroupReference::getId)
                     .forEach(child -> incomingReferences.get(child).putIfAbsent(expression, version++));
@@ -264,13 +268,15 @@ public class Memo
     {
         if (expression instanceof Call) {
             Call call = (Call) expression;
-            checkArgument(call.getArguments().stream().allMatch(GroupReference.class::isInstance), "Expected all arguments to be references for: %s", expression);
+            checkArgument(call.getArguments().stream().allMatch(e -> e instanceof GroupReference || e instanceof Value || e instanceof ScopeReference), "Expected all arguments to be group references, values or variable references: %s", expression);
 
             List<Expression> newArguments = call.getArguments().stream()
-                    .map(GroupReference.class::cast)
-                    .map(GroupReference::getId)
-                    .map(this::canonicalize)
-                    .map(GroupReference::new)
+                    .map(argument -> {
+                        if (argument instanceof GroupReference) {
+                            return new GroupReference(canonicalize(((GroupReference) argument).getId()));
+                        }
+                        return argument;
+                    })
                     .collect(Collectors.toList());
 
             return call.copyWithArguments(newArguments);

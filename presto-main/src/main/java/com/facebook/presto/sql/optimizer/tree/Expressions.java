@@ -28,6 +28,11 @@ public final class Expressions
         return new Call(name, ImmutableList.copyOf(arguments));
     }
 
+    public static Call call(String name, List<Expression> arguments)
+    {
+        return new Call(name, ImmutableList.copyOf(arguments));
+    }
+
     public static Lambda lambda(Expression body)
     {
         return new Lambda(body);
