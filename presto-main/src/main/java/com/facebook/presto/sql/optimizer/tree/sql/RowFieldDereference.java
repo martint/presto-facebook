@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.sql.optimizer.tree.sql;
 
-import com.facebook.presto.sql.optimizer.tree.Call;
+import com.facebook.presto.sql.optimizer.tree.Apply;
 import com.facebook.presto.sql.optimizer.tree.Expression;
 
 import static com.facebook.presto.sql.optimizer.tree.Expressions.value;
 import static com.facebook.presto.sql.optimizer.utils.CollectionConstructors.list;
 
 public class RowFieldDereference
-    extends Call
+    extends Apply
 {
     public RowFieldDereference(Expression row, int field)
     {

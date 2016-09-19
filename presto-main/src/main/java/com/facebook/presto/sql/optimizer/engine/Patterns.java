@@ -13,8 +13,9 @@
  */
 package com.facebook.presto.sql.optimizer.engine;
 
-import com.facebook.presto.sql.optimizer.tree.Call;
+import com.facebook.presto.sql.optimizer.tree.Apply;
 import com.facebook.presto.sql.optimizer.tree.Expression;
+import com.facebook.presto.sql.optimizer.tree.Reference;
 
 import java.util.function.Predicate;
 
@@ -26,6 +27,17 @@ public class Patterns
 
     public static Predicate<Expression> isCall(String name)
     {
-        return expression -> (expression instanceof Call) && ((Call) expression).getName().equals(name);
+        return expression -> {
+            if (!(expression instanceof Apply)) {
+                return false;
+            }
+
+            Apply apply = (Apply) expression;
+            if (!(apply.getArguments().get(0) instanceof Reference)) {
+                return false;
+            }
+
+            return ((Reference) apply.getArguments().get(0)).getName().equals(name);
+        };
     }
 }

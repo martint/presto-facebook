@@ -15,7 +15,7 @@ package com.facebook.presto.sql.optimizer.rule;
 
 import com.facebook.presto.sql.optimizer.engine.Lookup;
 import com.facebook.presto.sql.optimizer.engine.Rule;
-import com.facebook.presto.sql.optimizer.tree.Call;
+import com.facebook.presto.sql.optimizer.tree.Apply;
 import com.facebook.presto.sql.optimizer.tree.Expression;
 
 import java.util.stream.Stream;
@@ -31,12 +31,12 @@ public class LogicalToPhysicalFilter
     {
         return lookup.resolve(expression)
                 .filter(isCall("logical-filter"))
-                .map(Call.class::cast)
+                .map(Apply.class::cast)
                 .map(this::process);
     }
 
-    private Call process(Call call)
+    private Apply process(Apply apply)
     {
-        return call("physical-filter", call.getArguments().get(0), call.getArguments().get(1));
+        return call("physical-filter", apply.getArguments().get(0), apply.getArguments().get(1));
     }
 }

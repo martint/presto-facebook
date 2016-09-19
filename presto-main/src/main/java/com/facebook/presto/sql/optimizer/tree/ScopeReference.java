@@ -19,13 +19,14 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 /**
  * A reference to a lambda binding variable encoded as a De Bruijn index.
- *
+ * <p>
  * The level represents the number of nested scope levels the reference
  * points to. Thus, level = 0 is a reference to the immediately enclosing
  * lambda.
  */
 public final class ScopeReference
         extends Expression
+        implements Atom
 {
     private final int index;
 

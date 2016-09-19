@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.optimizer.tree.sql;
 
-import com.facebook.presto.sql.optimizer.tree.Call;
+import com.facebook.presto.sql.optimizer.tree.Apply;
 import com.facebook.presto.sql.optimizer.tree.Expression;
 import com.facebook.presto.sql.optimizer.tree.Lambda;
 
@@ -22,7 +22,7 @@ import java.util.List;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class PhysicalFilter
-    extends Call
+    extends Apply
 {
     public PhysicalFilter(List<Expression> arguments)
     {

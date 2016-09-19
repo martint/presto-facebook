@@ -19,26 +19,27 @@ import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.sql.optimizer.tree.Expressions.variable;
 import static java.util.Objects.requireNonNull;
 
-public class Call
+public class Apply
         extends Expression
 {
-    private final String name;
+    private final Expression target;
     private final List<Expression> arguments;
 
-    public Call(String name, List<Expression> arguments)
+    protected Apply(String name, List<Expression> arguments)
     {
-        requireNonNull(name, "name is null");
-        requireNonNull(arguments, "arguments is null");
-
-        this.name = name;
-        this.arguments = arguments;
+        this(variable(name), arguments);
     }
 
-    public String getName()
+    public Apply(Expression target, List<Expression> arguments)
     {
-        return name;
+        requireNonNull(target, "target is null");
+        requireNonNull(arguments, "arguments is null");
+
+        this.target = target;
+        this.arguments = arguments;
     }
 
     public List<Expression> getArguments()
@@ -46,9 +47,9 @@ public class Call
         return arguments;
     }
 
-    public Call copyWithArguments(List<Expression> arguments)
+    public Apply copyWithArguments(List<Expression> arguments)
     {
-        return new Call(name, arguments);
+        return new Apply(arguments.get(0), arguments.subList(1, arguments.size() - 1));
     }
 
     @Override
@@ -60,21 +61,21 @@ public class Call
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        Call call = (Call) o;
-        return Objects.equals(name, call.name) &&
-                Objects.equals(arguments, call.arguments);
+        Apply apply = (Apply) o;
+        return Objects.equals(target, apply.target) && Objects.equals(arguments, apply.arguments);
     }
+
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, arguments);
+        return Objects.hash(target, arguments);
     }
 
     @Override
     public List<Object> terms()
     {
         return ImmutableList.builder()
-                .add(name)
+                .add(target)
                 .addAll(arguments.stream().map(Expression::terms).collect(Collectors.toList()))
                 .build();
     }

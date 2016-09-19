@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.sql.optimizer.tree.sql;
 
-import com.facebook.presto.sql.optimizer.tree.Call;
+import com.facebook.presto.sql.optimizer.tree.Apply;
 import com.facebook.presto.sql.optimizer.tree.Expression;
 import com.facebook.presto.sql.optimizer.tree.Lambda;
 
 import static com.facebook.presto.sql.optimizer.utils.CollectionConstructors.list;
 
 public class LogicalFilter
-    extends Call
+    extends Apply
 {
     public LogicalFilter(Expression input, Lambda filter)
     {

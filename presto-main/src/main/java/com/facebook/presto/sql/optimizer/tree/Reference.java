@@ -19,6 +19,7 @@ import static java.util.Objects.requireNonNull;
 
 public final class Reference
         extends Expression
+        implements Atom
 {
     private final String name;
 

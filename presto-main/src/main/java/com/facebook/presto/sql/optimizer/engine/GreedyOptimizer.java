@@ -16,6 +16,7 @@ package com.facebook.presto.sql.optimizer.engine;
 import com.facebook.presto.sql.optimizer.rule.GetToScan;
 import com.facebook.presto.sql.optimizer.rule.LogicalToPhysicalFilter;
 import com.facebook.presto.sql.optimizer.rule.MergePhysicalFilters;
+import com.facebook.presto.sql.optimizer.rule.MergeTransforms;
 import com.facebook.presto.sql.optimizer.rule.RemoveRedundantFilter;
 import com.facebook.presto.sql.optimizer.tree.Assignment;
 import com.facebook.presto.sql.optimizer.tree.Expression;
@@ -55,7 +56,8 @@ public class GreedyOptimizer
     {
         this(debug, ImmutableList.of(
                 ImmutableSet.of(
-                        new RemoveRedundantFilter()
+                        new RemoveRedundantFilter(),
+                        new MergeTransforms()
                 ),
                 ImmutableSet.of(
                         new GetToScan(),

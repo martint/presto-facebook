@@ -17,20 +17,27 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.facebook.presto.sql.optimizer.utils.CollectionConstructors.list;
+
 public final class Expressions
 {
     private Expressions()
     {
     }
 
-    public static Call call(String name, Expression... arguments)
+    public static Apply apply(Expression target, Expression... arguments)
     {
-        return new Call(name, ImmutableList.copyOf(arguments));
+        return new Apply(target, list(arguments));
     }
 
-    public static Call call(String name, List<Expression> arguments)
+    public static Apply call(String name, Expression... arguments)
     {
-        return new Call(name, ImmutableList.copyOf(arguments));
+        return new Apply(name, ImmutableList.copyOf(arguments));
+    }
+
+    public static Apply call(String name, List<Expression> arguments)
+    {
+        return new Apply(name, ImmutableList.copyOf(arguments));
     }
 
     public static Lambda lambda(Expression body)

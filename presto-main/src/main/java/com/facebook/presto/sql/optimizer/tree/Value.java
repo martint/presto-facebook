@@ -17,6 +17,7 @@ import java.util.Objects;
 
 public final class Value
         extends Expression
+        implements Atom
 {
     private final Object value;
 

@@ -11,21 +11,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.optimizer.tree.sql;
+package com.facebook.presto.sql.optimizer.tree;
 
-import com.facebook.presto.sql.optimizer.tree.Apply;
-import com.facebook.presto.sql.optimizer.tree.Expression;
-import com.facebook.presto.sql.optimizer.tree.Lambda;
-
-import java.util.List;
-
-import static com.facebook.presto.sql.optimizer.utils.CollectionConstructors.list;
-
-public class Transform
-    extends Apply
+public interface Atom
 {
-    public Transform(Expression input, Lambda mapper)
-    {
-        super("transform", list(input, mapper));
-    }
 }

@@ -15,7 +15,7 @@ package com.facebook.presto.sql.optimizer.rule;
 
 import com.facebook.presto.sql.optimizer.engine.Lookup;
 import com.facebook.presto.sql.optimizer.engine.Rule;
-import com.facebook.presto.sql.optimizer.tree.Call;
+import com.facebook.presto.sql.optimizer.tree.Apply;
 import com.facebook.presto.sql.optimizer.tree.Expression;
 import com.facebook.presto.sql.optimizer.tree.Lambda;
 
@@ -34,8 +34,8 @@ public class RemoveRedundantFilter
     {
         return lookup.resolve(expression)
                 .filter(isCall("logical-filter"))
-                .map(Call.class::cast)
-                .flatMap(parent -> lookup.resolve(parent.getArguments().get(1))
+                .map(Apply.class::cast)
+                .flatMap(parent -> lookup.resolve(parent.getArguments().get(2))
                         .map(Lambda.class::cast)
                         .flatMap(lambda -> lookup.resolve(lambda.getBody())
                                 .map(body -> process(parent, body))
@@ -43,10 +43,10 @@ public class RemoveRedundantFilter
                                 .map(Optional::get)));
     }
 
-    private Optional<Expression> process(Call filter, Expression body)
+    private Optional<Expression> process(Apply filter, Expression body)
     {
         if (body.equals(value(true))) {
-            return Optional.of(filter.getArguments().get(0));
+            return Optional.of(filter.getArguments().get(1));
         }
         else if (body.equals(value(false))) {
             return Optional.of(value(list()));

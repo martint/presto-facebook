@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.optimizer.engine;
 
-import com.facebook.presto.sql.optimizer.tree.Call;
+import com.facebook.presto.sql.optimizer.tree.Apply;
 import com.facebook.presto.sql.optimizer.tree.Expression;
 import com.facebook.presto.sql.optimizer.tree.Lambda;
 import com.google.common.collect.ImmutableList;
@@ -28,8 +28,8 @@ final class Utils
 
     static List<Expression> getChildren(Expression expression)
     {
-        if (expression instanceof Call) {
-            return ((Call) expression).getArguments();
+        if (expression instanceof Apply) {
+            return ((Apply) expression).getArguments();
         }
         else if (expression instanceof Lambda) {
             return ImmutableList.of(((Lambda) expression).getBody());

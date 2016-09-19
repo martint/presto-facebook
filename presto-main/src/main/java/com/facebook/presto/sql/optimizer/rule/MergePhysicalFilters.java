@@ -15,7 +15,7 @@ package com.facebook.presto.sql.optimizer.rule;
 
 import com.facebook.presto.sql.optimizer.engine.Lookup;
 import com.facebook.presto.sql.optimizer.engine.Rule;
-import com.facebook.presto.sql.optimizer.tree.Call;
+import com.facebook.presto.sql.optimizer.tree.Apply;
 import com.facebook.presto.sql.optimizer.tree.Expression;
 import com.facebook.presto.sql.optimizer.tree.Lambda;
 
@@ -33,11 +33,11 @@ public class MergePhysicalFilters
     {
         return lookup.resolve(expression)
                 .filter(isCall("physical-filter"))
-                .map(Call.class::cast)
+                .map(Apply.class::cast)
                 .flatMap(parent ->
                         lookup.resolve(parent.getArguments().get(0))
                                 .filter(isCall("physical-filter"))
-                                .map(Call.class::cast)
+                                .map(Apply.class::cast)
                                 .flatMap(child ->
                                         lookup.resolve(parent.getArguments().get(1))
                                                 .flatMap(parentLambda ->

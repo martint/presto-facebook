@@ -13,11 +13,10 @@
  */
 package com.facebook.presto.sql.optimizer.engine;
 
-import com.facebook.presto.sql.optimizer.tree.Call;
+import com.facebook.presto.sql.optimizer.tree.Apply;
+import com.facebook.presto.sql.optimizer.tree.Atom;
 import com.facebook.presto.sql.optimizer.tree.Expression;
 import com.facebook.presto.sql.optimizer.tree.Lambda;
-import com.facebook.presto.sql.optimizer.tree.ScopeReference;
-import com.facebook.presto.sql.optimizer.tree.Value;
 import com.facebook.presto.sql.optimizer.utils.DisjointSets;
 import com.facebook.presto.sql.optimizer.utils.Graph;
 import com.google.common.base.Joiner;
@@ -192,16 +191,16 @@ public class Memo
     {
         Expression result = expression;
 
-        if (expression instanceof Call) {
-            Call call = (Call) expression;
+        if (expression instanceof Apply) {
+            Apply apply = (Apply) expression;
 
-            List<Expression> arguments = call.getArguments().stream()
+            List<Expression> arguments = apply.getArguments().stream()
                     .map(argument -> {
                         if (argument instanceof GroupReference) {
                             // TODO: make sure group exists
                             return new GroupReference(canonicalize(((GroupReference) argument).getId()));
                         }
-                        else if (argument instanceof Value || argument instanceof ScopeReference) {
+                        else if (argument instanceof Atom) {
                             return argument;
                         }
 
@@ -209,9 +208,14 @@ public class Memo
                     })
                     .collect(Collectors.toList());
 
-            result = call.copyWithArguments(arguments);
+            result = apply.copyWithArguments(arguments);
         }
         else if (expression instanceof Lambda) {
+            Lambda lambda = (Lambda) expression;
+            if (lambda.getBody() instanceof GroupReference) {
+                return lambda;
+            }
+
             result = lambda(group(insertRecursive(((Lambda) expression).getBody())));
         }
 
@@ -222,16 +226,16 @@ public class Memo
     {
         checkArgument(!(expression instanceof GroupReference), "Cannot add a group reference %s to %s", expression, group);
 
-        if (expression instanceof Call) {
-            checkArgument(((Call) expression).getArguments().stream().allMatch(e -> e instanceof GroupReference || e instanceof Value || e instanceof ScopeReference), "Expected all arguments to be group references, values or variable references: %s", expression);
+        if (expression instanceof Apply) {
+            checkArgument(((Apply) expression).getArguments().stream().allMatch(e -> e instanceof GroupReference || e instanceof Atom), "Expected all arguments to be group references or atoms: %s", expression);
         }
 
         expressionMembership.put(expression, group);
         expressionVersions.put(expression, version++);
         expressionsByGroup.get(group).put(expression, version++);
 
-        if (expression instanceof Call) {
-            ((Call) expression).getArguments().stream()
+        if (expression instanceof Apply) {
+            ((Apply) expression).getArguments().stream()
                     .filter(GroupReference.class::isInstance)
                     .map(GroupReference.class::cast)
                     .map(GroupReference::getId)
@@ -266,11 +270,11 @@ public class Memo
 
     private Expression canonicalize(Expression expression)
     {
-        if (expression instanceof Call) {
-            Call call = (Call) expression;
-            checkArgument(call.getArguments().stream().allMatch(e -> e instanceof GroupReference || e instanceof Value || e instanceof ScopeReference), "Expected all arguments to be group references, values or variable references: %s", expression);
+        if (expression instanceof Apply) {
+            Apply apply = (Apply) expression;
+            checkArgument(apply.getArguments().stream().allMatch(e -> e instanceof GroupReference || e instanceof Atom), "Expected all arguments to be group references or atoms: %s", expression);
 
-            List<Expression> newArguments = call.getArguments().stream()
+            List<Expression> newArguments = apply.getArguments().stream()
                     .map(argument -> {
                         if (argument instanceof GroupReference) {
                             return new GroupReference(canonicalize(((GroupReference) argument).getId()));
@@ -279,7 +283,7 @@ public class Memo
                     })
                     .collect(Collectors.toList());
 
-            return call.copyWithArguments(newArguments);
+            return apply.copyWithArguments(newArguments);
         }
         else if (expression instanceof Lambda) {
             return lambda(canonicalize(((Lambda) expression).getBody()));
@@ -339,8 +343,8 @@ public class Memo
             checkState(group == canonicalize(group),
                     "Expression not marked as belonging to canonical group: %s (%s vs %s)  ", expression, group, canonicalize(group));
 
-            if (expression instanceof Call) {
-                ((Call) expression).getArguments().stream()
+            if (expression instanceof Apply) {
+                ((Apply) expression).getArguments().stream()
                         .peek(e -> checkState((e instanceof GroupReference), "All expression arguments must be references: %s", expression))
                         .map(GroupReference.class::cast)
                         .peek(r -> checkState(r.getId() == canonicalize(r.getId()),

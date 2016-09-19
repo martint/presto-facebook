@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.sql.optimizer.tree.sql;
 
-import com.facebook.presto.sql.optimizer.tree.Call;
+import com.facebook.presto.sql.optimizer.tree.Apply;
 import com.facebook.presto.sql.optimizer.tree.Expression;
 
 import java.util.List;
 
 public class RowConstructor
-    extends Call
+    extends Apply
 {
     public RowConstructor(List<Expression> arguments)
     {

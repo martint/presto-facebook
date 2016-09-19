@@ -15,11 +15,21 @@ package com.facebook.presto.sql.optimizer.rule;
 
 import com.facebook.presto.sql.optimizer.engine.Lookup;
 import com.facebook.presto.sql.optimizer.engine.Rule;
+import com.facebook.presto.sql.optimizer.tree.Apply;
+import com.facebook.presto.sql.optimizer.tree.Assignment;
 import com.facebook.presto.sql.optimizer.tree.Expression;
+import com.facebook.presto.sql.optimizer.tree.Expressions;
 import com.facebook.presto.sql.optimizer.tree.Lambda;
 import com.facebook.presto.sql.optimizer.tree.sql.Transform;
 
 import java.util.stream.Stream;
+
+import static com.facebook.presto.sql.optimizer.engine.Patterns.isCall;
+import static com.facebook.presto.sql.optimizer.tree.Expressions.lambda;
+import static com.facebook.presto.sql.optimizer.tree.Expressions.let;
+import static com.facebook.presto.sql.optimizer.tree.Expressions.localReference;
+import static com.facebook.presto.sql.optimizer.tree.Expressions.variable;
+import static com.facebook.presto.sql.optimizer.utils.CollectionConstructors.list;
 
 public class MergeTransforms
         implements Rule
@@ -28,12 +38,12 @@ public class MergeTransforms
     public Stream<Expression> apply(Expression expression, Lookup lookup)
     {
         return lookup.resolve(expression)
-                .filter(Transform.class::isInstance)
-                .map(Transform.class::cast)
+                .filter(isCall("transform"))
+                .map(Apply.class::cast)
                 .flatMap(parent ->
                         lookup.resolve(parent.getArguments().get(0))
-                                .filter(Transform.class::isInstance)
-                                .map(Transform.class::cast)
+                                .filter(isCall("transform"))
+                                .map(Apply.class::cast)
                                 .flatMap(child ->
                                         lookup.resolve(parent.getArguments().get(1))
                                                 .flatMap(parentLambda ->
@@ -55,6 +65,16 @@ public class MergeTransforms
 
             (map e (lambda (x) (let t (g x)) (f t)))   -- need a temporary "t" because of potential impure terms in f and g
          */
-        throw new UnsupportedOperationException("not yet implemented");
+
+//        return new Transform(source,
+//                lambda(let(
+//                        // TODO: pick unique name
+//                        list(new Assignment("t", Expressions.apply(childLambda, localReference()))),
+//                        Expressions.apply(parentLambda, variable("t")))));
+        return new Transform(source,
+                lambda(
+                        Expressions.apply(parentLambda,
+                                Expressions.apply(childLambda, localReference()))));
+
     }
 }
