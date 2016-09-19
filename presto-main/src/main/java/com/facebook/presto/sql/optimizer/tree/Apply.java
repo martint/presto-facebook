@@ -26,6 +26,8 @@ public class Apply
         extends Expression
 {
     private final Expression target;
+
+    // TODO: should arguments be a single value? (and encode multiple args as row values)
     private final List<Expression> arguments;
 
     protected Apply(String name, List<Expression> arguments)
@@ -42,14 +44,14 @@ public class Apply
         this.arguments = arguments;
     }
 
+    public Expression getTarget()
+    {
+        return target;
+    }
+
     public List<Expression> getArguments()
     {
         return arguments;
-    }
-
-    public Apply copyWithArguments(List<Expression> arguments)
-    {
-        return new Apply(arguments.get(0), arguments.subList(1, arguments.size() - 1));
     }
 
     @Override
@@ -75,7 +77,7 @@ public class Apply
     public List<Object> terms()
     {
         return ImmutableList.builder()
-                .add(target)
+                .add(target.terms())
                 .addAll(arguments.stream().map(Expression::terms).collect(Collectors.toList()))
                 .build();
     }

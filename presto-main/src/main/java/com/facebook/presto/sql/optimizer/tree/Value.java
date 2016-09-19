@@ -26,6 +26,11 @@ public final class Value
         this.value = value;
     }
 
+    public Object getValue()
+    {
+        return value;
+    }
+
     @Override
     public boolean equals(Object o)
     {

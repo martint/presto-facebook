@@ -29,7 +29,11 @@ final class Utils
     static List<Expression> getChildren(Expression expression)
     {
         if (expression instanceof Apply) {
-            return ((Apply) expression).getArguments();
+            Apply apply = (Apply) expression;
+            return ImmutableList.<Expression>builder()
+                    .add(apply.getTarget())
+                    .addAll(apply.getArguments())
+                    .build();
         }
         else if (expression instanceof Lambda) {
             return ImmutableList.of(((Lambda) expression).getBody());

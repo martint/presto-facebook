@@ -17,41 +17,33 @@ import com.facebook.presto.sql.optimizer.engine.Lookup;
 import com.facebook.presto.sql.optimizer.engine.Rule;
 import com.facebook.presto.sql.optimizer.tree.Apply;
 import com.facebook.presto.sql.optimizer.tree.Expression;
-import com.facebook.presto.sql.optimizer.tree.Lambda;
+import com.facebook.presto.sql.optimizer.tree.Value;
 
-import java.util.Optional;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.sql.optimizer.engine.Patterns.isCall;
-import static com.facebook.presto.sql.optimizer.tree.Expressions.value;
-import static com.facebook.presto.sql.optimizer.utils.CollectionConstructors.list;
 
-public class RemoveRedundantFilter
-        implements Rule
+// collapses redundant row calls followed by field-deref
+public class RemoveRedundantProjections
+    implements Rule
 {
     @Override
     public Stream<Expression> apply(Expression expression, Lookup lookup)
     {
         return lookup.resolve(expression)
-                .filter(isCall("logical-filter"))
+                .filter(isCall("field-deref"))
                 .map(Apply.class::cast)
-                .flatMap(parent -> lookup.resolve(parent.getArguments().get(1))
-                        .map(Lambda.class::cast)
-                        .flatMap(lambda -> lookup.resolve(lambda.getBody())
-                                .map(body -> process(parent, body))
-                                .filter(Optional::isPresent)
-                                .map(Optional::get)));
+                .filter(dereference -> ((Value) dereference.getArguments().get(1)).getValue() instanceof Number)
+                .flatMap(dereference ->
+                        lookup.resolve(dereference.getArguments().get(0))
+                                .filter(isCall("row"))
+                                .map(Apply.class::cast)
+                                .map(row ->
+                                        process((Number) ((Value) dereference.getArguments().get(1)).getValue(), row)));
     }
 
-    private Optional<Expression> process(Apply filter, Expression body)
+    private Expression process(Number field, Apply row)
     {
-        if (body.equals(value(true))) {
-            return Optional.of(filter.getArguments().get(1));
-        }
-        else if (body.equals(value(false))) {
-            return Optional.of(value(list()));
-        }
-
-        return Optional.empty();
+        return row.getArguments().get(field.intValue());
     }
 }

@@ -16,20 +16,16 @@ package com.facebook.presto.sql.optimizer.rule;
 import com.facebook.presto.sql.optimizer.engine.Lookup;
 import com.facebook.presto.sql.optimizer.engine.Rule;
 import com.facebook.presto.sql.optimizer.tree.Apply;
-import com.facebook.presto.sql.optimizer.tree.Assignment;
 import com.facebook.presto.sql.optimizer.tree.Expression;
 import com.facebook.presto.sql.optimizer.tree.Expressions;
 import com.facebook.presto.sql.optimizer.tree.Lambda;
-import com.facebook.presto.sql.optimizer.tree.sql.Transform;
 
 import java.util.stream.Stream;
 
 import static com.facebook.presto.sql.optimizer.engine.Patterns.isCall;
+import static com.facebook.presto.sql.optimizer.tree.Expressions.call;
 import static com.facebook.presto.sql.optimizer.tree.Expressions.lambda;
-import static com.facebook.presto.sql.optimizer.tree.Expressions.let;
 import static com.facebook.presto.sql.optimizer.tree.Expressions.localReference;
-import static com.facebook.presto.sql.optimizer.tree.Expressions.variable;
-import static com.facebook.presto.sql.optimizer.utils.CollectionConstructors.list;
 
 public class MergeTransforms
         implements Rule
@@ -71,7 +67,7 @@ public class MergeTransforms
 //                        // TODO: pick unique name
 //                        list(new Assignment("t", Expressions.apply(childLambda, localReference()))),
 //                        Expressions.apply(parentLambda, variable("t")))));
-        return new Transform(source,
+        return call("transform", source,
                 lambda(
                         Expressions.apply(parentLambda,
                                 Expressions.apply(childLambda, localReference()))));

@@ -33,11 +33,11 @@ public class Patterns
             }
 
             Apply apply = (Apply) expression;
-            if (!(apply.getArguments().get(0) instanceof Reference)) {
+            if (!(apply.getTarget() instanceof Reference)) {
                 return false;
             }
 
-            return ((Reference) apply.getArguments().get(0)).getName().equals(name);
+            return ((Reference) apply.getTarget()).getName().equals(name);
         };
     }
 }

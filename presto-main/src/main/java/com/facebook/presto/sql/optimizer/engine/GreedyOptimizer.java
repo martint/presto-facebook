@@ -17,7 +17,9 @@ import com.facebook.presto.sql.optimizer.rule.GetToScan;
 import com.facebook.presto.sql.optimizer.rule.LogicalToPhysicalFilter;
 import com.facebook.presto.sql.optimizer.rule.MergePhysicalFilters;
 import com.facebook.presto.sql.optimizer.rule.MergeTransforms;
+import com.facebook.presto.sql.optimizer.rule.ReduceLambda;
 import com.facebook.presto.sql.optimizer.rule.RemoveRedundantFilter;
+import com.facebook.presto.sql.optimizer.rule.RemoveRedundantProjections;
 import com.facebook.presto.sql.optimizer.tree.Assignment;
 import com.facebook.presto.sql.optimizer.tree.Expression;
 import com.facebook.presto.sql.optimizer.tree.Lambda;
@@ -57,7 +59,9 @@ public class GreedyOptimizer
         this(debug, ImmutableList.of(
                 ImmutableSet.of(
                         new RemoveRedundantFilter(),
-                        new MergeTransforms()
+                        new MergeTransforms(),
+                        new ReduceLambda(),
+                        new RemoveRedundantProjections()
                 ),
                 ImmutableSet.of(
                         new GetToScan(),
@@ -95,11 +99,14 @@ public class GreedyOptimizer
 //        ));
     }
 
+    private long root1;
+
     public Expression optimize(Expression expression)
     {
         Memo memo = new Memo(true);
 
         long rootClass = memo.insert(expression);
+        root1 = rootClass;
 
         System.out.println(memo.toGraphviz());
         memo.dump();
@@ -155,9 +162,7 @@ public class GreedyOptimizer
         }
         explored.add(group);
 
-        Expression expression = lookup.resolve(new GroupReference(group))
-                .findFirst()
-                .get();
+        Expression expression = lookup.first(new GroupReference(group));
 
         boolean changed = false;
 
@@ -190,28 +195,40 @@ public class GreedyOptimizer
     {
         boolean changed = false;
 
+        if (debug) {
+            System.out.println("--------- Considering: " + expression);
+        }
+
         boolean progress;
         do {
             progress = false;
             for (Rule rule : rules) {
-                if (debug) {
-                    System.out.println("***** Rule: " + rule.getClass().getSimpleName() + " *****");
-                    System.out.println(expression);
-                    System.out.println();
-                }
-
                 List<Expression> transformed = rule.apply(expression, lookup)
                         .collect(Collectors.toList());
 
-                if (debug) {
-                    System.out.println("=>");
-                    for (Expression e : transformed) {
-                        System.out.println(e);
-                    }
-                }
                 checkState(transformed.size() <= 1, "Expected one expression");
                 if (!transformed.isEmpty()) {
+                    if (debug) {
+                        System.out.println(String.format("*** %s => ", rule.getClass().getSimpleName()));
+                    }
+
                     Optional<Expression> rewritten = memo.transform(expression, transformed.get(0), rule.getClass().getSimpleName());
+
+                    System.out.println("Transformed: ");
+                    System.out.println(transformed.get(0));
+
+//                    System.out.println("Current: ");
+//                    System.out.println(let(extract(root1, lookup), variable("$" + root1)));
+
+                    System.out.println();
+                    System.out.println(memo.toGraphviz());
+                    System.out.println();
+
+                    if (rewritten.isPresent()) {
+                        System.out.println("Rewritten: ");
+                        System.out.println(rewritten.get());
+                    }
+                    System.out.println();
 
                     if (rewritten.isPresent()) {
                         changed = true;
@@ -221,15 +238,13 @@ public class GreedyOptimizer
                         if (expression instanceof GroupReference) {
                             // This could happen if the expression was determined to be equivalent to its child (i.e., a no op such as a TRUE filter)
                             // In that case, find the active expression in the given group and continue processing
-                            expression = lookup.resolve(expression)
-                                    .findFirst()
-                                    .get();
+                            expression = lookup.first(expression);
                         }
 
-                        if (debug) {
-                            System.out.println(memo.dump());
-                            System.out.println();
-                        }
+//                        if (debug) {
+//                            System.out.println(memo.dump());
+//                            System.out.println();
+//                        }
                     }
                 }
             }
@@ -245,9 +260,7 @@ public class GreedyOptimizer
 
     private List<Assignment> extract(long group, MemoLookup lookup)
     {
-        Expression expression = lookup.resolve(new GroupReference(group))
-                .findFirst()
-                .get();
+        Expression expression = lookup.first(new GroupReference(group));
 
         List<Assignment> assignments = new ArrayList<>();
 

@@ -161,7 +161,7 @@ public class Memo
         return expressionsByGroup.get(group)
                 .keySet().stream()
                 .filter(e -> canonical.contains(e)) // pick only active expressions -- TODO: need a more efficient way to do this
-                .map(e -> new VersionedItem<>(e, expressionVersions.get(e)))
+                .map(e -> new VersionedItem<>(e, expressionsByGroup.get(group).get(e)))
                 .collect(Collectors.toList());
     }
 
@@ -194,21 +194,23 @@ public class Memo
         if (expression instanceof Apply) {
             Apply apply = (Apply) expression;
 
-            List<Expression> arguments = apply.getArguments().stream()
-                    .map(argument -> {
-                        if (argument instanceof GroupReference) {
-                            // TODO: make sure group exists
-                            return new GroupReference(canonicalize(((GroupReference) argument).getId()));
-                        }
-                        else if (argument instanceof Atom) {
-                            return argument;
-                        }
+            Function<Expression, Expression> processor = argument -> {
+                if (argument instanceof GroupReference) {
+                    // TODO: make sure group exists
+                    return new GroupReference(canonicalize(((GroupReference) argument).getId()));
+                }
+                else if (argument instanceof Atom) {
+                    return argument;
+                }
 
-                        return new GroupReference(insertRecursive(argument));
-                    })
+                return new GroupReference(insertRecursive(argument));
+            };
+
+            List<Expression> arguments = apply.getArguments().stream()
+                    .map(processor)
                     .collect(Collectors.toList());
 
-            result = apply.copyWithArguments(arguments);
+            result = new Apply(processor.apply(apply.getTarget()), arguments);
         }
         else if (expression instanceof Lambda) {
             Lambda lambda = (Lambda) expression;
@@ -235,7 +237,12 @@ public class Memo
         expressionsByGroup.get(group).put(expression, version++);
 
         if (expression instanceof Apply) {
-            ((Apply) expression).getArguments().stream()
+            Apply apply = (Apply) expression;
+            if (apply.getTarget() instanceof GroupReference) {
+                incomingReferences.get(((GroupReference) apply.getTarget()).getId()).putIfAbsent(expression, version++);
+            }
+
+            apply.getArguments().stream()
                     .filter(GroupReference.class::isInstance)
                     .map(GroupReference.class::cast)
                     .map(GroupReference::getId)
@@ -274,16 +281,18 @@ public class Memo
             Apply apply = (Apply) expression;
             checkArgument(apply.getArguments().stream().allMatch(e -> e instanceof GroupReference || e instanceof Atom), "Expected all arguments to be group references or atoms: %s", expression);
 
+            Function<Expression, Expression> processor = argument -> {
+                if (argument instanceof GroupReference) {
+                    return new GroupReference(canonicalize(((GroupReference) argument).getId()));
+                }
+                return argument;
+            };
+
             List<Expression> newArguments = apply.getArguments().stream()
-                    .map(argument -> {
-                        if (argument instanceof GroupReference) {
-                            return new GroupReference(canonicalize(((GroupReference) argument).getId()));
-                        }
-                        return argument;
-                    })
+                    .map(processor)
                     .collect(Collectors.toList());
 
-            return apply.copyWithArguments(newArguments);
+            return new Apply(processor.apply(apply.getTarget()), newArguments);
         }
         else if (expression instanceof Lambda) {
             return lambda(canonicalize(((Lambda) expression).getBody()));

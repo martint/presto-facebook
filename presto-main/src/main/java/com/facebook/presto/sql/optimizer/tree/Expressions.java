@@ -69,4 +69,14 @@ public final class Expressions
     {
         return new Let(assignments, body);
     }
+
+    public static Apply fieldDereference(Expression expression, String field)
+    {
+        return call("field-deref", expression, value(field));
+    }
+
+    public static Apply fieldDereference(Expression expression, int field)
+    {
+        return call("field-deref", expression, value(field));
+    }
 }

@@ -15,12 +15,7 @@ package com.facebook.presto.sql.optimizer;
 
 import com.facebook.presto.sql.optimizer.engine.GreedyOptimizer;
 import com.facebook.presto.sql.optimizer.tree.Expression;
-import com.facebook.presto.sql.optimizer.tree.sql.ArrayConstructor;
-import com.facebook.presto.sql.optimizer.tree.sql.LogicalFilter;
 import com.facebook.presto.sql.optimizer.tree.sql.Null;
-import com.facebook.presto.sql.optimizer.tree.sql.RowConstructor;
-import com.facebook.presto.sql.optimizer.tree.sql.RowFieldDereference;
-import com.facebook.presto.sql.optimizer.tree.sql.Transform;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.FilterNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
@@ -64,6 +59,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.optimizer.tree.Expressions.call;
+import static com.facebook.presto.sql.optimizer.tree.Expressions.fieldDereference;
 import static com.facebook.presto.sql.optimizer.tree.Expressions.lambda;
 import static com.facebook.presto.sql.optimizer.tree.Expressions.reference;
 import static com.facebook.presto.sql.optimizer.tree.Expressions.value;
@@ -132,10 +128,10 @@ public class LegacyToNew
         @Override
         public Expression visitOutput(OutputNode node, Scope scope)
         {
-            return new Transform(
+            return call("transform",
                     translate(node.getSource(), scope),
-                    lambda(new RowConstructor(node.getOutputSymbols().stream()
-                            .map(output ->translate(output.toSymbolReference(), new Scope(scope, names(node.getSource().getOutputSymbols()))))
+                    lambda(call("row", node.getOutputSymbols().stream()
+                            .map(output -> translate(output.toSymbolReference(), new Scope(scope, names(node.getSource().getOutputSymbols()))))
                             .collect(Collectors.toList()))));
         }
 
@@ -144,15 +140,15 @@ public class LegacyToNew
         {
             Expression lambdaBody = translate(node.getPredicate(), new Scope(scope, names(node.getSource().getOutputSymbols())));
 
-            return new LogicalFilter(translate(node.getSource(), scope), lambda(lambdaBody));
+            return call("logical-filter", translate(node.getSource(), scope), lambda(lambdaBody));
         }
 
         @Override
         public Expression visitProject(ProjectNode node, Scope scope)
         {
-            return new Transform(
+            return call("transform",
                     translate(node.getSource(), scope),
-                    lambda(new RowConstructor(node.getOutputSymbols().stream()
+                    lambda(call("row", node.getOutputSymbols().stream()
                             .map(output -> {
                                 List<Symbol> outputSymbols = node.getSource().getOutputSymbols();
                                 return translate(node.getAssignments().get(output), new Scope(scope, names(outputSymbols)));
@@ -163,8 +159,8 @@ public class LegacyToNew
         @Override
         public Expression visitValues(ValuesNode node, Scope scope)
         {
-            return new ArrayConstructor(node.getRows().stream()
-                    .map(row -> new RowConstructor(row.stream()
+            return call("array", node.getRows().stream()
+                    .map(row -> call("row", row.stream()
                             .map(column -> translate(column, scope))
                             .collect(toImmutableList())))
                     .collect(toImmutableList()));
@@ -243,7 +239,7 @@ public class LegacyToNew
         @Override
         protected Expression visitDereferenceExpression(DereferenceExpression node, Scope scope)
         {
-            return new RowFieldDereference(translate(node.getBase(), scope), node.getFieldName());
+            return fieldDereference(translate(node.getBase(), scope), node.getFieldName());
         }
 
         @Override
@@ -341,7 +337,7 @@ public class LegacyToNew
             int level = 0;
             while (true) {
                 if (scope.bindings.contains(node.getName())) {
-                    return new RowFieldDereference(reference(level), scope.bindings.indexOf(node.getName()));
+                    return fieldDereference(reference(level), scope.bindings.indexOf(node.getName()));
                 }
                 checkArgument(scope.parent.isPresent(), "Symbol '%s' not found in scope", node.getName());
                 level++;
