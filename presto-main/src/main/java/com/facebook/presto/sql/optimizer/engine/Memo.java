@@ -139,9 +139,15 @@ public class Memo
                 // TODO: expression is old and did not cause a change
             }
 
-            transformations.computeIfAbsent(canonicalize(from), e -> new HashMap<>())
-                    .computeIfAbsent(rewritten, e -> new VersionedItem<>(reason, version++));
+            Map<Expression, VersionedItem<String>> targets = transformations.computeIfAbsent(canonicalize(from), e -> new HashMap<>());
 
+            boolean exists = targets.containsKey(rewritten);
+
+            targets.computeIfAbsent(rewritten, e -> new VersionedItem<>(reason, version++));
+
+            if (exists) {
+                return Optional.empty();
+            }
             return Optional.of(rewritten);
         }
     }
@@ -297,6 +303,9 @@ public class Memo
         else if (expression instanceof Lambda) {
             return lambda(canonicalize(((Lambda) expression).getBody()));
         }
+        else if (expression instanceof GroupReference) {
+            return new GroupReference(canonicalize(((GroupReference) expression).getId()));
+        }
 
         return expression;
     }
@@ -305,7 +314,11 @@ public class Memo
     {
         checkArgument(groupVersions.containsKey(targetGroup), "Group doesn't exist: %s", targetGroup);
         checkArgument(groupVersions.containsKey(group), "Group doesn't exist: %s", group);
-        checkArgument(canonicalize(targetGroup) != canonicalize(group), "Groups are already merged: %s vs %s", targetGroup, group);
+
+        if (canonicalize(targetGroup) == canonicalize(group)) {
+            // already been merged, so bail out to avoid infinite recursion
+            return;
+        }
 
         merges.put(group, new VersionedItem<>(targetGroup, version++));
 

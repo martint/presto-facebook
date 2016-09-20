@@ -1,9 +1,9 @@
 package com.facebook.presto.sql.optimizer.engine;
 
 import com.facebook.presto.sql.optimizer.tree.Expression;
+import com.facebook.presto.sql.optimizer.tree.sql.Null;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.sql.optimizer.tree.Expressions.apply;
 import static com.facebook.presto.sql.optimizer.tree.Expressions.call;
 import static com.facebook.presto.sql.optimizer.tree.Expressions.fieldDereference;
 import static com.facebook.presto.sql.optimizer.tree.Expressions.lambda;
@@ -18,40 +18,28 @@ public class TestMemo
             throws Exception
     {
         Expression expression =
+
+        call("transform",
                 call("transform",
                         call("transform",
-                                call("array",
-                                        call("row", value(1))),
+                                call("transform",
+                                        call("transform",
+                                                call("array", call("row")),
+                                                lambda(call("row", new Null()))),
+                                        lambda(call("row", fieldDereference(localReference(), 0)))),
                                 lambda(call("row", fieldDereference(localReference(), 0)))),
-                        lambda(call("row", fieldDereference(localReference(), 0))));
+                        lambda(call("row", fieldDereference(localReference(), 0)))),
+                lambda(call("row", fieldDereference(localReference(), 0))));
 
-                apply(lambda(call("row", fieldDereference(localReference(), 0))),
-                                call("row", value(1)));
-
-        /*
-        (lambda (let (($4 (lambda (let (($2 (field-deref %0 0))
-                                          ($3 (row $2)))
-                                         $3)))
-                        ($7 ($4 %0))
-                        ($10 )
-                        ($8 (row $10)))
-                       $8)))
-
-
-
-           (row
-            (field-deref
-                (
-                    (lambda
-                        (row
-                            (field-deref %0 0)
-                        )
-                    )
-                    %0
-                )
-                0)
-            )
-         */
+//                call("transform",
+//                        call("transform",
+//                                call("array",
+//                                        call("row", value(1))),
+//                                lambda(call("row", fieldDereference(localReference(), 0)))),
+//                        lambda(call("row", fieldDereference(localReference(), 0))));
+//
+//                apply(lambda(call("row", fieldDereference(localReference(), 0))),
+//                                call("row", value(1)));
 
 //                call("row",
 //                        fieldDereference(

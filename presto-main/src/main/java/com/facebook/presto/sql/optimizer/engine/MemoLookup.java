@@ -16,6 +16,7 @@ package com.facebook.presto.sql.optimizer.engine;
 import com.facebook.presto.sql.optimizer.tree.Expression;
 import com.google.common.collect.ImmutableSet;
 
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Stream;
@@ -57,6 +58,11 @@ class MemoLookup
     public Expression first(Expression expression)
     {
         return resolve(expression).findFirst().get();
+    }
+
+    public Optional<Expression> findFirst(Expression expression)
+    {
+        return resolve(expression).findFirst();
     }
 
     @Override

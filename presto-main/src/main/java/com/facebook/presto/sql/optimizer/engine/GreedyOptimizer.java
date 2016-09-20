@@ -23,13 +23,13 @@ import com.facebook.presto.sql.optimizer.rule.RemoveRedundantProjections;
 import com.facebook.presto.sql.optimizer.tree.Assignment;
 import com.facebook.presto.sql.optimizer.tree.Expression;
 import com.facebook.presto.sql.optimizer.tree.Lambda;
+import com.facebook.presto.sql.optimizer.utils.ListFormatter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Longs;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -118,7 +118,7 @@ public class GreedyOptimizer
                         .limit(1));
 
         for (Set<Rule> batch : batches) {
-            explore(memo, lookup, new HashSet<>(), batch, rootClass);
+            explore(memo, lookup, batch, rootClass);
         }
 
         System.out.println(memo.toGraphviz());
@@ -155,14 +155,15 @@ public class GreedyOptimizer
         return let(assignments, variable("$" + rootClass));
     }
 
-    private boolean explore(Memo memo, MemoLookup lookup, Set<Long> explored, Set<Rule> rules, long group)
+    private boolean explore(Memo memo, MemoLookup lookup, Set<Rule> rules, long group)
     {
-        if (explored.contains(group)) {
+        System.out.println("============ Exploring $" + group + " ============");
+        Optional<Expression> found = lookup.findFirst(new GroupReference(group));
+        if (!found.isPresent()) {
             return false;
         }
-        explored.add(group);
 
-        Expression expression = lookup.first(new GroupReference(group));
+        Expression expression = found.get();
 
         boolean changed = false;
 
@@ -181,12 +182,15 @@ public class GreedyOptimizer
                     .filter(GroupReference.class::isInstance)
                     .map(GroupReference.class::cast)
                     .map(GroupReference::getId)
-                    .map(id -> explore(memo, lookup.push(id), explored, rules, id))
+                    .map(id -> explore(memo, lookup.push(id), rules, id))
                     .anyMatch(v -> v);
 
             changed = changed || progress || childrenChanged;
         }
         while (progress || childrenChanged);
+
+        System.out.println("============ Done exploring $" + group + " ============");
+        System.out.println();
 
         return changed;
     }
@@ -196,7 +200,8 @@ public class GreedyOptimizer
         boolean changed = false;
 
         if (debug) {
-            System.out.println("--------- Considering: " + expression);
+            System.out.println("Considering: " + expression);
+            System.out.println();
         }
 
         boolean progress;
@@ -209,24 +214,25 @@ public class GreedyOptimizer
                 checkState(transformed.size() <= 1, "Expected one expression");
                 if (!transformed.isEmpty()) {
                     if (debug) {
-                        System.out.println(String.format("*** %s => ", rule.getClass().getSimpleName()));
+                        System.out.println(String.format("Applying: %s", rule.getClass().getSimpleName()));
+                        System.out.println();
                     }
 
                     Optional<Expression> rewritten = memo.transform(expression, transformed.get(0), rule.getClass().getSimpleName());
 
                     System.out.println("Transformed: ");
-                    System.out.println(transformed.get(0));
+                    System.out.println(ListFormatter.format(transformed.get(0), 4));
 
 //                    System.out.println("Current: ");
 //                    System.out.println(let(extract(root1, lookup), variable("$" + root1)));
 
                     System.out.println();
-                    System.out.println(memo.toGraphviz());
-                    System.out.println();
+//                    System.out.println(memo.toGraphviz());
+//                    System.out.println();
 
                     if (rewritten.isPresent()) {
                         System.out.println("Rewritten: ");
-                        System.out.println(rewritten.get());
+                        System.out.println(ListFormatter.format(rewritten.get(), 4));
                     }
                     System.out.println();
 

@@ -29,7 +29,12 @@ public class ListFormatter
 
     public static String format(Object item)
     {
-        return formatItem(item, 0).lines.stream().collect(Collectors.joining("\n"));
+        return format(item, 0);
+    }
+
+    public static String format(Object item, int indent)
+    {
+        return indent(indent) + formatItem(item, indent).lines.stream().collect(Collectors.joining("\n"));
     }
 
     private static Block formatItem(Object item, int indent)

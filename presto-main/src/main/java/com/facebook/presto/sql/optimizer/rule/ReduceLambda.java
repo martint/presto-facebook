@@ -40,11 +40,11 @@ public class ReduceLambda
                             .map(Lambda.class::cast)
                             .flatMap(lambda ->
                                     lookup.resolve(apply.getArguments().get(0))
-                                        .map(argument -> process(lambda.getBody(), argument, lookup))));
+                                        .map(argument -> substitute(lambda.getBody(), argument, lookup))));
     }
 
     // substitute all occurrences of %0 with argument
-    private Expression process(Expression expression, Expression argument, Lookup lookup)
+    private Expression substitute(Expression expression, Expression argument, Lookup lookup)
     {
         Expression resolved = lookup.first(expression);
 
@@ -55,10 +55,10 @@ public class ReduceLambda
             // TODO substitute in target
             Apply apply = (Apply) resolved;
             List<Expression> newArguments = apply.getArguments().stream()
-                    .map(e -> process(e, argument, lookup))
+                    .map(e -> substitute(e, argument, lookup))
                     .collect(toImmutableList());
 
-            return new Apply(process(apply.getTarget(), argument, lookup), newArguments);
+            return new Apply(substitute(apply.getTarget(), argument, lookup), newArguments);
         }
 
         return expression;
