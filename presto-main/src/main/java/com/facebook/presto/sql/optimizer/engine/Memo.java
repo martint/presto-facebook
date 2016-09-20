@@ -171,6 +171,11 @@ public class Memo
                 .collect(Collectors.toList());
     }
 
+    private Expression insertRecursiveAndRewrite(Expression expression)
+    {
+        return group(insertRecursive(expression));
+    }
+
     private long insertRecursive(Expression expression)
     {
         checkArgument(!(expression instanceof GroupReference), "Expression cannot be a Group Reference: %s", expression);
@@ -209,7 +214,7 @@ public class Memo
                     return argument;
                 }
 
-                return new GroupReference(insertRecursive(argument));
+                return group(insertRecursive(argument));
             };
 
             List<Expression> arguments = apply.getArguments().stream()
@@ -285,20 +290,12 @@ public class Memo
     {
         if (expression instanceof Apply) {
             Apply apply = (Apply) expression;
-            checkArgument(apply.getArguments().stream().allMatch(e -> e instanceof GroupReference || e instanceof Atom), "Expected all arguments to be group references or atoms: %s", expression);
-
-            Function<Expression, Expression> processor = argument -> {
-                if (argument instanceof GroupReference) {
-                    return new GroupReference(canonicalize(((GroupReference) argument).getId()));
-                }
-                return argument;
-            };
 
             List<Expression> newArguments = apply.getArguments().stream()
-                    .map(processor)
+                    .map(this::canonicalize)
                     .collect(Collectors.toList());
 
-            return new Apply(processor.apply(apply.getTarget()), newArguments);
+            return new Apply(canonicalize(apply.getTarget()), newArguments);
         }
         else if (expression instanceof Lambda) {
             return lambda(canonicalize(((Lambda) expression).getBody()));
