@@ -25,7 +25,7 @@ public class Patterns
     {
     }
 
-    public static Predicate<Expression> isCall(String name)
+    public static Predicate<Expression> isCall(String name, Lookup lookup)
     {
         return expression -> {
             if (!(expression instanceof Apply)) {
@@ -33,11 +33,12 @@ public class Patterns
             }
 
             Apply apply = (Apply) expression;
-            if (!(apply.getTarget() instanceof Reference)) {
+            Expression target = lookup.first(apply.getTarget());
+            if (!(target instanceof Reference)) {
                 return false;
             }
 
-            return ((Reference) apply.getTarget()).getName().equals(name);
+            return ((Reference) target).getName().equals(name);
         };
     }
 }

@@ -17,29 +17,59 @@ import com.facebook.presto.sql.optimizer.engine.Lookup;
 import com.facebook.presto.sql.optimizer.engine.Rule;
 import com.facebook.presto.sql.optimizer.tree.Apply;
 import com.facebook.presto.sql.optimizer.tree.Expression;
+import com.facebook.presto.sql.optimizer.tree.Reference;
 import com.facebook.presto.sql.optimizer.tree.Value;
 
 import java.util.stream.Stream;
 
-import static com.facebook.presto.sql.optimizer.engine.Patterns.isCall;
-
 // collapses redundant row calls followed by field-deref
 public class RemoveRedundantProjections
-    implements Rule
+        implements Rule
 {
     @Override
     public Stream<Expression> apply(Expression expression, Lookup lookup)
     {
-        return lookup.resolve(expression)
-                .filter(isCall("field-deref"))
-                .map(Apply.class::cast)
-                .filter(dereference -> ((Value) dereference.getArguments().get(1)).getValue() instanceof Number)
-                .flatMap(dereference ->
-                        lookup.resolve(dereference.getArguments().get(0))
-                                .filter(isCall("row"))
-                                .map(Apply.class::cast)
-                                .map(row ->
-                                        process((Number) ((Value) dereference.getArguments().get(1)).getValue(), row)));
+        if (!isCall(expression, "field-deref", lookup)) {
+            return Stream.empty();
+        }
+
+        Apply apply = (Apply) expression;
+        if (!isCall(lookup.first(apply.getArguments().get(0)), "row", lookup)) {
+            return Stream.empty();
+        }
+
+        Value field = (Value) lookup.first(apply.getArguments().get(1));
+        if (!(field.getValue() instanceof Number)) {
+            return Stream.empty();
+        }
+
+        Apply row = (Apply) lookup.first(apply.getArguments().get(0));
+        return Stream.of(row.getArguments().get(((Number) field.getValue()).intValue()));
+    }
+
+    private boolean isCall(Expression expression, String name, Lookup lookup)
+    {
+        if (lookup.resolve(expression).count() == 0) {
+            return false;
+        }
+
+        if (!(expression instanceof Apply)) {
+            return false;
+        }
+
+        Apply apply = (Apply) expression;
+
+        Expression target = lookup.first(apply.getTarget());
+        if (!(target instanceof Reference)) {
+            return false;
+        }
+
+        Reference function = (Reference) target;
+        if (!function.getName().equals(name)) {
+            return false;
+        }
+
+        return true;
     }
 
     private Expression process(Number field, Apply row)

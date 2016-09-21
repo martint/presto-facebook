@@ -34,11 +34,11 @@ public class MergeTransforms
     public Stream<Expression> apply(Expression expression, Lookup lookup)
     {
         return lookup.resolve(expression)
-                .filter(isCall("transform"))
+                .filter(isCall("transform", lookup))
                 .map(Apply.class::cast)
                 .flatMap(parent ->
                         lookup.resolve(parent.getArguments().get(0))
-                                .filter(isCall("transform"))
+                                .filter(isCall("transform", lookup))
                                 .map(Apply.class::cast)
                                 .flatMap(child ->
                                         lookup.resolve(parent.getArguments().get(1))

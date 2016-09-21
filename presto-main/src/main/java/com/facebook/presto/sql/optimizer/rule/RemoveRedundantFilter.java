@@ -33,7 +33,7 @@ public class RemoveRedundantFilter
     public Stream<Expression> apply(Expression expression, Lookup lookup)
     {
         return lookup.resolve(expression)
-                .filter(isCall("logical-filter"))
+                .filter(isCall("logical-filter", lookup))
                 .map(Apply.class::cast)
                 .flatMap(parent -> lookup.resolve(parent.getArguments().get(1))
                         .map(Lambda.class::cast)

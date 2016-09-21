@@ -17,6 +17,7 @@ import com.facebook.presto.sql.optimizer.tree.Apply;
 import com.facebook.presto.sql.optimizer.tree.Atom;
 import com.facebook.presto.sql.optimizer.tree.Expression;
 import com.facebook.presto.sql.optimizer.tree.Lambda;
+import com.facebook.presto.sql.optimizer.tree.Reference;
 import com.facebook.presto.sql.optimizer.utils.DisjointSets;
 import com.facebook.presto.sql.optimizer.utils.Graph;
 import com.google.common.base.Joiner;
@@ -210,10 +211,6 @@ public class Memo
                     // TODO: make sure group exists
                     return new GroupReference(canonicalize(((GroupReference) argument).getId()));
                 }
-                else if (argument instanceof Atom) {
-                    return argument;
-                }
-
                 return group(insertRecursive(argument));
             };
 
@@ -221,7 +218,11 @@ public class Memo
                     .map(processor)
                     .collect(Collectors.toList());
 
-            result = new Apply(processor.apply(apply.getTarget()), arguments);
+            Expression target = apply.getTarget();
+            if (!(target instanceof Reference)) {
+                target = processor.apply(target);
+            }
+            result = new Apply(target, arguments);
         }
         else if (expression instanceof Lambda) {
             Lambda lambda = (Lambda) expression;

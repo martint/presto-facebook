@@ -30,7 +30,7 @@ public class GetToScan
     public Stream<Expression> apply(Expression expression, Lookup lookup)
     {
         return lookup.resolve(expression)
-                .filter(isCall("get"))
+                .filter(isCall("get", lookup))
                 .map(Apply.class::cast)
                 .map(this::process);
     }

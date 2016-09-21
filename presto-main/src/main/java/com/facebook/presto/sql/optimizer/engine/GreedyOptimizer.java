@@ -208,7 +208,11 @@ public class GreedyOptimizer
         do {
             progress = false;
             for (Rule rule : rules) {
-                List<Expression> transformed = rule.apply(expression, lookup)
+                if (debug) {
+                    System.out.println(String.format("Trying: %s", rule.getClass().getSimpleName()));
+                    System.out.println();
+                }
+                List<Expression> transformed = rule.apply(lookup.first(expression), lookup)
                         .collect(Collectors.toList());
 
                 checkState(transformed.size() <= 1, "Expected one expression");

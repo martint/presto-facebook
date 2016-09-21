@@ -30,7 +30,7 @@ public class LogicalToPhysicalFilter
     public Stream<Expression> apply(Expression expression, Lookup lookup)
     {
         return lookup.resolve(expression)
-                .filter(isCall("logical-filter"))
+                .filter(isCall("logical-filter", lookup))
                 .map(Apply.class::cast)
                 .map(this::process);
     }

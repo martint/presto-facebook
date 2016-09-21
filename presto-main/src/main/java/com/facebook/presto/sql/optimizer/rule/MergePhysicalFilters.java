@@ -32,11 +32,11 @@ public class MergePhysicalFilters
     public Stream<Expression> apply(Expression expression, Lookup lookup)
     {
         return lookup.resolve(expression)
-                .filter(isCall("physical-filter"))
+                .filter(isCall("physical-filter", lookup))
                 .map(Apply.class::cast)
                 .flatMap(parent ->
                         lookup.resolve(parent.getArguments().get(0))
-                                .filter(isCall("physical-filter"))
+                                .filter(isCall("physical-filter", lookup))
                                 .map(Apply.class::cast)
                                 .flatMap(child ->
                                         lookup.resolve(parent.getArguments().get(1))
