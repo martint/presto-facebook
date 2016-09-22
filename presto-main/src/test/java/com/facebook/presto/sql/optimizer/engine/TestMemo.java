@@ -14,22 +14,45 @@ public class TestMemo
 {
 
     @Test
+    public void testX()
+            throws Exception
+    {
+        Expression expression =
+                call("transform",
+                        call("transform",
+                                value(1),
+                                lambda(call("row", fieldDereference(localReference(), 0)))),
+                        lambda(call("row", fieldDereference(localReference(), 0))));
+
+        GreedyOptimizer optimizer = new GreedyOptimizer(true);
+        Expression optimized = optimizer.optimize(expression);
+
+        System.out.println(expression);
+        System.out.println();
+        System.out.println(optimized);
+
+//        call("transform",
+//                call("transform",
+//
+    }
+
+    @Test
     public void testReduce()
             throws Exception
     {
         Expression expression =
 
-        call("transform",
+//        call("transform",
+//                call("transform",
                 call("transform",
                         call("transform",
                                 call("transform",
-                                        call("transform",
-                                                call("array", call("row")),
-                                                lambda(call("row", new Null()))),
-                                        lambda(call("row", fieldDereference(localReference(), 0)))),
+                                        value(1),
+                                        lambda(call("row", new Null()))),
                                 lambda(call("row", fieldDereference(localReference(), 0)))),
-                        lambda(call("row", fieldDereference(localReference(), 0)))),
-                lambda(call("row", fieldDereference(localReference(), 0))));
+                        lambda(call("row", fieldDereference(localReference(), 0))));
+//                        lambda(call("row", fieldDereference(localReference(), 0))));
+//                lambda(call("row", fieldDereference(localReference(), 0))));
 
 //                call("transform",
 //                        call("transform",

@@ -23,12 +23,13 @@ import com.facebook.presto.sql.optimizer.utils.Graph;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
+import java.util.Queue;
 import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -78,6 +79,7 @@ public class Memo
      */
     public long insert(Expression expression)
     {
+        System.out.println("Inserting: " + expression);
         long result = insertRecursive(expression);
         if (debug) {
             verify();
@@ -91,16 +93,17 @@ public class Memo
      * <p>
      * Returns the rewritten "to", if any.
      */
-    public Optional<Expression> transform(Expression from, Expression to, String reason)
+    public boolean transform(Expression from, Expression to, String reason)
     {
         checkArgument(expressionMembership.containsKey(from), "Unknown expression: %s when applying %s", from, reason);
 
         // Make sure we use the latest version of a group, otherwise, we
         // may end up attempting to merge groups that are already merged
         // TODO: do we really need to do this?
-        long group = canonicalize(expressionMembership.get(from));
+        long group = find(expressionMembership.get(from));
 
         if (to instanceof GroupReference) {
+            System.out.println("Transforming (" + reason + "): " + from + " -> " + to);
             // TODO: expression caused a change
 
             GroupReference reference = (GroupReference) to;
@@ -115,10 +118,12 @@ public class Memo
                 verify();
             }
 
-            return Optional.ofNullable(to);
+            return true;
         }
         else {
             Expression rewritten = insertChildrenAndRewrite(to);
+
+            System.out.println("Transforming (" + reason + "): " + from + " -> " + rewritten);
 
             // TODO: use contains()
             Long currentGroup = expressionMembership.get(rewritten);
@@ -143,13 +148,9 @@ public class Memo
             Map<Expression, VersionedItem<String>> targets = transformations.computeIfAbsent(canonicalize(from), e -> new HashMap<>());
 
             boolean exists = targets.containsKey(rewritten);
-
             targets.computeIfAbsent(rewritten, e -> new VersionedItem<>(reason, version++));
 
-            if (exists) {
-                return Optional.empty();
-            }
-            return Optional.of(rewritten);
+            return !exists;
         }
     }
 
@@ -209,7 +210,7 @@ public class Memo
             Function<Expression, Expression> processor = argument -> {
                 if (argument instanceof GroupReference) {
                     // TODO: make sure group exists
-                    return new GroupReference(canonicalize(((GroupReference) argument).getId()));
+                    return new GroupReference(find(((GroupReference) argument).getId()));
                 }
                 return group(insertRecursive(argument));
             };
@@ -279,7 +280,12 @@ public class Memo
         return group;
     }
 
-    private long canonicalize(long group)
+    public boolean isValid(long group)
+    {
+        return find(group) == group;
+    }
+
+    private long find(long group)
     {
         while (merges.containsKey(group)) {
             group = merges.get(group).get();
@@ -287,7 +293,15 @@ public class Memo
         return group;
     }
 
-    private Expression canonicalize(Expression expression)
+    private Expression find(Expression expression)
+    {
+        while (rewrites.containsKey(expression)) {
+            expression = rewrites.get(expression).get();
+        }
+        return expression;
+    }
+
+    public Expression canonicalize(Expression expression)
     {
         if (expression instanceof Apply) {
             Apply apply = (Apply) expression;
@@ -302,10 +316,32 @@ public class Memo
             return lambda(canonicalize(((Lambda) expression).getBody()));
         }
         else if (expression instanceof GroupReference) {
-            return new GroupReference(canonicalize(((GroupReference) expression).getId()));
+            return new GroupReference(find(((GroupReference) expression).getId()));
         }
 
         return expression;
+    }
+
+    private static class PendingMerge
+    {
+        private final long source;
+        private final long target;
+
+        public PendingMerge(long source, long target)
+        {
+            this.source = source;
+            this.target = target;
+        }
+
+        public long getSource()
+        {
+            return source;
+        }
+
+        public long getTarget()
+        {
+            return target;
+        }
     }
 
     private void mergeInto(long targetGroup, long group)
@@ -313,41 +349,60 @@ public class Memo
         checkArgument(groupVersions.containsKey(targetGroup), "Group doesn't exist: %s", targetGroup);
         checkArgument(groupVersions.containsKey(group), "Group doesn't exist: %s", group);
 
-        if (canonicalize(targetGroup) == canonicalize(group)) {
-            // already been merged, so bail out to avoid infinite recursion
-            return;
-        }
+        Queue<PendingMerge> pending = new ArrayDeque<>();
+        pending.add(new PendingMerge(group, targetGroup));
 
-        merges.put(group, new VersionedItem<>(targetGroup, version++));
+        while (!pending.isEmpty()) {
+            PendingMerge merge = pending.poll();
 
-        // move all expressions to the target group
-        for (Expression expression : expressionsByGroup.get(group).keySet()) {
-            // TODO: canonicalize expression in case they have a recursive reference to the group that was just merged?
-            expressionsByGroup.get(targetGroup).put(expression, version++);
-            expressionMembership.put(expression, targetGroup);
-        }
+            long from = merge.getSource();
+            long to = merge.getTarget();
 
-        // rewrite expressions that reference the merged group
-        Map<Long, List<Expression>> referrerGroups = incomingReferences.get(group).keySet().stream()
-                .collect(Collectors.groupingBy(expressionMembership::get));
+            if (find(from) == find(to)) {
+                // already merged, so bail out to avoid infinite recursion
+                continue;
+            }
 
-        for (Map.Entry<Long, List<Expression>> entry : referrerGroups.entrySet()) {
-            for (Expression referrerExpression : entry.getValue()) {
+            System.out.println("Merging $" + from + " -> $" + to);
+
+            // record group equivalence
+            merges.put(from, new VersionedItem<>(to, version++));
+
+            for (Expression expression : expressionsByGroup.get(from).keySet()) {
+                // move expression to new group
+                expressionMembership.put(expression, to);
+                expressionsByGroup.get(to).put(expression, version++);
+
+// TODO: is this necessary? the recursive walk of referrers should eventually catch this
+//                // see if we need to rewrite it (e.g., if there was a recursive reference to the group
+//                // that was just merged)
+//                Expression rewritten = canonicalize(expression);
+//                if (!rewritten.equals(expression)) {
+//                    rewrites.put(expression, new VersionedItem<>(rewritten, version++));
+//                }
+            }
+
+            // rewrite expressions that reference the merged group
+            Map<Long, List<Expression>> referrerGroups = incomingReferences.get(from)
+                    .keySet().stream()
+                    .collect(Collectors.groupingBy(expressionMembership::get));
+
+            for (Map.Entry<Long, List<Expression>> entry : referrerGroups.entrySet()) {
                 long referrerGroup = entry.getKey();
+                for (Expression referrerExpression : entry.getValue()) {
+                    Expression rewritten = canonicalize(referrerExpression);
 
-                Expression expression = canonicalize(referrerExpression);
-
-                // use contains()
-                Long previousGroup = expressionMembership.get(expression);
-                if (previousGroup == null) {
-                    insert(expression, referrerGroup);
-                }
-                else if (!previousGroup.equals(referrerGroup)) {
-                    mergeInto(referrerGroup, previousGroup);
-                }
-
-                if (!expression.equals(referrerExpression)) {
-                    rewrites.put(referrerExpression, new VersionedItem<>(expression, version++));
+                    Long formerGroup = expressionMembership.get(rewritten);
+                    if (formerGroup == null) {
+                        // if this is a new form of the expression, just insert it into the group
+                        if (!rewritten.equals(referrerExpression)) {
+                            rewrites.put(referrerExpression, new VersionedItem<>(rewritten, version++));
+                        }
+                        insert(rewritten, referrerGroup);
+                    }
+                    else if (!formerGroup.equals(referrerGroup)) {
+                        pending.add(new PendingMerge(referrerGroup, formerGroup));
+                    }
                 }
             }
         }
@@ -355,21 +410,27 @@ public class Memo
 
     public void verify()
     {
-        // ensure all active expressions "belong" to the canonical group name
-        for (Map.Entry<Expression, Long> entry : expressionMembership.entrySet()) {
-            Expression expression = entry.getKey();
-            long group = entry.getValue();
+        try {
+            // ensure all active expressions "belong" to the canonical group name
+            for (Map.Entry<Expression, Long> entry : expressionMembership.entrySet()) {
+                Expression expression = entry.getKey();
+                long group = entry.getValue();
 
-            checkState(group == canonicalize(group),
-                    "Expression not marked as belonging to canonical group: %s (%s vs %s)  ", expression, group, canonicalize(group));
+                checkState(group == find(group),
+                        "Expression not marked as belonging to canonical group: %s (%s vs %s)  ", expression, group, find(group));
 
-            if (expression instanceof Apply) {
-                ((Apply) expression).getArguments().stream()
-                        .peek(e -> checkState((e instanceof GroupReference), "All expression arguments must be references: %s", expression))
-                        .map(GroupReference.class::cast)
-                        .peek(r -> checkState(r.getId() == canonicalize(r.getId()),
-                                "Expression arguments must reference canonical groups: %s, %s vs %s", expression, r.getId(), canonicalize(r.getId())));
+                if (expression instanceof Apply) {
+                    ((Apply) expression).getArguments().stream()
+                            .peek(e -> checkState((e instanceof GroupReference), "All expression arguments must be references: %s", expression))
+                            .map(GroupReference.class::cast)
+                            .peek(r -> checkState(r.getId() == find(r.getId()),
+                                    "Expression arguments must reference canonical groups: %s, %s vs %s", expression, r.getId(), find(r.getId())));
+                }
             }
+        }
+        catch (RuntimeException e) {
+            System.out.println();
+            throw e;
         }
     }
 
@@ -541,10 +602,13 @@ public class Memo
             int id = ids.get(group);
 
             clusters.add(id);
-            ranks.add(id);
 
             boolean active = !merges.containsKey(group);
+
+//            if (active) {
+            ranks.add(id);
             graph.addNode(id, new Node(Node.Type.GROUP, group, active, entry.getValue()));
+//            }
         }
 
         for (Map.Entry<Expression, Long> entry : expressionVersions.entrySet()) {
@@ -552,10 +616,13 @@ public class Memo
             int id = ids.get(expression);
 
             clusters.add(id);
-            ranks.add(id);
 
             boolean active = !rewrites.containsKey(expression);
+
+//            if (active) {
+            ranks.add(id);
             graph.addNode(id, new Node(Node.Type.EXPRESSION, expression, active, entry.getValue()));
+//            }
         }
 
         // membership
@@ -565,8 +632,12 @@ public class Memo
             for (Map.Entry<Expression, Long> versioned : entry.getValue().entrySet()) {
                 int expressionId = ids.get(versioned.getKey());
 
-                clusters.union(groupId, expressionId);
-                graph.addEdge(groupId, ids.get(versioned.getKey()), new Edge(Edge.Type.CONTAINS, group, versioned.getKey(), versioned.getValue()));
+                try {
+                    graph.addEdge(groupId, ids.get(versioned.getKey()), new Edge(Edge.Type.CONTAINS, group, versioned.getKey(), versioned.getValue()));
+                    clusters.union(groupId, expressionId);
+                }
+                catch (Exception e) {
+                }
             }
         }
 
@@ -574,7 +645,11 @@ public class Memo
         for (Map.Entry<Long, Map<Expression, Long>> entry : incomingReferences.entrySet()) {
             long group = entry.getKey();
             for (Map.Entry<Expression, Long> versioned : entry.getValue().entrySet()) {
-                graph.addEdge(ids.get(versioned.getKey()), ids.get(group), new Edge(Edge.Type.REFERENCES, versioned.getKey(), group, versioned.getValue()));
+                try {
+                    graph.addEdge(ids.get(versioned.getKey()), ids.get(group), new Edge(Edge.Type.REFERENCES, versioned.getKey(), group, versioned.getValue()));
+                }
+                catch (Exception e) {
+                }
             }
         }
 
@@ -586,10 +661,13 @@ public class Memo
             int sourceId = ids.get(source);
             int targetId = ids.get(target);
 
-            clusters.union(sourceId, targetId);
-            ranks.union(sourceId, targetId);
-
-            graph.addEdge(sourceId, targetId, new Edge(Edge.Type.MERGED_WITH, source, target, entry.getValue().getVersion()));
+            try {
+                graph.addEdge(sourceId, targetId, new Edge(Edge.Type.MERGED_WITH, source, target, entry.getValue().getVersion()));
+                clusters.union(sourceId, targetId);
+                ranks.union(sourceId, targetId);
+            }
+            catch (Exception e) {
+            }
         }
 
         // rewrites
@@ -600,10 +678,13 @@ public class Memo
             int fromId = ids.get(from);
             int toId = ids.get(to);
 
-            clusters.union(fromId, toId);
-            ranks.union(fromId, toId);
-
-            graph.addEdge(fromId, toId, new Edge(Edge.Type.REWRITTEN_TO, from, to, entry.getValue().getVersion()));
+            try {
+                graph.addEdge(fromId, toId, new Edge(Edge.Type.REWRITTEN_TO, from, to, entry.getValue().getVersion()));
+                clusters.union(fromId, toId);
+                ranks.union(fromId, toId);
+            }
+            catch (Exception e) {
+            }
         }
 
         // transformations
@@ -619,7 +700,12 @@ public class Memo
                 else {
                     toId = ids.get(edge.getKey());
                 }
-                graph.addEdge(fromId, toId, new Edge(Edge.Type.TRANSFORMED, from, edge.getKey(), edge.getValue().getVersion(), edge.getValue().get()));
+
+                try {
+                    graph.addEdge(fromId, toId, new Edge(Edge.Type.TRANSFORMED, from, edge.getKey(), edge.getValue().getVersion(), edge.getValue().get()));
+                }
+                catch (Exception e) {
+                }
             }
         }
 
@@ -629,7 +715,11 @@ public class Memo
 
             graph.addCluster(clusterId, null);
             for (int node : nodes) {
-                graph.addNodeToCluster(node, clusterId);
+                try {
+                    graph.addNodeToCluster(node, clusterId);
+                }
+                catch (Exception e) {
+                }
             }
         }
 
@@ -637,7 +727,7 @@ public class Memo
                 () -> ImmutableMap.of("nodesep", "0.5"),
                 (nodeId, node) -> {
                     Map<String, String> attributes = new HashMap<>();
-                    attributes.put("label", node.payload.toString() + " @" + node.version);
+                    attributes.put("label", node.payload.toString() + " v" + node.version);
 
                     if (roots.contains(node.payload)) {
                         attributes.put("penwidth", "3");
@@ -645,6 +735,7 @@ public class Memo
 
                     if (node.type == Node.Type.GROUP) {
                         attributes.put("shape", "circle");
+                        attributes.put("label", "$" + node.payload.toString() + " v" + node.version);
                     }
                     else {
                         attributes.put("shape", "rectangle");
@@ -667,7 +758,7 @@ public class Memo
 
                     String label = "";
                     if (edge.label != null) {
-                        label = edge.label + " @";
+                        label = edge.label + " v";
                     }
                     label += edge.version;
                     attributes.put("label", label);
