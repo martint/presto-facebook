@@ -183,9 +183,7 @@ public class GreedyOptimizer
     private Expression getExpression(Memo memo, long group)
     {
         return memo.getExpressions(group).stream()
-                .sorted((e1, e2) -> -Long.compare(e1.getVersion(), e2.getVersion())) // pick newest expressions first
                 .findFirst()
-                .get()
                 .get();
     }
 

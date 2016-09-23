@@ -71,16 +71,17 @@ class MemoLookup
         if (expression instanceof GroupReference) {
             long group = ((GroupReference) expression).getId();
 
+            return memo.getExpressions(group).stream();
             // remove expressions that reference any group that has already been visited to avoid unbounded recursion
-            Stream<VersionedItem<Expression>> candidates = memo.getExpressions(group).stream()
-                    .sorted((e1, e2) -> -Long.compare(e1.getVersion(), e2.getVersion())); // pick newest expressions first
+//            Stream<Expression> candidates = memo.getExpressions(group).stream();
+//                    .sorted((e1, e2) -> -Long.compare(e1.getVersion(), e2.getVersion())); // pick newest expressions first
 //                    .filter(item -> !Utils.getChildren(item.get()).stream()
 //                            .filter(GroupReference.class::isInstance)
 //                            .map(GroupReference.class::cast)
 //                            .map(GroupReference::getId)
 //                            .anyMatch(visited::contains));
 
-            return selector.apply(candidates).map(VersionedItem::get);
+//            return selector.apply(candidates).map(VersionedItem::get);
         }
 
         return Stream.of(expression);

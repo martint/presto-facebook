@@ -12,6 +12,28 @@ import static com.facebook.presto.sql.optimizer.tree.Expressions.value;
 
 public class TestMemo
 {
+    @Test
+    public void testMerge()
+            throws Exception
+    {
+        Memo memo = new Memo();
+        memo.insert(
+                call("undo",
+                        call("do",
+                                call("undo",
+                                        call("do",
+                                                value(1)
+                                        )))));
+
+        System.out.println(memo.toGraphviz());
+
+        memo.transform(
+                call("undo", new GroupReference(1)),
+                value(1), "");
+
+
+        System.out.println(memo.toGraphviz());
+    }
 
     @Test
     public void testX()

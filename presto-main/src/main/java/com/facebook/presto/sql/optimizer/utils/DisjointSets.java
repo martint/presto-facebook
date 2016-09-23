@@ -68,6 +68,31 @@ public class DisjointSets<T>
         ranks[index] = 0;
     }
 
+    public boolean inSameSet(T element1, T element2)
+    {
+        int index1 = indices.getInt(element1);
+        int index2 = indices.getInt(element2);
+
+        if (index1 == -1 || index2 == -1) {
+            return false;
+        }
+
+        return findRoot(index1) == findRoot(index2);
+    }
+
+    public Set<T> roots()
+    {
+        Set<T> result = new HashSet<T>();
+
+        for (int i = 0; i < parents.length; i++) {
+            if (parents[i] == -1) {
+                result.add(nodes[i]);
+            }
+        }
+
+        return result;
+    }
+
     public T find(T element)
     {
         int index = indices.getInt(element);
@@ -85,8 +110,10 @@ public class DisjointSets<T>
             return ImmutableList.of();
         }
 
-        return () -> new AbstractIterator<T>() {
+        return () -> new AbstractIterator<T>()
+        {
             private int current = findRoot(index);
+
             @Override
             protected T computeNext()
             {
@@ -190,11 +217,11 @@ public class DisjointSets<T>
             set.add(i);
         }
 
-        set.union(0,1);
-        set.union(2,3);
-        set.union(4,5);
-        set.union(6,7);
-        set.union(8,9);
+        set.union(0, 1);
+        set.union(2, 3);
+        set.union(4, 5);
+        set.union(6, 7);
+        set.union(8, 9);
 
         set.union(2, 4);
         set.union(0, 2);

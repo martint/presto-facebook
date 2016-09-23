@@ -39,55 +39,27 @@ import static com.facebook.presto.sql.optimizer.engine.GroupReference.group;
 import static com.facebook.presto.sql.optimizer.tree.Expressions.lambda;
 import static com.google.common.base.Preconditions.checkArgument;
 
-public class Memo
+public class HeuristicPlannerMemo
 {
     private final boolean debug;
 
     private long version;
     private long nextGroupId;
 
-    private final Set<Long> roots = new HashSet<>();
-    private final Map<Long, Long> groupVersions = new HashMap<>();
-    private final Map<Expression, Long> expressionVersions = new HashMap<>();
+    private final long root;
 
-    private final Map<Long, Map<Expression, Long>> expressionsByGroup = new HashMap<>();
+    private final Map<Long, Set<Expression>> expressionsByGroup = new HashMap<>();
     private final Map<Expression, Long> expressionMembership = new HashMap<>();
-    private final Map<Long, Map<Expression, Long>> incomingReferences = new HashMap<>();
+    private final Map<Expression, Map<Expression, String>> transformations = new HashMap<>();
 
-    //    private final Map<Expression, VersionedItem<Expression>> rewrites = new HashMap<>();
-//    private final Map<Long, VersionedItem<Long>> merges = new HashMap<>();
-    private final Map<Expression, Map<Expression, VersionedItem<String>>> transformations = new HashMap<>();
-
-    private final DisjointSets<Expression> rewrites = new DisjointSets<>();
-    private final DisjointSets<Long> merges = new DisjointSets<>();
-
-    public Memo()
+    public HeuristicPlannerMemo(Expression expression)
     {
-        this(false);
+        root = insertRecursive(expression);
     }
 
-    public Memo(boolean debug)
+    public long getRoot()
     {
-        this.debug = debug;
-    }
-
-    public long getVersion()
-    {
-        return version;
-    }
-
-    /**
-     * Allows possibly nested expressions
-     */
-    public long insert(Expression expression)
-    {
-        System.out.println("Inserting: " + expression);
-        long result = insertRecursive(expression);
-        if (debug) {
-            verify();
-        }
-        roots.add(result);
-        return result;
+        return root;
     }
 
     private static class ExpressionAndGroup
@@ -121,7 +93,7 @@ public class Memo
     {
         checkArgument(expressionMembership.containsKey(from), "Unknown expression: %s when applying %s", from, reason);
 
-        long group = merges.find(expressionMembership.get(from));
+        long group = expressionMembership.get(from);
 
         ExpressionAndGroup insertion = insertInternal(to);
 
@@ -158,19 +130,7 @@ public class Memo
 
     public List<Expression> getExpressions(long group)
     {
-        Set<VersionedItem<Expression>> result = new HashSet<>();
-        for (long subgroup : merges.findAll(group)) {
-            Set<Expression> expressions = expressionsByGroup.get(subgroup).keySet();
-
-            for (Expression expression : expressions) {
-                result.add(new VersionedItem<>(expression, this.expressionVersions.get(expression)));
-            }
-        }
-
-        return result.stream()
-                .sorted((e1, e2) -> -Long.compare(e1.getVersion(), e2.getVersion()))
-                .map(VersionedItem::get)
-                .collect(Collectors.toList());
+        throw new UnsupportedOperationException("not yet implemented");
     }
 
     private long insertRecursive(Expression expression)
