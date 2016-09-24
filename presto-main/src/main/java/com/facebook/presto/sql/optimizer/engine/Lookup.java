@@ -19,7 +19,7 @@ import java.util.stream.Stream;
 
 public interface Lookup
 {
-    Stream<Expression> resolve(Expression reference);
+    Stream<Expression> resolve(Expression expression);
 
-    Expression first(Expression reference);
+    Expression first(Expression expression);
 }

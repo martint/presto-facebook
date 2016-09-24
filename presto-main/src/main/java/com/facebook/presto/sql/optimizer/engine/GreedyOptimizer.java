@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.sql.optimizer.engine.Utils.getChildren;
 import static com.facebook.presto.sql.optimizer.tree.Expressions.lambda;
@@ -67,110 +68,123 @@ public class GreedyOptimizer
         ));
     }
 
+    private static class MemoLookup
+        implements Lookup
+    {
+        private final HeuristicPlannerMemo memo;
+
+        public MemoLookup(HeuristicPlannerMemo memo)
+        {
+            this.memo = memo;
+        }
+
+        @Override
+        public Stream<Expression> resolve(Expression expression)
+        {
+            return Stream.of(first(expression));
+        }
+
+        @Override
+        public Expression first(Expression expression)
+        {
+            if (expression instanceof GroupReference) {
+                return memo.getExpression(((GroupReference) expression).getId());
+            }
+
+            return expression;
+        }
+    }
+
     public Expression optimize(Expression expression)
     {
-        Memo memo = new Memo(true);
-
-        long rootClass = memo.insert(expression);
+        HeuristicPlannerMemo memo = new HeuristicPlannerMemo(expression);
 
         System.out.println(memo.toGraphviz());
         memo.dump();
 
-        MemoLookup lookup = new MemoLookup(
-                memo,
-                rootClass,
-                expressions -> expressions);
-        // expressions.sorted((e1, e2) -> -Longs.compare(e1.getVersion(), e2.getVersion()))
-        //                .limit(1)
-
         for (Set<Rule> batch : batches) {
-            explore(memo, batch, rootClass, new ArrayDeque<>());
+            explore(memo, batch, memo.getRoot(), new ArrayDeque<>());
         }
 
         System.out.println(memo.toGraphviz());
 
-        List<Assignment> assignments = extract(rootClass, lookup);
+        List<Assignment> assignments = extract(memo.getRoot(), new MemoLookup(memo));
 
         Set<Expression> chosen = assignments.stream()
                 .map(Assignment::getExpression)
                 .collect(Collectors.toSet());
 
         System.out.println(
-                memo.toGraphviz(
-                        e -> {
-                            if (chosen.contains(e)) {
-                                return ImmutableMap.of(
-                                        "fillcolor", "coral",
-                                        "style", "filled");
-                            }
-
-                            return ImmutableMap.of();
-                        },
-                        (from, to) -> {
-                            if (chosen.contains(from) || chosen.contains(to)) {
-                                return ImmutableMap.of(
-                                        "color", "coral",
-                                        "penwidth", "3");
-                            }
-                            return ImmutableMap.of();
-                        })
+                memo.toGraphviz()
+//                memo.toGraphviz(
+//                        e -> {
+//                            if (chosen.contains(e)) {
+//                                return ImmutableMap.of(
+//                                        "fillcolor", "coral",
+//                                        "style", "filled");
+//                            }
+//
+//                            return ImmutableMap.of();
+//                        },
+//                        (from, to) -> {
+//                            if (chosen.contains(from) || chosen.contains(to)) {
+//                                return ImmutableMap.of(
+//                                        "color", "coral",
+//                                        "penwidth", "3");
+//                            }
+//                            return ImmutableMap.of();
+//                        })
         );
 
         System.out.println(memo.dump());
 
-        return let(assignments, variable("$" + rootClass));
+        return let(assignments, variable("$" + memo.getRoot()));
     }
 
-    private boolean explore(Memo memo, Set<Rule> rules, long group, Deque<Long> groups)
+    private boolean explore(HeuristicPlannerMemo memo, Set<Rule> rules, long group, Deque<Long> groups)
     {
         System.out.println("=== Exploring (" + groups + ") -> $" + group + " ===");
 
         boolean progress = false;
-        boolean anyChanges;
+        boolean childrenChanged;
         do {
-            if (!memo.isValid(group)) {
-                return progress;
-            }
+            childrenChanged = false;
+            boolean changed;
+            do {
+                changed = false;
+                Expression expression = memo.getExpression(group);
 
-            anyChanges = false;
+                System.out.println("Considering: " + expression);
+                for (Rule rule : rules) {
+                    System.out.println("Trying: " + rule.getClass().getSimpleName());
+                    Optional<Expression> transformed = rule.apply(expression, new MemoLookup(memo))
+                            .limit(1)
+                            .findFirst();
 
-            Expression expression = getExpression(memo, group);
-
-            System.out.println("Considering: " + expression);
-            boolean changed = false;
-            for (Rule rule : rules) {
-                System.out.println("Trying: " + rule.getClass().getSimpleName());
-                Optional<Expression> transformed = rule.apply(expression, new MemoLookup(memo, group))
-                        .limit(1)
-                        .findFirst();
-
-                if (!transformed.isPresent()) {
-                    continue;
-                }
-
-                changed = memo.transform(expression, transformed.get(), rule.getClass().getSimpleName());
-                if (changed) {
-                    anyChanges = true;
-                    progress = true;
-                    break;
+                    if (transformed.isPresent()) {
+                        memo.transform(group, transformed.get(), rule.getClass().getSimpleName());
+                        changed = true;
+                        progress = true;
+                        break;
+                    }
                 }
             }
+            while (changed);
 
-            if (!changed) {
-                for (Expression child : getChildren(expression)) {
-                    if (child instanceof GroupReference) {
-                        Deque<Long> path = new ArrayDeque<>(groups);
-                        path.add(group);
-                        boolean childChanged = explore(memo, rules, ((GroupReference) child).getId(), path);
-                        if (childChanged) {
-                            anyChanges = true;
-                            break;
-                        }
+            Expression expression = memo.getExpression(group);
+            for (Expression child : getChildren(expression)) {
+                if (child instanceof GroupReference) {
+                    Deque<Long> path = new ArrayDeque<>(groups);
+                    path.add(group);
+                    childrenChanged = childrenChanged || explore(memo, rules, ((GroupReference) child).getId(), path);
+                    if (childrenChanged) {
+                        progress = true;
+                        break;
                     }
                 }
             }
         }
-        while (anyChanges);
+        while (childrenChanged);
 
 
         System.out.println("=== Done (" + groups + ") -> $" + group + " ===");
@@ -180,14 +194,7 @@ public class GreedyOptimizer
         return progress;
     }
 
-    private Expression getExpression(Memo memo, long group)
-    {
-        return memo.getExpressions(group).stream()
-                .findFirst()
-                .get();
-    }
-
-    private List<Assignment> extract(long group, MemoLookup lookup)
+    private List<Assignment> extract(long group, Lookup lookup)
     {
         Expression expression = lookup.first(new GroupReference(group));
 
@@ -199,7 +206,7 @@ public class GreedyOptimizer
 
             if (body instanceof GroupReference) {
                 GroupReference reference = (GroupReference) body;
-                body = let(extract(reference.getId(), lookup.push(reference.getId())), reference);
+                body = let(extract(reference.getId(), lookup), reference);
             }
 
             expression = lambda(body);
@@ -208,7 +215,7 @@ public class GreedyOptimizer
             getChildren(expression).stream()
                     .filter(GroupReference.class::isInstance)
                     .map(GroupReference.class::cast)
-                    .map(e -> extract(e.getId(), lookup.push(e.getId())))
+                    .map(e -> extract(e.getId(), lookup))
                     .flatMap(List::stream)
                     .forEach(a -> {
                         if (!assignments.contains(a)) { // TODO: potentially inefficient -- need an ordered set
