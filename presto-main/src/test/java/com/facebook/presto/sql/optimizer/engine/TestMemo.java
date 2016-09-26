@@ -16,7 +16,7 @@ public class TestMemo
     public void testMerge()
             throws Exception
     {
-        Memo memo = new Memo();
+        HeuristicPlannerMemo2 memo = new HeuristicPlannerMemo2();
         memo.insert(
                 call("undo",
                         call("do",
