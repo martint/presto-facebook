@@ -31,7 +31,6 @@ public class TestMemo
                 call("undo", new GroupReference(1)),
                 value(1), "");
 
-
         System.out.println(memo.toGraphviz());
     }
 
@@ -64,17 +63,17 @@ public class TestMemo
     {
         Expression expression =
 
-//        call("transform",
-//                call("transform",
                 call("transform",
                         call("transform",
                                 call("transform",
-                                        value(1),
-                                        lambda(call("row", new Null()))),
+                                        call("transform",
+                                                call("transform",
+                                                        call("array", call("row", value(1))),
+                                                        lambda(call("row", new Null()))),
+                                                lambda(call("row", fieldDereference(localReference(), 0)))),
+                                        lambda(call("row", fieldDereference(localReference(), 0)))),
                                 lambda(call("row", fieldDereference(localReference(), 0)))),
                         lambda(call("row", fieldDereference(localReference(), 0))));
-//                        lambda(call("row", fieldDereference(localReference(), 0))));
-//                lambda(call("row", fieldDereference(localReference(), 0))));
 
 //                call("transform",
 //                        call("transform",

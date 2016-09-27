@@ -39,30 +39,21 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 public class HeuristicPlannerMemo2
 {
-    private final boolean debug;
-
     private long nextGroupId;
 
     private final Set<Long> roots = new HashSet<>();
-//    private final Map<Expression, Long> expressionVersions = new HashMap<>();
 
+    private final Map<Long, Expression> currentExpressionByGroup = new HashMap<>();
     private final Map<Long, Set<Expression>> expressionsByGroup = new HashMap<>();
     private final Map<Expression, Long> expressionMembership = new HashMap<>();
     private final Map<Long, Set<Expression>> incomingReferences = new HashMap<>();
 
     private final Map<Expression, Map<Expression, String>> transformations = new HashMap<>();
 
-//    private final DisjointSets<Expression> rewrites = new DisjointSets<>();
-//    private final DisjointSets<Long> merges = new DisjointSets<>();
+    private final Map<Long, Long> equivalences = new HashMap<>();
 
     public HeuristicPlannerMemo2()
     {
-        this(false);
-    }
-
-    public HeuristicPlannerMemo2(boolean debug)
-    {
-        this.debug = debug;
     }
 
     /**
@@ -70,32 +61,10 @@ public class HeuristicPlannerMemo2
      */
     public long insert(Expression expression)
     {
-        System.out.println("Inserting: " + expression);
+//        System.out.println("Inserting: " + expression);
         long result = insertRecursive(expression);
         roots.add(result);
         return result;
-    }
-
-    private static class ExpressionAndGroup
-    {
-        private final long group;
-        private final Expression expression;
-
-        public ExpressionAndGroup(long group, Expression expression)
-        {
-            this.group = group;
-            this.expression = expression;
-        }
-
-        public long getGroup()
-        {
-            return group;
-        }
-
-        public Expression getExpression()
-        {
-            return expression;
-        }
     }
 
     /**
@@ -109,17 +78,29 @@ public class HeuristicPlannerMemo2
 
         long sourceGroup = expressionMembership.get(from);
 
-        Expression rewritten = insertChildrenAndRewrite(to);
-
-        Long targetGroup = expressionMembership.get(rewritten);
-        if (targetGroup == null) {
-            targetGroup = createGroup();
-            insert(rewritten, targetGroup);
+        Expression rewritten;
+        Long targetGroup;
+        if (to instanceof GroupReference) {
+            targetGroup = ((GroupReference) to).getId();
+            rewritten = to;
         }
-//        else if (!targetGroup.equals(sourceGroup)) {
-//            rewritten = new GroupReference(targetGroup);
-//            insert(rewritten, sourceGroup);
-//        }
+        else {
+            rewritten = insertChildrenAndRewrite(to);
+            targetGroup = expressionMembership.get(rewritten);
+        }
+
+        if (targetGroup == null) {
+//            targetGroup = createGroup();
+            insert(rewritten, sourceGroup);
+            currentExpressionByGroup.put(sourceGroup, rewritten);
+        }
+        else if (!targetGroup.equals(sourceGroup)) {
+            equivalences.put(sourceGroup, targetGroup);
+        }
+        else {
+            throw new RuntimeException("shouldn't happen?");
+//            currentExpressionByGroup.put(targetGroup, rewritten);
+        }
 
         String existing = transformations.computeIfAbsent(from, e -> new HashMap<>())
                 .putIfAbsent(rewritten, reason);
@@ -127,22 +108,10 @@ public class HeuristicPlannerMemo2
         return existing == null;
     }
 
-    private ExpressionAndGroup insertInternal(Expression expression)
+    public Expression getExpression(long group)
     {
-        Expression rewritten = insertChildrenAndRewrite(expression);
-
-        Long group = expressionMembership.get(rewritten);
-        if (group == null) {
-            group = createGroup();
-            insert(rewritten, group);
-        }
-
-        return new ExpressionAndGroup(group, rewritten);
-    }
-
-    public Expression getExpressions(long group)
-    {
-        throw new UnsupportedOperationException("not yet implemented");
+        long targetGroup = find(group);
+        return currentExpressionByGroup.get(targetGroup);
     }
 
     private long insertRecursive(Expression expression)
@@ -155,6 +124,7 @@ public class HeuristicPlannerMemo2
         if (group == null) {
             group = createGroup();
             insert(rewritten, group);
+            currentExpressionByGroup.put(group, rewritten);
         }
 
         return group;
@@ -174,6 +144,10 @@ public class HeuristicPlannerMemo2
             Apply apply = (Apply) expression;
 
             Function<Expression, Expression> processor = argument -> {
+                if (argument instanceof Atom) {
+                    return argument;
+                }
+
                 if (argument instanceof GroupReference) {
                     // TODO: make sure group exists
                     return new GroupReference(((GroupReference) argument).getId());
@@ -250,13 +224,13 @@ public class HeuristicPlannerMemo2
         return true; // find(group) == group;
     }
 
-//    private long find(long group)
-//    {
-//        while (merges.containsKey(group)) {
-//            group = merges.get(group).get();
-//        }
-//        return group;
-//    }
+    private long find(long group)
+    {
+        while (equivalences.containsKey(group)) {
+            group = equivalences.get(group);
+        }
+        return group;
+    }
 
 //    private Expression find(Expression expression)
 //    {
@@ -390,10 +364,8 @@ public class HeuristicPlannerMemo2
 
             clusters.add(id);
 
-            boolean active = true; //!merges.containsKey(group);
-
             ranks.add(id);
-            graph.addNode(id, new Node(Node.Type.GROUP, group, active, 0));
+            graph.addNode(id, new Node(Node.Type.GROUP, group, true, 0));
         }
 
         for (Expression expression : expressionMembership.keySet()) {
@@ -401,12 +373,8 @@ public class HeuristicPlannerMemo2
 
             clusters.add(id);
 
-            boolean active = true; //!rewrites.containsKey(expression);
-
-//            if (active) {
             ranks.add(id);
-            graph.addNode(id, new Node(Node.Type.EXPRESSION, expression, active, 0));
-//            }
+            graph.addNode(id, new Node(Node.Type.EXPRESSION, expression, true, 0));
         }
 
         // membership
@@ -436,54 +404,16 @@ public class HeuristicPlannerMemo2
                 }
             }
         }
-//
-//        // merges
-//        for (long group : merges.roots()) {
-//            for (long source : merges.findAll(group)) {
-//                if (group == source) {
-//                    continue;
-//                }
-//
-//                int sourceId = ids.get(source);
-//                int targetId = ids.get(group);
-//                graph.addEdge(sourceId, targetId, new Edge(Edge.Type.MERGED_WITH, source, group, 0));
-//                clusters.union(sourceId, targetId);
-//                ranks.union(sourceId, targetId);
-//            }
-//        }
-//        for (Map.Entry<Long, VersionedItem<Long>> entry : merges.entrySet()) {
-//            long source = entry.getKey();
-//            long target = entry.getValue().get();
-//
-//            int sourceId = ids.get(source);
-//            int targetId = ids.get(target);
-//
-//            try {
-//                graph.addEdge(sourceId, targetId, new Edge(Edge.Type.MERGED_WITH, source, target, entry.getValue().getVersion()));
-//                clusters.union(sourceId, targetId);
-//                ranks.union(sourceId, targetId);
-//            }
-//            catch (Exception e) {
-//            }
-//        }
 
-        // rewrites
-        // TODO
-//        for (Map.Entry<Expression, VersionedItem<Expression>> entry : rewrites.entrySet()) {
-//            Expression from = entry.getKey();
-//            Expression to = entry.getValue().get();
-//
-//            int fromId = ids.get(from);
-//            int toId = ids.get(to);
-//
-//            try {
-//                graph.addEdge(fromId, toId, new Edge(Edge.Type.REWRITTEN_TO, from, to, entry.getValue().getVersion()));
-//                clusters.union(fromId, toId);
-//                ranks.union(fromId, toId);
-//            }
-//            catch (Exception e) {
-//            }
-//        }
+        // group equivalences
+        for (Map.Entry<Long, Long> entry : equivalences.entrySet()) {
+            int sourceId = ids.get(entry.getKey());
+            int targetId = ids.get(entry.getValue());
+
+//                clusters.union(sourceId, targetId);
+
+            graph.addEdge(sourceId, targetId, new Edge(Edge.Type.MERGED_WITH, entry.getKey(), entry.getValue(), 0));
+        }
 
         // transformations
         for (Map.Entry<Expression, Map<Expression, String>> entry : transformations.entrySet()) {

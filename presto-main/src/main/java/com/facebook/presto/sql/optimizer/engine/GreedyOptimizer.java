@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.optimizer.engine;
 
+import com.facebook.presto.sql.optimizer.rule.LogicalToPhysicalFilter;
+import com.facebook.presto.sql.optimizer.rule.MergePhysicalFilters;
 import com.facebook.presto.sql.optimizer.rule.MergeTransforms;
 import com.facebook.presto.sql.optimizer.rule.ReduceLambda;
 import com.facebook.presto.sql.optimizer.rule.RemoveRedundantFilter;
@@ -21,7 +23,6 @@ import com.facebook.presto.sql.optimizer.tree.Assignment;
 import com.facebook.presto.sql.optimizer.tree.Expression;
 import com.facebook.presto.sql.optimizer.tree.Lambda;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.ArrayDeque;
@@ -30,7 +31,6 @@ import java.util.Deque;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.sql.optimizer.engine.Utils.getChildren;
@@ -59,21 +59,21 @@ public class GreedyOptimizer
                         new MergeTransforms(),
                         new ReduceLambda(),
                         new RemoveRedundantProjections()
-                )
-//                ImmutableSet.of(
+                ),
+                ImmutableSet.of(
 //                        new GetToScan(),
-//                        new LogicalToPhysicalFilter(),
-//                        new MergePhysicalFilters()
-//                )
+                        new LogicalToPhysicalFilter(),
+                        new MergePhysicalFilters()
+                )
         ));
     }
 
     private static class MemoLookup
         implements Lookup
     {
-        private final HeuristicPlannerMemo memo;
+        private final HeuristicPlannerMemo2 memo;
 
-        public MemoLookup(HeuristicPlannerMemo memo)
+        public MemoLookup(HeuristicPlannerMemo2 memo)
         {
             this.memo = memo;
         }
@@ -97,25 +97,25 @@ public class GreedyOptimizer
 
     public Expression optimize(Expression expression)
     {
-        HeuristicPlannerMemo memo = new HeuristicPlannerMemo(expression);
+        HeuristicPlannerMemo2 memo = new HeuristicPlannerMemo2();
+        long root = memo.insert(expression);
 
-        System.out.println(memo.toGraphviz());
-        memo.dump();
+//        System.out.println(memo.toGraphviz());
 
         for (Set<Rule> batch : batches) {
-            explore(memo, batch, memo.getRoot(), new ArrayDeque<>());
+            explore(memo, batch, root, new ArrayDeque<>());
         }
 
-        System.out.println(memo.toGraphviz());
+//        System.out.println(memo.toGraphviz());
 
-        List<Assignment> assignments = extract(memo.getRoot(), new MemoLookup(memo));
+        List<Assignment> assignments = extract(root, new MemoLookup(memo));
 
-        Set<Expression> chosen = assignments.stream()
-                .map(Assignment::getExpression)
-                .collect(Collectors.toSet());
+//        Set<Expression> chosen = assignments.stream()
+//                .map(Assignment::getExpression)
+//                .collect(Collectors.toSet());
 
-        System.out.println(
-                memo.toGraphviz()
+//        System.out.println(
+//                memo.toGraphviz()
 //                memo.toGraphviz(
 //                        e -> {
 //                            if (chosen.contains(e)) {
@@ -134,16 +134,14 @@ public class GreedyOptimizer
 //                            }
 //                            return ImmutableMap.of();
 //                        })
-        );
+//        );
 
-        System.out.println(memo.dump());
-
-        return let(assignments, variable("$" + memo.getRoot()));
+        return let(assignments, variable("$" + root));
     }
 
-    private boolean explore(HeuristicPlannerMemo memo, Set<Rule> rules, long group, Deque<Long> groups)
+    private boolean explore(HeuristicPlannerMemo2 memo, Set<Rule> rules, long group, Deque<Long> groups)
     {
-        System.out.println("=== Exploring (" + groups + ") -> $" + group + " ===");
+//        System.out.println("=== Exploring (" + groups + ") -> $" + group + " ===");
 
         boolean progress = false;
         boolean childrenChanged;
@@ -154,15 +152,15 @@ public class GreedyOptimizer
                 changed = false;
                 Expression expression = memo.getExpression(group);
 
-                System.out.println("Considering: " + expression);
+//                System.out.println("Considering: " + expression);
                 for (Rule rule : rules) {
-                    System.out.println("Trying: " + rule.getClass().getSimpleName());
+//                    System.out.println("Trying: " + rule.getClass().getSimpleName());
                     Optional<Expression> transformed = rule.apply(expression, new MemoLookup(memo))
                             .limit(1)
                             .findFirst();
 
                     if (transformed.isPresent()) {
-                        memo.transform(group, transformed.get(), rule.getClass().getSimpleName());
+                        memo.transform(expression, transformed.get(), rule.getClass().getSimpleName());
                         changed = true;
                         progress = true;
                         break;
@@ -187,9 +185,9 @@ public class GreedyOptimizer
         while (childrenChanged);
 
 
-        System.out.println("=== Done (" + groups + ") -> $" + group + " ===");
-        System.out.println(memo.toGraphviz());
-        System.out.println();
+//        System.out.println("=== Done (" + groups + ") -> $" + group + " ===");
+//        System.out.println(memo.toGraphviz());
+//        System.out.println();
 
         return progress;
     }
