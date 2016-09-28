@@ -21,6 +21,7 @@ import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
+import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
@@ -56,7 +57,6 @@ import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
@@ -97,29 +97,52 @@ public class LegacyToNew
     private static class Scope
     {
         private final Optional<Scope> parent;
-        private final List<String> bindings;
+        private final Resolver resolver;
 
         public Scope()
         {
             this.parent = Optional.empty();
-            this.bindings = list();
+            this.resolver = (name, localVariable) -> Optional.empty();
         }
 
-        public Scope(List<String> bindings)
-        {
-            this(Optional.empty(), bindings);
-        }
-
-        public Scope(Scope parent, List<String> bindings)
-        {
-            this(Optional.of(parent), bindings);
-        }
-
-        private Scope(Optional<Scope> parent, List<String> bindings)
+        private Scope(Optional<Scope> parent, Resolver resolver)
         {
             this.parent = parent;
-            this.bindings = ImmutableList.copyOf(bindings);
+            this.resolver = resolver;
         }
+
+        public Scope(Resolver resolver)
+        {
+            this(Optional.empty(), resolver);
+        }
+
+        public Scope(Scope parent, Resolver resolver)
+        {
+            this(Optional.of(parent), resolver);
+        }
+    }
+
+    private interface Resolver
+    {
+        Optional<Expression> resolve(String name, Expression localVariable);
+    }
+
+    static Resolver forSymbols(List<Symbol> symbols)
+    {
+        return forNames(symbols.stream()
+                .map(Symbol::getName)
+                .collect(toImmutableList()));
+    }
+
+    static Resolver forNames(List<String> names)
+    {
+        return (name, localVariable) -> {
+            if (names.contains(name)) {
+                return Optional.of(fieldDereference(localVariable, names.indexOf(name)));
+            }
+
+            return Optional.empty();
+        };
     }
 
     private static class PlanTranslator
@@ -149,14 +172,14 @@ public class LegacyToNew
             return call("transform",
                     translate(node.getSource(), scope),
                     lambda(call("row", node.getOutputSymbols().stream()
-                            .map(output -> translate(output.toSymbolReference(), new Scope(scope, names(node.getSource().getOutputSymbols()))))
+                            .map(output -> translate(output.toSymbolReference(), new Scope(scope, forSymbols(node.getSource().getOutputSymbols()))))
                             .collect(toList()))));
         }
 
         @Override
         public Expression visitFilter(FilterNode node, Scope scope)
         {
-            Expression lambdaBody = translate(node.getPredicate(), new Scope(scope, names(node.getSource().getOutputSymbols())));
+            Expression lambdaBody = translate(node.getPredicate(), new Scope(scope, forSymbols(node.getSource().getOutputSymbols())));
 
             return call("logical-filter", translate(node.getSource(), scope), lambda(lambdaBody));
         }
@@ -169,7 +192,7 @@ public class LegacyToNew
                     lambda(call("row", node.getOutputSymbols().stream()
                             .map(output -> {
                                 List<Symbol> outputSymbols = node.getSource().getOutputSymbols();
-                                return translate(node.getAssignments().get(output), new Scope(scope, names(outputSymbols)));
+                                return translate(node.getAssignments().get(output), new Scope(scope, forSymbols(outputSymbols)));
                             })
                             .collect(toList()))));
         }
@@ -190,7 +213,7 @@ public class LegacyToNew
             List<Expression> criteria = node.getOrderBy().stream()
                     .map(input ->
                             call("row",
-                                    lambda(translate(input.toSymbolReference(), new Scope(scope, names(node.getSource().getOutputSymbols())))),
+                                    lambda(translate(input.toSymbolReference(), new Scope(scope, forSymbols(node.getSource().getOutputSymbols())))),
                                     value(node.getOrderings().get(input))))
                     .collect(toImmutableList());
 
@@ -205,7 +228,7 @@ public class LegacyToNew
             List<Expression> criteria = node.getOrderBy().stream()
                     .map(input ->
                             call("row",
-                                    lambda(translate(input.toSymbolReference(), new Scope(scope, names(node.getSource().getOutputSymbols())))),
+                                    lambda(translate(input.toSymbolReference(), new Scope(scope, forSymbols(node.getSource().getOutputSymbols())))),
                                     value(node.getOrderings().get(input))))
                     .collect(toImmutableList());
 
@@ -235,11 +258,67 @@ public class LegacyToNew
                     .collect(toList());
 
             List<Expression> calls = node.getOutputSymbols().stream()
-                    .map(output -> translate(node.getAggregations().get(output), new Scope(scope, names(node.getSource().getOutputSymbols()))))
+                    .filter(node.getAggregations()::containsKey)
+                    .map(output -> translate(node.getAggregations().get(output), new Scope(scope, forSymbols(node.getSource().getOutputSymbols()))))
                     .collect(toList());
 
             return call("aggregation", source, call("array", value(groupingSets)), call("array", calls)); // TODO functions, mask, etc
         }
+
+        @Override
+        public Expression visitJoin(JoinNode node, Scope parentScope)
+        {
+            checkArgument(!node.getLeftHashSymbol().isPresent());
+            checkArgument(!node.getRightHashSymbol().isPresent());
+
+            Expression left = translate(node.getLeft());
+            Expression right = translate(node.getRight());
+
+            List<String> leftFields = names(node.getLeft().getOutputSymbols());
+            List<String> rightFields = names(node.getRight().getOutputSymbols());
+
+            Scope scope = new Scope(parentScope, (name, localVariable) -> {
+                int index = leftFields.indexOf(name);
+                if (index != -1) {
+                    return Optional.of(fieldDereference(fieldDereference(localVariable, 0), index));
+                }
+
+                index = rightFields.indexOf(name);
+                if (index != -1) {
+                    return Optional.of(fieldDereference(fieldDereference(localVariable, 1), index));
+                }
+
+                return Optional.empty();
+            });
+
+            Expression criteria = null;
+            for (JoinNode.EquiJoinClause clause : node.getCriteria()) {
+                Expression term = call(ComparisonExpression.Type.EQUAL.toString(), translate(clause.getLeft().toSymbolReference(), scope), translate(clause.getRight().toSymbolReference(), scope));
+                if (criteria == null) {
+                    criteria = term;
+                }
+                else {
+                    criteria = call("and", criteria, term);
+                }
+            }
+
+            if (node.getFilter().isPresent()) {
+                criteria = call("and", criteria, translate(node.getFilter().get(), scope));
+            }
+
+            return call("join",
+                    left,
+                    right,
+                    lambda(criteria),
+                    value(node.getType().toString()));
+        }
+    }
+
+    private static List<String> names(List<Symbol> symbols)
+    {
+        return symbols.stream()
+                .map(Symbol::getName)
+                .collect(toImmutableList());
     }
 
     private static class ExpressionTranslator
@@ -311,7 +390,7 @@ public class LegacyToNew
         @Override
         protected Expression visitLambdaExpression(LambdaExpression node, Scope scope)
         {
-            return lambda(translate(node.getBody(), new Scope(scope, node.getArguments())));
+            return lambda(translate(node.getBody(), new Scope(scope, forNames(node.getArguments()))));
         }
 
         @Override
@@ -396,8 +475,9 @@ public class LegacyToNew
         {
             int level = 0;
             while (true) {
-                if (scope.bindings.contains(node.getName())) {
-                    return fieldDereference(reference(level), scope.bindings.indexOf(node.getName()));
+                Optional<Expression> resolved = scope.resolver.resolve(node.getName(), reference(level));
+                if (resolved.isPresent()) {
+                    return resolved.get();
                 }
                 checkArgument(scope.parent.isPresent(), "Symbol '%s' not found in scope", node.getName());
                 level++;
@@ -421,13 +501,6 @@ public class LegacyToNew
                     translate(node.getBase(), scope),
                     translate(node.getIndex(), scope));
         }
-    }
-
-    private static List<String> names(List<Symbol> symbols)
-    {
-        return symbols.stream()
-                .map(Symbol::getName)
-                .collect(toImmutableList());
     }
 
     public static void main(String[] args)
@@ -464,7 +537,7 @@ public class LegacyToNew
 
         ProjectNode project = new ProjectNode(new PlanNodeId("3"), filter2, assignments);
 
-        Expression translated = translate(project, new Scope(list("r")));
+        Expression translated = translate(project, new Scope(forNames(list("r"))));
 
         GreedyOptimizer optimizer = new GreedyOptimizer(true);
         Expression optimized = optimizer.optimize(translated);
