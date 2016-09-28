@@ -13,47 +13,6 @@ import static com.facebook.presto.sql.optimizer.tree.Expressions.value;
 public class TestMemo
 {
     @Test
-    public void testMerge()
-            throws Exception
-    {
-        HeuristicPlannerMemo memo = new HeuristicPlannerMemo();
-        memo.insert(
-                call("undo",
-                        call("do",
-                                call("undo",
-                                        call("do",
-                                                value(1)
-                                        )))));
-
-        System.out.println(memo.toGraphviz());
-
-        memo.transform(
-                call("undo", new GroupReference(1)),
-                value(1), "");
-
-        System.out.println(memo.toGraphviz());
-    }
-
-    @Test
-    public void testX()
-            throws Exception
-    {
-        Expression expression =
-                call("transform",
-                        call("transform",
-                                value(1),
-                                lambda(call("row", fieldDereference(localReference(), 0)))),
-                        lambda(call("row", fieldDereference(localReference(), 0))));
-
-        GreedyOptimizer optimizer = new GreedyOptimizer(true);
-        Expression optimized = optimizer.optimize(expression);
-
-        System.out.println(expression);
-        System.out.println();
-        System.out.println(optimized);
-    }
-
-    @Test
     public void testReduce()
             throws Exception
     {
@@ -87,10 +46,7 @@ public class TestMemo
                 call("filter",
                         call("get", value("t")));
 
-        Memo memo = new Memo(true);
-        memo.insert(expression);
-
-        System.out.println(memo.toGraphviz());
+        process(expression);
     }
 
     @Test
@@ -102,10 +58,7 @@ public class TestMemo
                         call("*", value(1), value(2)),
                         value(3));
 
-        Memo memo = new Memo(true);
-        memo.insert(expression);
-
-        System.out.println(memo.toGraphviz());
+        process(expression);
     }
 
     @Test
@@ -134,7 +87,7 @@ public class TestMemo
 
     private void process(Expression expression)
     {
-        Memo memo = new Memo(true);
+        HeuristicPlannerMemo memo = new HeuristicPlannerMemo();
         memo.insert(expression);
 
         System.out.println(expression.toString());
