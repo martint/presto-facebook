@@ -16,7 +16,7 @@ public class TestMemo
     public void testMerge()
             throws Exception
     {
-        HeuristicPlannerMemo2 memo = new HeuristicPlannerMemo2();
+        HeuristicPlannerMemo memo = new HeuristicPlannerMemo();
         memo.insert(
                 call("undo",
                         call("do",
@@ -51,10 +51,6 @@ public class TestMemo
         System.out.println(expression);
         System.out.println();
         System.out.println(optimized);
-
-//        call("transform",
-//                call("transform",
-//
     }
 
     @Test
@@ -74,25 +70,6 @@ public class TestMemo
                                         lambda(call("row", fieldDereference(localReference(), 0)))),
                                 lambda(call("row", fieldDereference(localReference(), 0)))),
                         lambda(call("row", fieldDereference(localReference(), 0))));
-
-//                call("transform",
-//                        call("transform",
-//                                call("array",
-//                                        call("row", value(1))),
-//                                lambda(call("row", fieldDereference(localReference(), 0)))),
-//                        lambda(call("row", fieldDereference(localReference(), 0))));
-//
-//                apply(lambda(call("row", fieldDereference(localReference(), 0))),
-//                                call("row", value(1)));
-
-//                call("row",
-//                        fieldDereference(
-//                                apply(
-//                                        lambda(
-//                                                call("row",
-//                                                        fieldDereference(localReference(), 0))),
-//                                        localReference()),
-//                                0));
 
         GreedyOptimizer optimizer = new GreedyOptimizer(true);
         Expression optimized = optimizer.optimize(expression);

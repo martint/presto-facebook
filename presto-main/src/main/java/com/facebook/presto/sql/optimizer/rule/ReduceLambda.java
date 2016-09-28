@@ -26,39 +26,40 @@ import java.util.stream.Stream;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 
 public class ReduceLambda
-    implements Rule
+        implements Rule
 {
     @Override
     public Stream<Expression> apply(Expression expression, Lookup lookup)
     {
-        return lookup.resolve(expression)
-                .filter(Apply.class::isInstance)
-                .map(Apply.class::cast)
-                .flatMap(apply ->
-                        lookup.resolve(apply.getTarget())
-                            .filter(Lambda.class::isInstance)
-                            .map(Lambda.class::cast)
-                            .flatMap(lambda ->
-                                    lookup.resolve(apply.getArguments().get(0))
-                                        .map(argument -> substitute(lambda.getBody(), argument, lookup))));
+        if (!(expression instanceof Apply)) {
+            return Stream.empty();
+        }
+
+        Apply apply = (Apply) expression;
+        Expression target = lookup.resolve(apply.getTarget());
+        if (!(target instanceof Lambda)) {
+            return Stream.empty();
+        }
+
+        Lambda lambda = (Lambda) target;
+
+        return Stream.of(substitute(lookup.resolve(lambda.getBody()), apply.getArguments().get(0), lookup));
     }
 
     // substitute all occurrences of %0 with argument
     private Expression substitute(Expression expression, Expression argument, Lookup lookup)
     {
-        Expression resolved = lookup.first(expression);
-
-        if (resolved instanceof ScopeReference && ((ScopeReference) resolved).getIndex() == 0) {
+        if (expression instanceof ScopeReference && ((ScopeReference) expression).getIndex() == 0) {
             return argument;
         }
-        else if (resolved instanceof Apply) {
+        else if (expression instanceof Apply) {
             // TODO substitute in target
-            Apply apply = (Apply) resolved;
+            Apply apply = (Apply) expression;
             List<Expression> newArguments = apply.getArguments().stream()
                     .map(e -> substitute(e, argument, lookup))
                     .collect(toImmutableList());
 
-            return new Apply(substitute(apply.getTarget(), argument, lookup), newArguments);
+            return new Apply(substitute(lookup.resolve(apply.getTarget()), argument, lookup), newArguments);
         }
 
         return expression;

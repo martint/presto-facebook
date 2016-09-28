@@ -19,7 +19,6 @@ import com.facebook.presto.sql.optimizer.tree.Apply;
 import com.facebook.presto.sql.optimizer.tree.Expression;
 import com.facebook.presto.sql.optimizer.tree.Lambda;
 
-import java.util.Optional;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.sql.optimizer.engine.Patterns.isCall;
@@ -32,26 +31,22 @@ public class RemoveRedundantFilter
     @Override
     public Stream<Expression> apply(Expression expression, Lookup lookup)
     {
-        return lookup.resolve(expression)
-                .filter(isCall("logical-filter", lookup))
-                .map(Apply.class::cast)
-                .flatMap(parent -> lookup.resolve(parent.getArguments().get(1))
-                        .map(Lambda.class::cast)
-                        .flatMap(lambda -> lookup.resolve(lambda.getBody())
-                                .map(body -> process(parent, body))
-                                .filter(Optional::isPresent)
-                                .map(Optional::get)));
-    }
+        if (!isCall(expression, "logical-filter", lookup)) {
+            return Stream.empty();
+        }
 
-    private Optional<Expression> process(Apply filter, Expression body)
-    {
+        Apply filter = (Apply) expression;
+        Lambda lambda = (Lambda) lookup.resolve(filter.getArguments().get(1));
+        Expression body = lookup.resolve(lambda.getBody());
+
         if (body.equals(value(true))) {
-            return Optional.of(filter.getArguments().get(1));
-        }
-        else if (body.equals(value(false))) {
-            return Optional.of(value(list()));
+            return Stream.of(filter.getArguments().get(1));
         }
 
-        return Optional.empty();
+        if (body.equals(value(false))) {
+            return Stream.of(value(list()));
+        }
+
+        return Stream.empty();
     }
 }

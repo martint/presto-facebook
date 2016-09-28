@@ -17,28 +17,26 @@ import com.facebook.presto.sql.optimizer.tree.Apply;
 import com.facebook.presto.sql.optimizer.tree.Expression;
 import com.facebook.presto.sql.optimizer.tree.Reference;
 
-import java.util.function.Predicate;
-
 public class Patterns
 {
     private Patterns()
     {
     }
 
-    public static Predicate<Expression> isCall(String name, Lookup lookup)
+    public static boolean isCall(Expression expression, String name, Lookup lookup)
     {
-        return expression -> {
-            if (!(expression instanceof Apply)) {
-                return false;
-            }
+        Expression resolved = lookup.resolve(expression);
 
-            Apply apply = (Apply) expression;
-            Expression target = lookup.first(apply.getTarget());
-            if (!(target instanceof Reference)) {
-                return false;
-            }
+        if (!(resolved instanceof Apply)) {
+            return false;
+        }
 
-            return ((Reference) target).getName().equals(name);
-        };
+        Apply apply = (Apply) resolved;
+        Expression target = lookup.resolve(apply.getTarget());
+        if (!(target instanceof Reference)) {
+            return false;
+        }
+
+        return ((Reference) target).getName().equals(name);
     }
 }

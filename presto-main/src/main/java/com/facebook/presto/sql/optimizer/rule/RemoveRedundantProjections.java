@@ -34,32 +34,28 @@ public class RemoveRedundantProjections
         }
 
         Apply apply = (Apply) expression;
-        if (!isCall(lookup.first(apply.getArguments().get(0)), "row", lookup)) {
+        if (!isCall(lookup.resolve(apply.getArguments().get(0)), "row", lookup)) {
             return Stream.empty();
         }
 
-        Value field = (Value) lookup.first(apply.getArguments().get(1));
+        Value field = (Value) lookup.resolve(apply.getArguments().get(1));
         if (!(field.getValue() instanceof Number)) {
             return Stream.empty();
         }
 
-        Apply row = (Apply) lookup.first(apply.getArguments().get(0));
+        Apply row = (Apply) lookup.resolve(apply.getArguments().get(0));
         return Stream.of(row.getArguments().get(((Number) field.getValue()).intValue()));
     }
 
     private boolean isCall(Expression expression, String name, Lookup lookup)
     {
-        if (lookup.resolve(expression).count() == 0) {
-            return false;
-        }
-
         if (!(expression instanceof Apply)) {
             return false;
         }
 
         Apply apply = (Apply) expression;
 
-        Expression target = lookup.first(apply.getTarget());
+        Expression target = lookup.resolve(apply.getTarget());
         if (!(target instanceof Reference)) {
             return false;
         }
@@ -70,10 +66,5 @@ public class RemoveRedundantProjections
         }
 
         return true;
-    }
-
-    private Expression process(Number field, Apply row)
-    {
-        return row.getArguments().get(field.intValue());
     }
 }

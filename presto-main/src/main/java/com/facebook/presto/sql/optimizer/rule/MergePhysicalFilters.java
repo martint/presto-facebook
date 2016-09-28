@@ -31,27 +31,23 @@ public class MergePhysicalFilters
     @Override
     public Stream<Expression> apply(Expression expression, Lookup lookup)
     {
-        return lookup.resolve(expression)
-                .filter(isCall("physical-filter", lookup))
-                .map(Apply.class::cast)
-                .flatMap(parent ->
-                        lookup.resolve(parent.getArguments().get(0))
-                                .filter(isCall("physical-filter", lookup))
-                                .map(Apply.class::cast)
-                                .flatMap(child ->
-                                        lookup.resolve(parent.getArguments().get(1))
-                                                .flatMap(parentLambda ->
-                                                        lookup.resolve(child.getArguments().get(1))
-                                                                .map(childLambda ->
-                                                                        process(child.getArguments().get(0), (Lambda) parentLambda, (Lambda) childLambda)))));
-    }
+        if (!isCall(expression, "physical-filter", lookup)) {
+            return Stream.empty();
+        }
 
-    private Expression process(Expression source, Lambda parentLambda, Lambda childLambda)
-    {
-        return call("physical-filter",
-                source,
-                lambda(call("and",
-                        childLambda.getBody(),
-                                parentLambda.getBody())));
+        Apply parent = (Apply) expression;
+
+        if (!isCall(parent.getArguments().get(0), "physical-filter", lookup)) {
+            return Stream.empty();
+        }
+
+        Apply child = (Apply) parent.getArguments().get(0);
+
+        return Stream.of(
+                call("physical-filter",
+                        child.getArguments().get(0),
+                        lambda(call("and",
+                                ((Lambda) child.getArguments().get(1)).getBody(),
+                                ((Lambda) parent.getArguments().get(1)).getBody()))));
     }
 }

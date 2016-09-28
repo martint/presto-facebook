@@ -18,7 +18,9 @@ import com.facebook.presto.sql.optimizer.tree.Atom;
 import com.facebook.presto.sql.optimizer.tree.Expression;
 import com.facebook.presto.sql.optimizer.tree.Lambda;
 import com.facebook.presto.sql.optimizer.tree.Reference;
+import com.facebook.presto.sql.optimizer.utils.DisjointSets;
 import com.facebook.presto.sql.optimizer.utils.Graph;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.ArrayList;
@@ -32,26 +34,37 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.optimizer.engine.GroupReference.group;
-import static com.facebook.presto.sql.optimizer.engine.Utils.getChildren;
 import static com.facebook.presto.sql.optimizer.tree.Expressions.lambda;
+import static com.google.common.base.Preconditions.checkArgument;
 
 public class HeuristicPlannerMemo
 {
-    private final long root;
-
     private long nextGroupId;
-    private final Map<Long, Expression> mainExpressions = new HashMap<>();
-    private final Map<Long, Set<Expression>> oldExpressions = new HashMap<>();
-    private final Map<Expression, Expression> transformations = new HashMap<>();
 
-    public HeuristicPlannerMemo(Expression expression)
+    private final Set<Long> roots = new HashSet<>();
+
+    private final Map<Long, Expression> currentExpressionByGroup = new HashMap<>();
+    private final Map<Long, Set<Expression>> expressionsByGroup = new HashMap<>();
+    private final Map<Expression, Long> expressionMembership = new HashMap<>();
+    private final Map<Long, Set<Expression>> incomingReferences = new HashMap<>();
+
+    private final Map<Expression, Map<Expression, String>> transformations = new HashMap<>();
+
+    private final Map<Long, Long> equivalences = new HashMap<>();
+
+    public HeuristicPlannerMemo()
     {
-        root = insert(expression);
     }
 
-    public long getRoot()
+    /**
+     * Allows possibly nested expressions
+     */
+    public long insert(Expression expression)
     {
-        return root;
+//        System.out.println("Inserting: " + expression);
+        long result = insertRecursive(expression);
+        roots.add(result);
+        return result;
     }
 
     /**
@@ -59,44 +72,88 @@ public class HeuristicPlannerMemo
      * <p>
      * Returns the rewritten "to", if any.
      */
-    public void transform(long group, Expression to, String reason)
+    public boolean transform(Expression from, Expression to, String reason)
     {
-        Expression old = mainExpressions.get(group);
-        oldExpressions.computeIfAbsent(group, (key) -> new HashSet<>())
-                .add(old);
+        checkArgument(expressionMembership.containsKey(from), "Unknown expression: %s when applying %s", from, reason);
 
-        Expression expression = insertChildrenAndRewrite(to);
-        mainExpressions.put(group, expression);
-        transformations.put(old, expression);
-    }
+        long sourceGroup = expressionMembership.get(from);
 
-    private long insert(Expression expression)
-    {
-        if (expression instanceof GroupReference) {
-            return ((GroupReference) expression).getId();
+        Expression rewritten;
+        Long targetGroup;
+        if (to instanceof GroupReference) {
+            targetGroup = ((GroupReference) to).getId();
+            rewritten = to;
+        }
+        else {
+            rewritten = insertChildrenAndRewrite(to);
+            targetGroup = expressionMembership.get(rewritten);
         }
 
+        if (targetGroup == null) {
+//            targetGroup = createGroup();
+            insert(rewritten, sourceGroup);
+            currentExpressionByGroup.put(sourceGroup, rewritten);
+        }
+        else if (!targetGroup.equals(sourceGroup)) {
+            equivalences.put(sourceGroup, targetGroup);
+        }
+        else {
+            throw new RuntimeException("shouldn't happen?");
+//            currentExpressionByGroup.put(targetGroup, rewritten);
+        }
+
+        String existing = transformations.computeIfAbsent(from, e -> new HashMap<>())
+                .putIfAbsent(rewritten, reason);
+
+        return existing == null;
+    }
+
+    public Expression getExpression(long group)
+    {
+        long targetGroup = find(group);
+        return currentExpressionByGroup.get(targetGroup);
+    }
+
+    private long insertRecursive(Expression expression)
+    {
+        checkArgument(!(expression instanceof GroupReference), "Expression cannot be a Group Reference: %s", expression);
+
         Expression rewritten = insertChildrenAndRewrite(expression);
-        long group = createGroup();
-        mainExpressions.put(group, rewritten);
+
+        Long group = expressionMembership.get(rewritten);
+        if (group == null) {
+            group = createGroup();
+            insert(rewritten, group);
+            currentExpressionByGroup.put(group, rewritten);
+        }
 
         return group;
     }
 
+    /**
+     * Inserts the children of the given expression and rewrites it in terms
+     * of references to the corresponding groups.
+     * <p>
+     * It does *not* insert the top-level expression.
+     */
     private Expression insertChildrenAndRewrite(Expression expression)
     {
-        Function<Expression, Expression> processor = argument -> {
-            if (argument instanceof GroupReference || argument instanceof Atom) {
-                return argument;
-            }
-
-            return group(insert(argument));
-        };
-
         Expression result = expression;
 
         if (expression instanceof Apply) {
             Apply apply = (Apply) expression;
+
+            Function<Expression, Expression> processor = argument -> {
+                if (argument instanceof Atom) {
+                    return argument;
+                }
+
+                if (argument instanceof GroupReference) {
+                    // TODO: make sure group exists
+                    return new GroupReference(((GroupReference) argument).getId());
+                }
+                return group(insertRecursive(argument));
+            };
 
             List<Expression> arguments = apply.getArguments().stream()
                     .map(processor)
@@ -114,57 +171,121 @@ public class HeuristicPlannerMemo
                 return lambda;
             }
 
-            result = lambda(group(insert(((Lambda) expression).getBody())));
+            result = lambda(group(insertRecursive(((Lambda) expression).getBody())));
         }
 
         return result;
     }
 
+    private void insert(Expression expression, long group)
+    {
+        if (expression instanceof Apply) {
+            checkArgument(((Apply) expression).getArguments().stream().allMatch(e -> e instanceof GroupReference || e instanceof Atom), "Expected all arguments to be group references or atoms: %s", expression);
+        }
+
+        expressionMembership.put(expression, group);
+//        expressionVersions.put(expression, version++);
+        expressionsByGroup.get(group).add(expression);
+
+        if (expression instanceof Apply) {
+            Apply apply = (Apply) expression;
+            if (apply.getTarget() instanceof GroupReference) {
+                incomingReferences.get(((GroupReference) apply.getTarget()).getId()).add(expression);
+            }
+
+            apply.getArguments().stream()
+                    .filter(GroupReference.class::isInstance)
+                    .map(GroupReference.class::cast)
+                    .map(GroupReference::getId)
+                    .forEach(child -> incomingReferences.get(child).add(expression));
+        }
+        else if (expression instanceof Lambda) {
+            Expression body = ((Lambda) expression).getBody();
+            GroupReference reference = (GroupReference) body;
+
+            incomingReferences.get(reference.getId()).add(expression);
+        }
+    }
+
     private long createGroup()
     {
-        return nextGroupId++;
+        long group = nextGroupId++;
+
+        incomingReferences.put(group, new HashSet<>());
+        expressionsByGroup.put(group, new HashSet<>());
+//        groupVersions.put(group, version++);
+//        merges.add(group);
+
+        return group;
     }
 
-    public String dump()
+    public boolean isValid(long group)
     {
-        StringBuilder builder = new StringBuilder();
-
-//        builder.append("== Roots ==\n");
-//        builder.append(Joiner.on(", ").join(roots.stream().map(r -> "$" + r).iterator()) + "\n");
-//        builder.append('\n');
-//
-//        builder.append("== Groups ==\n");
-//        for (Map.Entry<Long, Map<Expression, Long>> entry : expressionsByGroup.entrySet()) {
-//            builder.append("$" + entry.getKey() + ": " + entry.getValue() + "\n");
-//        }
-//        builder.append('\n');
-//
-//        builder.append("== Expressions ==\n");
-//        for (Map.Entry<Expression, Long> entry : expressionMembership.entrySet()) {
-//            builder.append(entry.getKey() + " ∈ $" + entry.getValue() + "\n");
-//        }
-//        builder.append('\n');
-//
-//        builder.append("== References ==\n");
-//        for (Map.Entry<Long, Map<Expression, Long>> entry : incomingReferences.entrySet()) {
-//            for (Map.Entry<Expression, Long> versioned : entry.getValue().entrySet()) {
-//                builder.append(versioned.getKey() + " -> $" + entry.getKey() + " [" + versioned.getValue() + "]\n");
-//            }
-//        }
-//        builder.append('\n');
-//
-// TODO
-//        builder.append("== Rewrites ==\n");
-//        for (Map.Entry<Expression, VersionedItem<Expression>> entry : rewrites.entrySet()) {
-//            builder.append(entry.getKey() + " -> " + entry.getValue().get() + " @" + entry.getValue().getVersion() + "\n");
-//        }
-//
-        return builder.toString();
+        return true; // find(group) == group;
     }
 
-    public Expression getExpression(long group)
+    private long find(long group)
     {
-        return mainExpressions.get(group);
+        while (equivalences.containsKey(group)) {
+            group = equivalences.get(group);
+        }
+        return group;
+    }
+
+//    private Expression find(Expression expression)
+//    {
+//        while (rewrites.containsKey(expression)) {
+//            expression = rewrites.get(expression).get();
+//        }
+//        return expression;
+//    }
+
+    public Expression canonicalize(Expression expression)
+    {
+        if (expression instanceof Apply) {
+            Apply apply = (Apply) expression;
+
+            List<Expression> newArguments = apply.getArguments().stream()
+                    .map(this::canonicalize)
+                    .collect(Collectors.toList());
+
+            return new Apply(canonicalize(apply.getTarget()), newArguments);
+        }
+        else if (expression instanceof Lambda) {
+            return lambda(canonicalize(((Lambda) expression).getBody()));
+        }
+        else if (expression instanceof GroupReference) {
+            return new GroupReference((((GroupReference) expression).getId()));
+        }
+
+        return expression;
+    }
+
+    private static class PendingMerge
+    {
+        private final long source;
+        private final long target;
+
+        public PendingMerge(long source, long target)
+        {
+            this.source = source;
+            this.target = target;
+        }
+
+        public long getSource()
+        {
+            return source;
+        }
+
+        public long getTarget()
+        {
+            return target;
+        }
+    }
+
+    public boolean contains(Expression expression)
+    {
+        return expressionMembership.containsKey(expression);
     }
 
     private static class Node
@@ -216,7 +337,6 @@ public class HeuristicPlannerMemo
         }
     }
 
-
     public String toGraphviz()
     {
         return toGraphviz(e -> new HashMap<>(), (a, b) -> new HashMap<>());
@@ -224,84 +344,140 @@ public class HeuristicPlannerMemo
 
     public String toGraphviz(Function<Expression, Map<String, String>> nodeCustomizer, BiFunction<Object, Object, Map<String, String>> edgeCustomizer)
     {
-        // assign global unique id across groups and expressions
+        Set<Integer> groupIds = new HashSet<>();
+
         Map<Object, Integer> ids = new HashMap<>();
-        for (Long group : mainExpressions.keySet()) {
+        for (Long group : expressionsByGroup.keySet()) {
             ids.put(group, ids.size());
+            groupIds.add(ids.get(group));
         }
-
-        Set<Expression> allExpressions = new HashSet<>();
-        allExpressions.addAll(mainExpressions.values());
-        oldExpressions.values().stream().forEach(allExpressions::addAll);
-
-        for (Expression expression : allExpressions) {
+        for (Expression expression : expressionMembership.keySet()) {
             ids.put(expression, ids.size());
         }
 
         Graph<Integer, String, Node, Edge, Void> graph = new Graph<>();
+        DisjointSets<Integer> clusters = new DisjointSets<>();
+        DisjointSets<Integer> ranks = new DisjointSets<>();
 
-        // groups
-        for (long group : mainExpressions.keySet()) {
+        for (Long group : expressionsByGroup.keySet()) {
             int id = ids.get(group);
+
+            clusters.add(id);
+
+            ranks.add(id);
             graph.addNode(id, new Node(Node.Type.GROUP, group, true, 0));
         }
 
-        // expresssions
-        for (Expression expression : mainExpressions.values()) {
+        for (Expression expression : expressionMembership.keySet()) {
             int id = ids.get(expression);
+
+            clusters.add(id);
+
+            ranks.add(id);
             graph.addNode(id, new Node(Node.Type.EXPRESSION, expression, true, 0));
         }
 
-        for (Set<Expression> old : oldExpressions.values()) {
-            for (Expression expression : old) {
-                int id = ids.get(expression);
-                graph.addNode(id, new Node(Node.Type.EXPRESSION, expression, false, 0));
+        // membership
+        for (Map.Entry<Long, Set<Expression>> entry : expressionsByGroup.entrySet()) {
+            long group = entry.getKey();
+            int groupId = ids.get(group);
+            for (Expression expression : entry.getValue()) {
+                int expressionId = ids.get(expression);
+
+                try {
+                    graph.addEdge(groupId, ids.get(expression), new Edge(Edge.Type.CONTAINS, group, expression, 0));
+                    clusters.union(groupId, expressionId);
+                }
+                catch (Exception e) {
+                }
             }
         }
 
         // references
-        for (Expression expression : mainExpressions.values()) {
-            int from = ids.get(expression);
-            for (Expression child : getChildren(expression)) {
-                if (child instanceof GroupReference) {
-                    int to = ids.get(((GroupReference) child).getId());
-                    graph.addEdge(from, to, new Edge(Edge.Type.REFERENCES, from, to, 0));
+        for (Map.Entry<Long, Set<Expression>> entry : incomingReferences.entrySet()) {
+            long group = entry.getKey();
+            for (Expression expression : entry.getValue()) {
+                try {
+                    graph.addEdge(ids.get(expression), ids.get(group), new Edge(Edge.Type.REFERENCES, expression, group, 0));
+                }
+                catch (Exception e) {
                 }
             }
         }
 
-        for (Set<Expression> expressions : oldExpressions.values()) {
-            for (Expression expression : expressions) {
-                int from = ids.get(expression);
-                for (Expression child : getChildren(expression)) {
-                    if (child instanceof GroupReference) {
-                        int to = ids.get(((GroupReference) child).getId());
-                        graph.addEdge(from, to, new Edge(Edge.Type.REFERENCES, from, to, 0));
-                    }
-                }
-            }
+        // group equivalences
+        for (Map.Entry<Long, Long> entry : equivalences.entrySet()) {
+            int sourceId = ids.get(entry.getKey());
+            int targetId = ids.get(entry.getValue());
+
+//                clusters.union(sourceId, targetId);
+
+            graph.addEdge(sourceId, targetId, new Edge(Edge.Type.MERGED_WITH, entry.getKey(), entry.getValue(), 0));
         }
 
         // transformations
-        for (Map.Entry<Expression, Expression> entry : transformations.entrySet()) {
-            int from = ids.get(entry.getKey());
-            int to = ids.get(entry.getValue());
+        for (Map.Entry<Expression, Map<Expression, String>> entry : transformations.entrySet()) {
+            Expression from = entry.getKey();
+            int fromId = ids.get(from);
 
-            graph.addEdge(from, to, new Edge(Edge.Type.TRANSFORMED, from, to, 0));
+            for (Map.Entry<Expression, String> edge : entry.getValue().entrySet()) {
+                int toId;
+                if (edge.getKey() instanceof GroupReference) {
+                    toId = ids.get(((GroupReference) edge.getKey()).getId());
+                }
+                else {
+                    toId = ids.get(edge.getKey());
+                }
+
+                try {
+                    graph.addEdge(fromId, toId, new Edge(Edge.Type.TRANSFORMED, from, edge.getKey(), 0, edge.getValue()));
+                }
+                catch (Exception e) {
+                }
+            }
+        }
+
+        int i = 0;
+        for (Set<Integer> nodes : clusters.sets()) {
+            String clusterId = Integer.toString(i++);
+
+            graph.addCluster(clusterId, null);
+            for (int node : nodes) {
+                try {
+                    graph.addNodeToCluster(node, clusterId);
+                }
+                catch (Exception e) {
+                }
+            }
         }
 
         return graph.toGraphviz(
                 () -> ImmutableMap.of("nodesep", "0.5"),
                 (nodeId, node) -> {
                     Map<String, String> attributes = new HashMap<>();
-                    attributes.put("label", node.payload.toString());
+                    attributes.put("label", node.payload.toString() + " v" + node.version);
 
-                    if (node.payload.equals(nodeId)) {
+                    if (roots.contains(node.payload)) {
                         attributes.put("penwidth", "3");
                     }
 
-                    attributes.put("shape", "rectangle");
-                    attributes.putAll(nodeCustomizer.apply((Expression) node.payload));
+                    if (node.type == Node.Type.GROUP) {
+                        attributes.put("shape", "circle");
+                        attributes.put("label", "$" + node.payload.toString() + " v" + node.version);
+                    }
+                    else {
+                        attributes.put("shape", "rectangle");
+                    }
+
+                    if (!node.active) {
+                        attributes.put("color", "grey");
+                        attributes.put("fillcolor", "lightgrey");
+                        attributes.put("style", "filled");
+                    }
+
+                    if (node.type == Node.Type.EXPRESSION) {
+                        attributes.putAll(nodeCustomizer.apply((Expression) node.payload));
+                    }
 
                     return attributes;
                 },
@@ -312,342 +488,63 @@ public class HeuristicPlannerMemo
                     if (edge.label != null) {
                         label = edge.label + " v";
                     }
+                    label += edge.version;
                     attributes.put("label", label);
-                    attributes.putAll(edgeCustomizer.apply(edge.from, edge.to));
+
+                    if (!graph.getNode(from).get().active || !graph.getNode(to).get().active) {
+                        attributes.put("color", "lightgrey");
+                    }
+                    switch (edge.type) {
+                        case CONTAINS:
+                            attributes.put("arrowhead", "dot");
+                            break;
+                        case MERGED_WITH:
+                        case REWRITTEN_TO:
+                            attributes.put("style", "dotted");
+                            break;
+                        case TRANSFORMED:
+                            attributes.put("color", "blue");
+                            attributes.put("penwidth", "2");
+                            break;
+                    }
+
+                    if (edge.type == Edge.Type.CONTAINS || edge.type == Edge.Type.REFERENCES) {
+                        attributes.putAll(edgeCustomizer.apply(edge.from, edge.to));
+                    }
+
                     return attributes;
                 },
-                (clusterId, cluster) -> new ArrayList<>());
+                (clusterId, cluster) -> {
+                    List<String> result = new ArrayList<>();
+                    result.add("style=dotted");
 
-//        Set<Integer> groupIds = new HashSet<>();
-//
-//        Map<Object, Integer> ids = new HashMap<>();
-//        for (Long group : groupVersions.keySet()) {
-//            ids.put(group, ids.size());
-//            groupIds.add(ids.get(group));
-//        }
-//        for (Expression expression : expressionVersions.keySet()) {
-//            ids.put(expression, ids.size());
-//        }
-//
-//        Graph<Integer, String, Node, Edge, Void> graph = new Graph<>();
-//        DisjointSets<Integer> clusters = new DisjointSets<>();
-//        DisjointSets<Integer> ranks = new DisjointSets<>();
-//
-//        for (Map.Entry<Long, Long> entry : groupVersions.entrySet()) {
-//            Long group = entry.getKey();
-//            int id = ids.get(group);
-//
-//            clusters.add(id);
-//
-//            boolean active = true; //!merges.containsKey(group);
-//
-////            if (active) {
-//            ranks.add(id);
-//            graph.addNode(id, new Node(Node.Type.GROUP, group, active, entry.getValue()));
-////            }
-//        }
-//
-//        for (Map.Entry<Expression, Long> entry : expressionVersions.entrySet()) {
-//            Expression expression = entry.getKey();
-//            int id = ids.get(expression);
-//
-//            clusters.add(id);
-//
-//            boolean active = true; //!rewrites.containsKey(expression);
-//
-////            if (active) {
-//            ranks.add(id);
-//            graph.addNode(id, new Node(Node.Type.EXPRESSION, expression, active, entry.getValue()));
-////            }
-//        }
-//
-//        // membership
-//        for (Map.Entry<Long, Map<Expression, Long>> entry : expressionsByGroup.entrySet()) {
-//            long group = entry.getKey();
-//            int groupId = ids.get(group);
-//            for (Map.Entry<Expression, Long> versioned : entry.getValue().entrySet()) {
-//                int expressionId = ids.get(versioned.getKey());
-//
-//                try {
-//                    graph.addEdge(groupId, ids.get(versioned.getKey()), new Edge(Edge.Type.CONTAINS, group, versioned.getKey(), versioned.getValue()));
-//                    clusters.union(groupId, expressionId);
-//                }
-//                catch (Exception e) {
-//                }
-//            }
-//        }
-//
-//        // references
-//        for (Map.Entry<Long, Map<Expression, Long>> entry : incomingReferences.entrySet()) {
-//            long group = entry.getKey();
-//            for (Map.Entry<Expression, Long> versioned : entry.getValue().entrySet()) {
-//                try {
-//                    graph.addEdge(ids.get(versioned.getKey()), ids.get(group), new Edge(Edge.Type.REFERENCES, versioned.getKey(), group, versioned.getValue()));
-//                }
-//                catch (Exception e) {
-//                }
-//            }
-//        }
-//
-//        // merges
-//        for (long group : merges.roots()) {
-//            for (long source : merges.findAll(group)) {
-//                if (group == source) {
-//                    continue;
-//                }
-//
-//                int sourceId = ids.get(source);
-//                int targetId = ids.get(group);
-//                graph.addEdge(sourceId, targetId, new Edge(Edge.Type.MERGED_WITH, source, group, 0));
-//                clusters.union(sourceId, targetId);
-//                ranks.union(sourceId, targetId);
-//            }
-//        }
-////        for (Map.Entry<Long, VersionedItem<Long>> entry : merges.entrySet()) {
-////            long source = entry.getKey();
-////            long target = entry.getValue().get();
-////
-////            int sourceId = ids.get(source);
-////            int targetId = ids.get(target);
-////
-////            try {
-////                graph.addEdge(sourceId, targetId, new Edge(Edge.Type.MERGED_WITH, source, target, entry.getValue().getVersion()));
-////                clusters.union(sourceId, targetId);
-////                ranks.union(sourceId, targetId);
-////            }
-////            catch (Exception e) {
-////            }
-////        }
-//
-//        // rewrites
-//        // TODO
-////        for (Map.Entry<Expression, VersionedItem<Expression>> entry : rewrites.entrySet()) {
-////            Expression from = entry.getKey();
-////            Expression to = entry.getValue().get();
-////
-////            int fromId = ids.get(from);
-////            int toId = ids.get(to);
-////
-////            try {
-////                graph.addEdge(fromId, toId, new Edge(Edge.Type.REWRITTEN_TO, from, to, entry.getValue().getVersion()));
-////                clusters.union(fromId, toId);
-////                ranks.union(fromId, toId);
-////            }
-////            catch (Exception e) {
-////            }
-////        }
-//
-//        // transformations
-//        for (Map.Entry<Expression, Map<Expression, VersionedItem<String>>> entry : transformations.entrySet()) {
-//            Expression from = entry.getKey();
-//            int fromId = ids.get(from);
-//
-//            for (Map.Entry<Expression, VersionedItem<String>> edge : entry.getValue().entrySet()) {
-//                int toId;
-//                if (edge.getKey() instanceof GroupReference) {
-//                    toId = ids.get(((GroupReference) edge.getKey()).getId());
-//                }
-//                else {
-//                    toId = ids.get(edge.getKey());
-//                }
-//
-//                try {
-//                    graph.addEdge(fromId, toId, new Edge(Edge.Type.TRANSFORMED, from, edge.getKey(), edge.getValue().getVersion(), edge.getValue().get()));
-//                }
-//                catch (Exception e) {
-//                }
-//            }
-//        }
-//
-//        int i = 0;
-//        for (Set<Integer> nodes : clusters.sets()) {
-//            String clusterId = Integer.toString(i++);
-//
-//            graph.addCluster(clusterId, null);
-//            for (int node : nodes) {
-//                try {
-//                    graph.addNodeToCluster(node, clusterId);
-//                }
-//                catch (Exception e) {
-//                }
-//            }
-//        }
-//
-//        return graph.toGraphviz(
-//                () -> ImmutableMap.of("nodesep", "0.5"),
-//                (nodeId, node) -> {
-//                    Map<String, String> attributes = new HashMap<>();
-//                    attributes.put("label", node.payload.toString() + " v" + node.version);
-//
-//                    if (roots.contains(node.payload)) {
-//                        attributes.put("penwidth", "3");
-//                    }
-//
-//                    if (node.type == Node.Type.GROUP) {
-//                        attributes.put("shape", "circle");
-//                        attributes.put("label", "$" + node.payload.toString() + " v" + node.version);
-//                    }
-//                    else {
-//                        attributes.put("shape", "rectangle");
-//                    }
-//
-//                    if (!node.active) {
-//                        attributes.put("color", "grey");
-//                        attributes.put("fillcolor", "lightgrey");
-//                        attributes.put("style", "filled");
-//                    }
-//
-//                    if (node.type == Node.Type.EXPRESSION) {
-//                        attributes.putAll(nodeCustomizer.apply((Expression) node.payload));
-//                    }
-//
-//                    return attributes;
-//                },
-//                (from, to, edge) -> {
-//                    Map<String, String> attributes = new HashMap<>();
-//
-//                    String label = "";
-//                    if (edge.label != null) {
-//                        label = edge.label + " v";
-//                    }
-//                    label += edge.version;
-//                    attributes.put("label", label);
-//
-//                    if (!graph.getNode(from).get().active || !graph.getNode(to).get().active) {
-//                        attributes.put("color", "lightgrey");
-//                    }
-//                    switch (edge.type) {
-//                        case CONTAINS:
-//                            attributes.put("arrowhead", "dot");
-//                            break;
-//                        case MERGED_WITH:
-//                        case REWRITTEN_TO:
-//                            attributes.put("style", "dotted");
-//                            break;
-//                        case TRANSFORMED:
-//                            attributes.put("color", "blue");
-//                            attributes.put("penwidth", "2");
-//                            break;
-//                    }
-//
-//                    if (edge.type == Edge.Type.CONTAINS || edge.type == Edge.Type.REFERENCES) {
-//                        attributes.putAll(edgeCustomizer.apply(edge.from, edge.to));
-//                    }
-//
-//                    return attributes;
-//                },
-//                (clusterId, cluster) -> {
-//                    List<String> result = new ArrayList<>();
-//                    result.add("style=dotted");
-//
-//                    List<Integer> representatives = graph.getNodesInCluster(clusterId).stream()
-//                            .map(ranks::find)
-//                            .distinct()
-//                            .collect(Collectors.toList());
-//
-////                    if (roots.stream().map(ids::get).anyMatch(graph.getNodesInCluster(clusterId)::contains)) {
-////                        result.add("penwidth=2");
-////                    }
-////                    else {
-////                    }
-//
-//                    for (int node : representatives) {
-//                        StringBuilder value = new StringBuilder();
-//                        value.append("{ rank=");
-//                        if (groupIds.contains(node)) {
-//                            value.append("min");
-//                        }
-//                        else {
-//                            value.append("same");
-//                        }
-//                        value.append("; ");
-//                        value.append(Joiner.on(";").join(ranks.findAll(node)));
-//                        value.append(" }");
-//
-//                        result.add(value.toString());
-//                    }
-//                    return result;
-//                });
-    }
+                    List<Integer> representatives = graph.getNodesInCluster(clusterId).stream()
+                            .map(ranks::find)
+                            .distinct()
+                            .collect(Collectors.toList());
 
-    //    }
-//        return expressionsByGroup.get(group).containsKey(rewritten);
-//
-//        }
-//            rewritten = expression.copyWithArguments(arguments);
-//                    .collect(Collectors.toList());
-//                    .map(Reference::new)
-//                    .map(this::canonicalizeGroup)
-//                    .map(Reference::getName)
-//                    .map(Reference.class::cast)
-//            List<Expression> arguments = expression.getArguments().stream()
-//        if (!expression.getArguments().isEmpty()) {
-// TODO: broken... needs to rewrite children recursively
-//
-//        Expression rewritten = expression;
-//    {
-//    }
-//        }
-//            }
-//                checkState(expressionMembership.containsKey(expression), "Expression in incomingReferences for group %s but not in expressionMembership: %s", group, expression);
-//            for (Expression expression : entry.getValue()) {
-//
-//            checkState(expressionsByGroup.containsKey(group), "Group exists in incomingReferences but not in expressionsByGroup: %s", group);
-//            String group = entry.getKey();
-//        for (Map.Entry<String, Set<Expression>> entry : incomingReferences.entrySet()) {
-//
-//        }
-//            checkState(expressionsByGroup.get(group).contains(expression), "expressionsByGroup does not contain expression declared by expressionMembership: %s, %s", group, expression);
-//            checkState(expressionsByGroup.containsKey(group), "Group in expressionMembership but not in expressionsByGroup: %s", group);
-//
-//            String group = entry.getValue();
-//            Expression expression = entry.getKey();
-//        for (Map.Entry<Expression, String> entry : expressionMembership.entrySet()) {
-//
-//        }
-//            }
-//                        group);
-//                        expressionMembership.get(expression),
-//                        expression,
-//                checkState(expressionMembership.get(expression).equals(group), "Membership for expression doesn't match group that contains it: %s, %s vs %s",
-//            for (VersionedItem<Expression> expression : entry.getValue()) {
-//
-//            checkState(incomingReferences.containsKey(group), "Group in expressionsByGroup but not in incomingReferences: %s", group);
-//
-//            String group = entry.getKey();
-//        for (Map.Entry<String, Set<VersionedItem<Expression>>> entry : expressionsByGroup.entrySet()) {
-//    {
-//    }
-//        return expression;
-//        }
-//            expression = rewrites.get(expression).get();
-//        while (rewrites.containsKey(expression)) {
-//    {
-//    }
-//        return group;
-//        }
-//            group = merges.get(group).get();
-//        while (merges.containsKey(group)) {
-//    {
-    private static class ExpressionAndGroup
-    {
-        private final long group;
-        private final Expression expression;
+                    if (roots.stream().map(ids::get).anyMatch(graph.getNodesInCluster(clusterId)::contains)) {
+                        result.add("penwidth=2");
+                    }
+                    else {
+                    }
 
-        public ExpressionAndGroup(long group, Expression expression)
-        {
-            this.group = group;
-            this.expression = expression;
-        }
+                    for (int node : representatives) {
+                        StringBuilder value = new StringBuilder();
+                        value.append("{ rank=");
+                        if (groupIds.contains(node)) {
+                            value.append("min");
+                        }
+                        else {
+                            value.append("same");
+                        }
+                        value.append("; ");
+                        value.append(Joiner.on(";").join(ranks.findAll(node)));
+                        value.append(" }");
 
-        public long getGroup()
-        {
-            return group;
-        }
-
-        public Expression getExpression()
-        {
-            return expression;
-        }
+                        result.add(value.toString());
+                    }
+                    return result;
+                });
     }
 }

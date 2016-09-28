@@ -31,7 +31,6 @@ import java.util.Deque;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Stream;
 
 import static com.facebook.presto.sql.optimizer.engine.Utils.getChildren;
 import static com.facebook.presto.sql.optimizer.tree.Expressions.lambda;
@@ -61,7 +60,6 @@ public class GreedyOptimizer
                         new RemoveRedundantProjections()
                 ),
                 ImmutableSet.of(
-//                        new GetToScan(),
                         new LogicalToPhysicalFilter(),
                         new MergePhysicalFilters()
                 )
@@ -71,21 +69,15 @@ public class GreedyOptimizer
     private static class MemoLookup
         implements Lookup
     {
-        private final HeuristicPlannerMemo2 memo;
+        private final HeuristicPlannerMemo memo;
 
-        public MemoLookup(HeuristicPlannerMemo2 memo)
+        public MemoLookup(HeuristicPlannerMemo memo)
         {
             this.memo = memo;
         }
 
         @Override
-        public Stream<Expression> resolve(Expression expression)
-        {
-            return Stream.of(first(expression));
-        }
-
-        @Override
-        public Expression first(Expression expression)
+        public Expression resolve(Expression expression)
         {
             if (expression instanceof GroupReference) {
                 return memo.getExpression(((GroupReference) expression).getId());
@@ -97,7 +89,7 @@ public class GreedyOptimizer
 
     public Expression optimize(Expression expression)
     {
-        HeuristicPlannerMemo2 memo = new HeuristicPlannerMemo2();
+        HeuristicPlannerMemo memo = new HeuristicPlannerMemo();
         long root = memo.insert(expression);
 
 //        System.out.println(memo.toGraphviz());
@@ -139,7 +131,7 @@ public class GreedyOptimizer
         return let(assignments, variable("$" + root));
     }
 
-    private boolean explore(HeuristicPlannerMemo2 memo, Set<Rule> rules, long group, Deque<Long> groups)
+    private boolean explore(HeuristicPlannerMemo memo, Set<Rule> rules, long group, Deque<Long> groups)
     {
 //        System.out.println("=== Exploring (" + groups + ") -> $" + group + " ===");
 
@@ -194,7 +186,7 @@ public class GreedyOptimizer
 
     private List<Assignment> extract(long group, Lookup lookup)
     {
-        Expression expression = lookup.first(new GroupReference(group));
+        Expression expression = lookup.resolve(new GroupReference(group));
 
         List<Assignment> assignments = new ArrayList<>();
 

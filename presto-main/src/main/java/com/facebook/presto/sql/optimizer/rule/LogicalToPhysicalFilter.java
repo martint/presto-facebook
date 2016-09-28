@@ -29,14 +29,15 @@ public class LogicalToPhysicalFilter
     @Override
     public Stream<Expression> apply(Expression expression, Lookup lookup)
     {
-        return lookup.resolve(expression)
-                .filter(isCall("logical-filter", lookup))
-                .map(Apply.class::cast)
-                .map(this::process);
-    }
+        if (!isCall(expression, "logical-filter", lookup)) {
+            return Stream.empty();
+        }
 
-    private Apply process(Apply apply)
-    {
-        return call("physical-filter", apply.getArguments().get(0), apply.getArguments().get(1));
+        Apply apply = (Apply) expression;
+
+        return Stream.of(call(
+                "physical-filter",
+                apply.getArguments().get(0),
+                apply.getArguments().get(1)));
     }
 }

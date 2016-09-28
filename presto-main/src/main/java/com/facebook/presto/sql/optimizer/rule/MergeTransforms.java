@@ -18,7 +18,6 @@ import com.facebook.presto.sql.optimizer.engine.Rule;
 import com.facebook.presto.sql.optimizer.tree.Apply;
 import com.facebook.presto.sql.optimizer.tree.Expression;
 import com.facebook.presto.sql.optimizer.tree.Expressions;
-import com.facebook.presto.sql.optimizer.tree.Lambda;
 
 import java.util.stream.Stream;
 
@@ -33,23 +32,18 @@ public class MergeTransforms
     @Override
     public Stream<Expression> apply(Expression expression, Lookup lookup)
     {
-        return lookup.resolve(expression)
-                .filter(isCall("transform", lookup))
-                .map(Apply.class::cast)
-                .flatMap(parent ->
-                        lookup.resolve(parent.getArguments().get(0))
-                                .filter(isCall("transform", lookup))
-                                .map(Apply.class::cast)
-                                .flatMap(child ->
-                                        lookup.resolve(parent.getArguments().get(1))
-                                                .flatMap(parentLambda ->
-                                                        lookup.resolve(child.getArguments().get(1))
-                                                                .map(childLambda ->
-                                                                        process(child.getArguments().get(0), (Lambda) parentLambda, (Lambda) childLambda)))));
-    }
+        if (!isCall(expression, "transform", lookup)) {
+            return Stream.empty();
+        }
 
-    private Expression process(Expression source, Lambda parentLambda, Lambda childLambda)
-    {
+        Apply parent = (Apply) expression;
+
+        if (!isCall(parent.getArguments().get(0), "transform", lookup)) {
+            return Stream.empty();
+        }
+
+        Apply child = (Apply) lookup.resolve(parent.getArguments().get(0));
+
         /*
             (map (map e g) f)
 
@@ -67,10 +61,12 @@ public class MergeTransforms
 //                        // TODO: pick unique name
 //                        list(new Assignment("t", Expressions.apply(childLambda, localReference()))),
 //                        Expressions.apply(parentLambda, variable("t")))));
-        return call("transform", source,
-                lambda(
-                        Expressions.apply(parentLambda,
-                                Expressions.apply(childLambda, localReference()))));
 
+        return Stream.of(call(
+                "transform",
+                child.getArguments().get(0),
+                lambda(
+                        Expressions.apply(parent.getArguments().get(1),
+                                Expressions.apply(child.getArguments().get(1), localReference())))));
     }
 }

@@ -15,11 +15,7 @@ package com.facebook.presto.sql.optimizer.engine;
 
 import com.facebook.presto.sql.optimizer.tree.Expression;
 
-import java.util.stream.Stream;
-
 public interface Lookup
 {
-    Stream<Expression> resolve(Expression expression);
-
-    Expression first(Expression expression);
+    Expression resolve(Expression expression);
 }
