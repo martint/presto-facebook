@@ -117,6 +117,7 @@ public class LogicalPlanner
 
         com.facebook.presto.sql.optimizer.tree.Expression translated = LegacyToNew.translate(root);
         System.out.println(translated);
+        System.out.println();
         System.out.println(new GreedyOptimizer(false).optimize(translated));
 
         if (stage.ordinal() >= Stage.OPTIMIZED.ordinal()) {

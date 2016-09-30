@@ -37,17 +37,18 @@ public class MergePhysicalFilters
 
         Apply parent = (Apply) expression;
 
-        if (!isCall(parent.getArguments().get(0), "physical-filter", lookup)) {
+        Expression resolvedChild = lookup.resolve(parent.getArguments().get(0));
+        if (!isCall(resolvedChild, "physical-filter", lookup)) {
             return Stream.empty();
         }
 
-        Apply child = (Apply) parent.getArguments().get(0);
+        Apply child = (Apply) resolvedChild;
 
         return Stream.of(
                 call("physical-filter",
                         child.getArguments().get(0),
                         lambda(call("and",
-                                ((Lambda) child.getArguments().get(1)).getBody(),
-                                ((Lambda) parent.getArguments().get(1)).getBody()))));
+                                ((Lambda) lookup.resolve(child.getArguments().get(1))).getBody(),
+                                ((Lambda) lookup.resolve(parent.getArguments().get(1))).getBody()))));
     }
 }

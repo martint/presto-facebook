@@ -19,19 +19,29 @@ import com.facebook.presto.sql.optimizer.tree.Value;
 import com.facebook.presto.sql.optimizer.tree.sql.Null;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
+import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
+import com.facebook.presto.sql.planner.plan.ExceptNode;
 import com.facebook.presto.sql.planner.plan.FilterNode;
+import com.facebook.presto.sql.planner.plan.GroupIdNode;
+import com.facebook.presto.sql.planner.plan.IntersectNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LimitNode;
+import com.facebook.presto.sql.planner.plan.MarkDistinctNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.plan.PlanVisitor;
 import com.facebook.presto.sql.planner.plan.ProjectNode;
+import com.facebook.presto.sql.planner.plan.SampleNode;
+import com.facebook.presto.sql.planner.plan.SetOperationNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
+import com.facebook.presto.sql.planner.plan.UnionNode;
+import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
+import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.ArrayConstructor;
@@ -40,32 +50,43 @@ import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BinaryLiteral;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
+import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
+import com.facebook.presto.sql.tree.IfExpression;
+import com.facebook.presto.sql.tree.InListExpression;
+import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LambdaExpression;
+import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.NotExpression;
+import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
+import com.facebook.presto.sql.tree.TryExpression;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.optimizer.tree.Expressions.call;
 import static com.facebook.presto.sql.optimizer.tree.Expressions.fieldDereference;
 import static com.facebook.presto.sql.optimizer.tree.Expressions.lambda;
+import static com.facebook.presto.sql.optimizer.tree.Expressions.localReference;
 import static com.facebook.presto.sql.optimizer.tree.Expressions.reference;
 import static com.facebook.presto.sql.optimizer.tree.Expressions.value;
 import static com.facebook.presto.sql.optimizer.utils.CollectionConstructors.list;
@@ -239,6 +260,17 @@ public class LegacyToNew
         }
 
         @Override
+        public Expression visitSample(SampleNode node, Scope scope)
+        {
+            checkArgument(!node.getSampleWeightSymbol().isPresent(), "weighted sample not supported");
+
+            return call("sample",
+                    translate(node.getSource(), scope),
+                    value(node.getSampleType()),
+                    value(node.getSampleRatio()));
+        }
+
+        @Override
         public Expression visitTableScan(TableScanNode node, Scope context)
         {
             // TODO: column ordering
@@ -248,31 +280,44 @@ public class LegacyToNew
         @Override
         public Expression visitAggregation(AggregationNode node, Scope scope)
         {
-            Expression source = translate(node.getSource(), scope);
+            checkArgument(node.getMasks().isEmpty(), "distinct aggregations not supported");
+            checkArgument(!node.getHashSymbol().isPresent(), "pre-computed hash not supported");
 
-            List<List<Value>> groupingSets = node.getGroupingSets().stream()
-                    .map(set ->
-                            set.stream()
-                                    .map(column -> value(node.getSource().getOutputSymbols().indexOf(column)))
-                                    .collect(toList()))
-                    .collect(toList());
+            Expression source = translate(node.getSource(), scope);
 
             List<Expression> calls = node.getOutputSymbols().stream()
                     .filter(node.getAggregations()::containsKey)
-                    .map(output -> translate(node.getAggregations().get(output), new Scope(scope, forSymbols(node.getSource().getOutputSymbols()))))
+                    .map(output -> lambda(translate(node.getAggregations().get(output), new Scope(scope, forSymbols(node.getSource().getOutputSymbols())))))
                     .collect(toList());
 
-            return call("aggregation", source, call("array", value(groupingSets)), call("array", calls)); // TODO functions, mask, etc
+            if (node.getGroupIdSymbol().isPresent()) {
+                List<List<Value>> groupingSets = node.getGroupingSets().stream()
+                        .map(set ->
+                                set.stream()
+                                        .map(column -> value(node.getSource().getOutputSymbols().indexOf(column)))
+                                        .collect(toList()))
+                        .collect(toList());
+
+                // TODO functions, mask, etc
+                return call("grouping-sets",
+                        source,
+                        call("array",
+                                value(groupingSets)),
+                        value(node.getSource().getOutputSymbols().indexOf(node.getGroupIdSymbol().get())));
+            }
+            else {
+                return call("aggregation", source, call("array", calls)); // TODO functions, mask, etc
+            }
         }
 
         @Override
         public Expression visitJoin(JoinNode node, Scope parentScope)
         {
-            checkArgument(!node.getLeftHashSymbol().isPresent());
-            checkArgument(!node.getRightHashSymbol().isPresent());
+            checkArgument(!node.getLeftHashSymbol().isPresent(), "pre-computed hash not supported");
+            checkArgument(!node.getRightHashSymbol().isPresent(), "pre-computed hash not supported");
 
-            Expression left = translate(node.getLeft());
-            Expression right = translate(node.getRight());
+            Expression left = translate(node.getLeft(), parentScope);
+            Expression right = translate(node.getRight(), parentScope);
 
             List<String> leftFields = names(node.getLeft().getOutputSymbols());
             List<String> rightFields = names(node.getRight().getOutputSymbols());
@@ -303,14 +348,151 @@ public class LegacyToNew
             }
 
             if (node.getFilter().isPresent()) {
-                criteria = call("and", criteria, translate(node.getFilter().get(), scope));
+                Expression term = translate(node.getFilter().get(), scope);
+                if (criteria == null) {
+                    criteria = term;
+                }
+                else {
+                    criteria = call("and", criteria, term);
+                }
+            }
+
+            if (criteria == null) {
+                criteria = lambda(value(true));
             }
 
             return call("join",
                     left,
                     right,
                     lambda(criteria),
-                    value(node.getType().toString()));
+                    value(node.getType()));
+        }
+
+        @Override
+        public Expression visitApply(ApplyNode node, Scope scope)
+        {
+            return call(
+                    "apply",
+                    translate(node.getInput(), scope),
+                    translate(node.getSubquery(), new Scope(scope, forSymbols(node.getInput().getOutputSymbols()))));
+        }
+
+        @Override
+        public Expression visitUnion(UnionNode node, Scope scope)
+        {
+            return call("concat", translateSetOperationChildren(node, scope));
+        }
+
+        @Override
+        public Expression visitIntersect(IntersectNode node, Scope scope)
+        {
+            return call("intersect", translateSetOperationChildren(node, scope));
+        }
+
+        @Override
+        public Expression visitExcept(ExceptNode node, Scope scope)
+        {
+            List<Expression> children = translateSetOperationChildren(node, scope);
+
+            Expression left = children.get(0);
+            Expression right;
+            if (children.size() > 2) {
+                right = call("concat", children.subList(1, children.size()));
+            }
+            else {
+                right = children.get(1);
+            }
+
+            return call("except", left, right);
+        }
+
+        @Override
+        public Expression visitWindow(WindowNode node, Scope scope)
+        {
+            checkArgument(!node.getHashSymbol().isPresent(), "pre-computed hash not supported");
+
+            Expression source = translate(node.getSource(), scope);
+
+            List<Expression> orderings = node.getOrderBy().stream()
+                    .map(input ->
+                            call("row",
+                                    lambda(translate(input.toSymbolReference(), new Scope(scope, forSymbols(node.getSource().getOutputSymbols())))),
+                                    value(node.getOrderings().get(input))))
+                    .collect(toImmutableList());
+
+            List<Expression> partitionColumns = node.getPartitionBy().stream()
+                    .map(column -> value(node.getSource().getOutputSymbols().indexOf(column)))
+                    .collect(toList());
+
+            // TODO: functions & frames
+            return call("window",
+                    source,
+                    call("array", partitionColumns),
+                    call("array", orderings));
+        }
+
+        @Override
+        public Expression visitUnnest(UnnestNode node, Scope scope)
+        {
+            checkArgument(!node.getOrdinalitySymbol().isPresent(), "unnest with ordinality not supported");
+            checkArgument(node.getUnnestSymbols().values().stream().noneMatch(e -> e.size() > 1), "unnest with map columns not supported");
+
+            // TODO: for MAP columns, translate as:
+            //  (unnest
+            //      <source>
+            //      (array
+            //          (lambda (map-keys (field %0 0)))
+            //          (lambda (map-values (field %0 0)))))
+            //
+
+            List<Expression> columns = node.getUnnestSymbols().keySet().stream()
+                    .map(e -> lambda(fieldDereference(localReference(), node.getSource().getOutputSymbols().indexOf(e))))
+                    .collect(toList());
+
+            return call("unnest",
+                    translate(node.getSource(), scope),
+                    call("array", columns));
+        }
+
+        @Override
+        public Expression visitGroupId(GroupIdNode node, Scope scope)
+        {
+            List<List<Value>> groupingSets = node.getGroupingSets().stream()
+                    .map(set ->
+                            set.stream()
+                                    .map(column -> value(node.getSource().getOutputSymbols().indexOf(column)))
+                                    .collect(toList()))
+                    .collect(toList());
+
+            return call("group-id",
+                    translate(node.getSource(), scope),
+                    value(groupingSets));
+        }
+
+        @Override
+        public Expression visitMarkDistinct(MarkDistinctNode node, Scope scope)
+        {
+            // TODO
+            throw new UnsupportedOperationException("not yet implemented: markdistinct");
+        }
+
+        private List<Expression> translateSetOperationChildren(SetOperationNode node, Scope scope)
+        {
+            ImmutableList.Builder<Expression> children = ImmutableList.builder();
+
+            for (int i = 0; i < node.getSources().size(); i++) {
+                PlanNode source = node.getSources().get(i);
+                Map<Symbol, SymbolReference> assignments = node.sourceSymbolMap(i);
+
+                children.add(
+                        call("transform",
+                                translate(source, scope),
+                                lambda(call("row", node.getOutputSymbols().stream()
+                                        .map(output -> translate(assignments.get(output), new Scope(scope, forSymbols(source.getOutputSymbols()))))
+                                        .collect(toList())))));
+            }
+
+            return children.build();
         }
     }
 
@@ -394,6 +576,53 @@ public class LegacyToNew
         }
 
         @Override
+        protected Expression visitTryExpression(TryExpression node, Scope scope)
+        {
+            return call("try", lambda(translate(node.getInnerExpression(), scope)));
+        }
+
+        @Override
+        protected Expression visitLikePredicate(LikePredicate node, Scope scope)
+        {
+            if (node.getEscape() == null) {
+                return call("like",
+                        translate(node.getValue(), scope),
+                        translate(node.getPattern(), scope));
+            }
+
+            return call("like",
+                    translate(node.getValue(), scope),
+                    translate(node.getPattern(), scope),
+                    translate(node.getEscape(), scope));
+        }
+
+        @Override
+        protected Expression visitInPredicate(InPredicate node, Scope scope)
+        {
+            return call("in",
+                    translate(node.getValue(), scope),
+                    translate(node.getValueList(), scope));
+        }
+
+        @Override
+        protected Expression visitInListExpression(InListExpression node, Scope scope)
+        {
+            return call("array",
+                    node.getValues().stream()
+                            .map(e -> translate(e, scope))
+                            .collect(Collectors.toList()));
+        }
+
+        @Override
+        protected Expression visitCoalesceExpression(CoalesceExpression node, Scope scope)
+        {
+            return call("coalesce",
+                    node.getOperands().stream()
+                            .map(e -> translate(e, scope))
+                            .collect(toList()));
+        }
+
+        @Override
         protected Expression visitFunctionCall(FunctionCall node, Scope scope)
         {
             return call(
@@ -401,6 +630,23 @@ public class LegacyToNew
                     node.getArguments().stream()
                             .map(argument -> translate(argument, scope))
                             .collect(toImmutableList()));
+        }
+
+        @Override
+        protected Expression visitIfExpression(IfExpression node, Scope scope)
+        {
+            return call("if",
+                    process(node.getCondition(), scope),
+                    process(node.getTrueValue(), scope),
+                    node.getFalseValue().map(e -> process(e, scope)).orElse(new Null()));
+        }
+
+        @Override
+        protected Expression visitNullIfExpression(NullIfExpression node, Scope scope)
+        {
+            return call("nullif",
+                    process(node.getFirst(), scope),
+                    process(node.getSecond(), scope));
         }
 
         @Override
@@ -421,6 +667,12 @@ public class LegacyToNew
                     node.getType().toString(),
                     process(node.getLeft(), scope),
                     process(node.getRight(), scope));
+        }
+
+        @Override
+        protected Expression visitNotExpression(NotExpression node, Scope scope)
+        {
+            return call("not", process(node.getValue(), scope));
         }
 
         @Override

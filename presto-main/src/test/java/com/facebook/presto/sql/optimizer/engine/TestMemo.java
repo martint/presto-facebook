@@ -4,14 +4,31 @@ import com.facebook.presto.sql.optimizer.tree.Expression;
 import com.facebook.presto.sql.optimizer.tree.sql.Null;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.sql.optimizer.tree.Expressions.apply;
 import static com.facebook.presto.sql.optimizer.tree.Expressions.call;
 import static com.facebook.presto.sql.optimizer.tree.Expressions.fieldDereference;
 import static com.facebook.presto.sql.optimizer.tree.Expressions.lambda;
 import static com.facebook.presto.sql.optimizer.tree.Expressions.localReference;
+import static com.facebook.presto.sql.optimizer.tree.Expressions.reference;
 import static com.facebook.presto.sql.optimizer.tree.Expressions.value;
 
 public class TestMemo
 {
+    @Test
+    public void testReduceNestedLambda()
+            throws Exception
+    {
+        Expression expression =
+                    apply(lambda(localReference()), lambda(reference(1)));
+
+        GreedyOptimizer optimizer = new GreedyOptimizer(true);
+        Expression optimized = optimizer.optimize(expression);
+
+        System.out.println(expression);
+        System.out.println();
+        System.out.println(optimized);
+    }
+
     @Test
     public void testReduce()
             throws Exception
