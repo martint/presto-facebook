@@ -13,10 +13,12 @@
  */
 package com.facebook.presto.sql.optimizer.tree.sql;
 
+import com.facebook.presto.sql.optimizer.tree.Atom;
 import com.facebook.presto.sql.optimizer.tree.Expression;
 
 public class Null
     extends Expression
+    implements Atom
 {
     @Override
     public int hashCode()

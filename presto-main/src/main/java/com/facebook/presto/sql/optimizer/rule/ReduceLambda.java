@@ -16,15 +16,24 @@ package com.facebook.presto.sql.optimizer.rule;
 import com.facebook.presto.sql.optimizer.engine.Lookup;
 import com.facebook.presto.sql.optimizer.engine.Rule;
 import com.facebook.presto.sql.optimizer.tree.Apply;
+import com.facebook.presto.sql.optimizer.tree.Atom;
 import com.facebook.presto.sql.optimizer.tree.Expression;
 import com.facebook.presto.sql.optimizer.tree.Lambda;
 import com.facebook.presto.sql.optimizer.tree.ScopeReference;
 
-import java.util.List;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
+import static com.facebook.presto.sql.optimizer.tree.Expressions.lambda;
+import static com.facebook.presto.sql.optimizer.tree.Expressions.reference;
 
+// TODO: tests
+
+/**
+ * Reduces expressions of the form:
+ *
+ * (\.t1) t2
+ */
 public class ReduceLambda
         implements Rule
 {
@@ -43,25 +52,81 @@ public class ReduceLambda
 
         Lambda lambda = (Lambda) target;
 
-        return Stream.of(substitute(lookup.resolve(lambda.getBody()), apply.getArguments().get(0), lookup));
+        return Stream.of(reduce(lambda, apply.getArguments().get(0), lookup));
     }
 
     // substitute all occurrences of %0 with argument
-    private Expression substitute(Expression expression, Expression argument, Lookup lookup)
+    private Expression reduce(Lambda lambda, Expression argument, Lookup lookup)
     {
-        if (expression instanceof ScopeReference && ((ScopeReference) expression).getIndex() == 0) {
-            return argument;
-        }
-        else if (expression instanceof Apply) {
-            // TODO substitute in target
-            Apply apply = (Apply) expression;
-            List<Expression> newArguments = apply.getArguments().stream()
-                    .map(e -> substitute(e, argument, lookup))
-                    .collect(toImmutableList());
+        return shift(
+                substitute(lambda.getBody(), shift(argument, 1, 0, lookup), 0, lookup),
+                -1,
+                0,
+                lookup);
+    }
 
-            return new Apply(substitute(lookup.resolve(apply.getTarget()), argument, lookup), newArguments);
+    private Expression substitute(Expression target, Expression replacement, int match, Lookup lookup)
+    {
+        Expression resolved = lookup.resolve(target);
+
+        if (resolved instanceof ScopeReference && match == ((ScopeReference) resolved).getIndex()) {
+            return replacement;
         }
 
-        return expression;
+        if (resolved instanceof ScopeReference && match != ((ScopeReference) resolved).getIndex()) {
+            return target;
+        }
+
+        if (resolved instanceof Lambda) {
+            // [t/j] \.u = \.[shift(t, 1, 0)/j+1] u
+            return lambda(substitute(((Lambda) resolved).getBody(), shift(replacement, 1, 0, lookup), match + 1, lookup));
+        }
+
+        if (resolved instanceof Apply) {
+            Apply apply = (Apply) resolved;
+            return new Apply(
+                    substitute(apply.getTarget(), replacement, match, lookup),
+                    apply.getArguments().stream()
+                            .map(e -> substitute(e, replacement, match, lookup))
+                            .collect(Collectors.toList()));
+        }
+
+        if (resolved instanceof Atom) {
+            return target;
+        }
+
+        throw new UnsupportedOperationException("Unsupported expression type: " + target.getClass().getName());
+    }
+
+    private Expression shift(Expression expression, int shift, int cutoff, Lookup lookup)
+    {
+        Expression resolved = lookup.resolve(expression);
+
+        if (resolved instanceof ScopeReference && ((ScopeReference) resolved).getIndex() < cutoff) {
+            return expression;
+        }
+
+        if (resolved instanceof ScopeReference && ((ScopeReference) resolved).getIndex() >= cutoff) {
+            return reference(((ScopeReference) resolved).getIndex() + shift);
+        }
+
+        if (resolved instanceof Lambda) {
+            return lambda(shift(((Lambda) resolved).getBody(), shift, cutoff + 1, lookup));
+        }
+
+        if (resolved instanceof Apply) {
+            Apply apply = (Apply) resolved;
+            return new Apply(
+                    shift(apply.getTarget(), shift, cutoff, lookup),
+                    apply.getArguments().stream()
+                            .map(e -> shift(e, shift, cutoff, lookup))
+                            .collect(Collectors.toList()));
+        }
+
+        if (resolved instanceof Atom) {
+            return expression;
+        }
+
+        throw new UnsupportedOperationException("Unsupported expression type: " + resolved.getClass().getName());
     }
 }
