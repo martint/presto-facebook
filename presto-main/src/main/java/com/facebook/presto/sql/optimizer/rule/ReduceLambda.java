@@ -26,8 +26,10 @@ import java.util.stream.Stream;
 
 import static com.facebook.presto.sql.optimizer.tree.Expressions.lambda;
 import static com.facebook.presto.sql.optimizer.tree.Expressions.reference;
+import static com.google.common.base.Preconditions.checkArgument;
 
 // TODO: tests
+// TODO: avoid rewriting tree branches that don't change (may need to return Let expressions)
 
 /**
  * Reduces expressions of the form:
@@ -38,7 +40,7 @@ public class ReduceLambda
         implements Rule
 {
     @Override
-    public Stream<Expression> apply(Expression expression, Lookup lookup)
+    public Stream<Expression> transform(Expression expression, Lookup lookup)
     {
         if (!(expression instanceof Apply)) {
             return Stream.empty();
@@ -51,6 +53,8 @@ public class ReduceLambda
         }
 
         Lambda lambda = (Lambda) target;
+
+        checkArgument(apply.getArguments().size() == 1, "Only one argument currently supported");
 
         return Stream.of(reduce(lambda, apply.getArguments().get(0), lookup));
     }

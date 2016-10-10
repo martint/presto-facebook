@@ -30,7 +30,7 @@ public class MergeTransforms
         implements Rule
 {
     @Override
-    public Stream<Expression> apply(Expression expression, Lookup lookup)
+    public Stream<Expression> transform(Expression expression, Lookup lookup)
     {
         if (!isCall(expression, "transform", lookup)) {
             return Stream.empty();

@@ -19,5 +19,5 @@ import java.util.stream.Stream;
 
 public interface Rule
 {
-    Stream<Expression> apply(Expression expression, Lookup lookup);
+    Stream<Expression> transform(Expression expression, Lookup lookup);
 }

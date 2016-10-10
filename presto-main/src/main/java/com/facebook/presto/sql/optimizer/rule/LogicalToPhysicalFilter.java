@@ -27,7 +27,7 @@ public class LogicalToPhysicalFilter
         implements Rule
 {
     @Override
-    public Stream<Expression> apply(Expression expression, Lookup lookup)
+    public Stream<Expression> transform(Expression expression, Lookup lookup)
     {
         if (!isCall(expression, "logical-filter", lookup)) {
             return Stream.empty();

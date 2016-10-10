@@ -147,7 +147,7 @@ public class GreedyOptimizer
 //                System.out.println("Considering: " + expression);
                 for (Rule rule : rules) {
 //                    System.out.println("Trying: " + rule.getClass().getSimpleName());
-                    Optional<Expression> transformed = rule.apply(expression, new MemoLookup(memo))
+                    Optional<Expression> transformed = rule.transform(expression, new MemoLookup(memo))
                             .limit(1)
                             .findFirst();
 

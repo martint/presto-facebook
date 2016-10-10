@@ -27,7 +27,7 @@ public class RemoveRedundantProjections
         implements Rule
 {
     @Override
-    public Stream<Expression> apply(Expression expression, Lookup lookup)
+    public Stream<Expression> transform(Expression expression, Lookup lookup)
     {
         if (!isCall(expression, "field-deref", lookup)) {
             return Stream.empty();
