@@ -15,6 +15,7 @@ package com.facebook.presto.sql.optimizer;
 
 import com.facebook.presto.sql.optimizer.engine.GreedyOptimizer;
 import com.facebook.presto.sql.optimizer.tree.Expression;
+import com.facebook.presto.sql.optimizer.tree.Lambda;
 import com.facebook.presto.sql.optimizer.tree.Value;
 import com.facebook.presto.sql.optimizer.tree.sql.Null;
 import com.facebook.presto.sql.planner.Symbol;
@@ -46,6 +47,7 @@ import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArithmeticUnaryExpression;
 import com.facebook.presto.sql.tree.ArrayConstructor;
 import com.facebook.presto.sql.tree.AstVisitor;
+import com.facebook.presto.sql.tree.AtTimeZone;
 import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BinaryLiteral;
 import com.facebook.presto.sql.tree.BooleanLiteral;
@@ -54,11 +56,13 @@ import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
+import com.facebook.presto.sql.tree.Extract;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
+import com.facebook.presto.sql.tree.IntervalLiteral;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LambdaExpression;
@@ -71,10 +75,13 @@ import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Row;
+import com.facebook.presto.sql.tree.SearchedCaseExpression;
+import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.TryExpression;
+import com.facebook.presto.sql.tree.WhenClause;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -522,6 +529,18 @@ public class LegacyToNew
         }
 
         @Override
+        protected Expression visitAtTimeZone(AtTimeZone node, Scope scope)
+        {
+            return call("at_timezone", translate(node.getValue(), scope), translate(node.getTimeZone(), scope));
+        }
+
+        @Override
+        protected Expression visitIntervalLiteral(IntervalLiteral node, Scope context)
+        {
+            return value(node); // TODO
+        }
+
+        @Override
         protected Expression visitDoubleLiteral(DoubleLiteral node, Scope context)
         {
             return value(node.getValue());
@@ -752,6 +771,59 @@ public class LegacyToNew
             return call("subscript",
                     translate(node.getBase(), scope),
                     translate(node.getIndex(), scope));
+        }
+
+        @Override
+        protected Expression visitExtract(Extract node, Scope scope)
+        {
+            return call("extract", translate(node.getExpression(), scope), value(node.getField()));
+        }
+
+        @Override
+        protected Expression visitSimpleCaseExpression(SimpleCaseExpression node, Scope scope)
+        {
+            List<Expression> conditions = node.getWhenClauses().stream()
+                    .map(WhenClause::getOperand)
+                    .map(e -> translate(e, scope))
+                    .collect(toList());
+
+            List<Expression> results = node.getWhenClauses().stream()
+                    .map(WhenClause::getResult)
+                    .map(e -> lambda(translate(e, new Scope(scope, (name, localVariable) -> Optional.empty()))))
+                    .collect(toList());
+
+            Lambda defaultResult = node.getDefaultValue()
+                    .map(e -> lambda(translate(e, new Scope(scope, (name, localVariable) -> Optional.empty()))))
+                    .orElse(lambda(new Null()));
+
+            return call("lookup-switch",
+                    translate(node.getOperand(), scope),
+                    call("array", conditions),
+                    call("array", results),
+                    defaultResult);
+        }
+
+        @Override
+        protected Expression visitSearchedCaseExpression(SearchedCaseExpression node, Scope scope)
+        {
+            List<Expression> conditions = node.getWhenClauses().stream()
+                    .map(WhenClause::getOperand)
+                    .map(e -> lambda(translate(e, new Scope(scope, (name, localVariable) -> Optional.empty()))))
+                    .collect(toList());
+
+            List<Expression> results = node.getWhenClauses().stream()
+                    .map(WhenClause::getResult)
+                    .map(e -> lambda(translate(e, new Scope(scope, (name, localVariable) -> Optional.empty()))))
+                    .collect(toList());
+
+            Lambda defaultResult = node.getDefaultValue()
+                    .map(e -> lambda(translate(e, new Scope(scope, (name, localVariable) -> Optional.empty()))))
+                    .orElse(lambda(new Null()));
+
+            return call("case",
+                    call("array", conditions),
+                    call("array", results),
+                    defaultResult);
         }
     }
 
