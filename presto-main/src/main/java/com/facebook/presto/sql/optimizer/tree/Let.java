@@ -29,11 +29,22 @@ public final class Let
 
     Let(List<Assignment> assignments, Expression body)
     {
+        super(body.type());
         requireNonNull(assignments, "assignments is null");
         requireNonNull(body, "body is null");
 
         this.assignments = assignments;
         this.body = body;
+    }
+
+    public List<Assignment> getAssignments()
+    {
+        return assignments;
+    }
+
+    public Expression getBody()
+    {
+        return body;
     }
 
     @Override

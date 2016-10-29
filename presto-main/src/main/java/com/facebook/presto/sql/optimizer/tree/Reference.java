@@ -23,8 +23,9 @@ public final class Reference
 {
     private final String name;
 
-    Reference(String name)
+    Reference(TypeStamp type, String name)
     {
+        super(type);
         requireNonNull(name, "name is null");
         this.name = name;
     }

@@ -15,11 +15,17 @@ package com.facebook.presto.sql.optimizer.tree.sql;
 
 import com.facebook.presto.sql.optimizer.tree.Atom;
 import com.facebook.presto.sql.optimizer.tree.Expression;
+import com.facebook.presto.sql.optimizer.tree.TypeStamp;
 
 public class Null
     extends Expression
     implements Atom
 {
+    public Null(TypeStamp type)
+    {
+        super(type);
+    }
+
     @Override
     public int hashCode()
     {

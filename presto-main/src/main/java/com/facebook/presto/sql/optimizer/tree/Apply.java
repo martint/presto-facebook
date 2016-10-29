@@ -30,13 +30,15 @@ public class Apply
     // TODO: should arguments be a single value? (and encode multiple args as row values)
     private final List<Expression> arguments;
 
-    protected Apply(String name, List<Expression> arguments)
+    protected Apply(TypeStamp type, String name, List<Expression> arguments)
     {
-        this(variable(name), arguments);
+        this(type, variable(null, name), arguments); // TODO: type for function name (e.g. signature)
     }
 
-    public Apply(Expression target, List<Expression> arguments)
+    public Apply(TypeStamp type, Expression target, List<Expression> arguments)
     {
+        super(type);
+
         requireNonNull(target, "target is null");
         requireNonNull(arguments, "arguments is null");
 

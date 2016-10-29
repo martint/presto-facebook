@@ -41,7 +41,7 @@ public class HeuristicPlannerMemo
 {
     private long nextGroupId;
 
-    private final Set<Long> roots = new HashSet<>();
+    private final long root;
 
     private final Map<Long, Expression> currentExpressionByGroup = new HashMap<>();
     private final Map<Long, Set<Expression>> expressionsByGroup = new HashMap<>();
@@ -52,19 +52,14 @@ public class HeuristicPlannerMemo
 
     private final Map<Long, Long> equivalences = new HashMap<>();
 
-    public HeuristicPlannerMemo()
+    public HeuristicPlannerMemo(Expression expression)
     {
+        root = insertRecursive(expression);
     }
 
-    /**
-     * Allows possibly nested expressions
-     */
-    public long insert(Expression expression)
+    public long getRoot()
     {
-//        System.out.println("Inserting: " + expression);
-        long result = insertRecursive(expression);
-        roots.add(result);
-        return result;
+        return root;
     }
 
     /**
@@ -163,7 +158,7 @@ public class HeuristicPlannerMemo
             if (!(target instanceof Reference)) {
                 target = processor.apply(target);
             }
-            result = new Apply(target, arguments);
+            result = new Apply(expression.type(), target, arguments);
         }
         else if (expression instanceof Lambda) {
             Lambda lambda = (Lambda) expression;
@@ -249,7 +244,7 @@ public class HeuristicPlannerMemo
                     .map(this::canonicalize)
                     .collect(Collectors.toList());
 
-            return new Apply(canonicalize(apply.getTarget()), newArguments);
+            return new Apply(expression.type(), canonicalize(apply.getTarget()), newArguments);
         }
         else if (expression instanceof Lambda) {
             return lambda(canonicalize(((Lambda) expression).getBody()));
@@ -457,7 +452,7 @@ public class HeuristicPlannerMemo
                     Map<String, String> attributes = new HashMap<>();
                     attributes.put("label", node.payload.toString() + " v" + node.version);
 
-                    if (roots.contains(node.payload)) {
+                    if (node.payload.equals(root)) {
                         attributes.put("penwidth", "3");
                     }
 
@@ -523,7 +518,7 @@ public class HeuristicPlannerMemo
                             .distinct()
                             .collect(Collectors.toList());
 
-                    if (roots.stream().map(ids::get).anyMatch(graph.getNodesInCluster(clusterId)::contains)) {
+                    if (graph.getNodesInCluster(clusterId).contains(root)) {
                         result.add("penwidth=2");
                     }
                     else {

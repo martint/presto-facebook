@@ -13,30 +13,6 @@
  */
 package com.facebook.presto.sql.optimizer.tree;
 
-import com.facebook.presto.sql.optimizer.utils.ListFormatter;
-
-public abstract class Expression
+public class TypeStamp
 {
-    private final TypeStamp type;
-
-    public Expression(TypeStamp type)
-    {
-        this.type = type;
-    }
-
-    public TypeStamp type()
-    {
-        return type;
-    }
-
-    public abstract int hashCode();
-    public abstract boolean equals(Object other);
-
-    public abstract Object terms();
-
-    @Override
-    public String toString()
-    {
-        return ListFormatter.format(terms());
-    }
 }

@@ -36,6 +36,7 @@ public class LogicalToPhysicalFilter
         Apply apply = (Apply) expression;
 
         return Stream.of(call(
+                expression.type(),
                 "physical-filter",
                 apply.getArguments().get(0),
                 apply.getArguments().get(1)));

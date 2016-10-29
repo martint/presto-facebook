@@ -29,6 +29,7 @@ public class GroupReference
 
     public GroupReference(long id)
     {
+        super(null);
         this.id = id;
     }
 

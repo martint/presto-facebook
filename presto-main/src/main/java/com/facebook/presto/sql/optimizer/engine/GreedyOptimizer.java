@@ -35,10 +35,9 @@ import java.util.Set;
 import static com.facebook.presto.sql.optimizer.engine.Utils.getChildren;
 import static com.facebook.presto.sql.optimizer.tree.Expressions.lambda;
 import static com.facebook.presto.sql.optimizer.tree.Expressions.let;
-import static com.facebook.presto.sql.optimizer.tree.Expressions.variable;
 
 public class GreedyOptimizer
-        implements Optimizer
+//        implements Optimizer
 {
     private final boolean debug;
 
@@ -66,7 +65,7 @@ public class GreedyOptimizer
         ));
     }
 
-    private static class MemoLookup
+    public static class MemoLookup
         implements Lookup
     {
         private final HeuristicPlannerMemo memo;
@@ -87,54 +86,22 @@ public class GreedyOptimizer
         }
     }
 
-    public Expression optimize(Expression expression)
+    public HeuristicPlannerMemo optimize(Expression expression)
     {
-        HeuristicPlannerMemo memo = new HeuristicPlannerMemo();
-        long root = memo.insert(expression);
-
-//        System.out.println(memo.toGraphviz());
+        HeuristicPlannerMemo memo = new HeuristicPlannerMemo(expression);
+        long root = memo.getRoot();
 
         for (Set<Rule> batch : batches) {
             explore(memo, batch, root, new ArrayDeque<>());
         }
 
-//        System.out.println(memo.toGraphviz());
-
         List<Assignment> assignments = extract(root, new MemoLookup(memo));
 
-//        Set<Expression> chosen = assignments.stream()
-//                .map(Assignment::getExpression)
-//                .collect(Collectors.toSet());
-
-//        System.out.println(
-//                memo.toGraphviz()
-//                memo.toGraphviz(
-//                        e -> {
-//                            if (chosen.contains(e)) {
-//                                return ImmutableMap.of(
-//                                        "fillcolor", "coral",
-//                                        "style", "filled");
-//                            }
-//
-//                            return ImmutableMap.of();
-//                        },
-//                        (from, to) -> {
-//                            if (chosen.contains(from) || chosen.contains(to)) {
-//                                return ImmutableMap.of(
-//                                        "color", "coral",
-//                                        "penwidth", "3");
-//                            }
-//                            return ImmutableMap.of();
-//                        })
-//        );
-
-        return let(assignments, variable("$" + root));
+        return memo;
     }
 
     private boolean explore(HeuristicPlannerMemo memo, Set<Rule> rules, long group, Deque<Long> groups)
     {
-//        System.out.println("=== Exploring (" + groups + ") -> $" + group + " ===");
-
         boolean progress = false;
         boolean childrenChanged;
         do {
@@ -144,9 +111,7 @@ public class GreedyOptimizer
                 changed = false;
                 Expression expression = memo.getExpression(group);
 
-//                System.out.println("Considering: " + expression);
                 for (Rule rule : rules) {
-//                    System.out.println("Trying: " + rule.getClass().getSimpleName());
                     Optional<Expression> transformed = rule.transform(expression, new MemoLookup(memo))
                             .limit(1)
                             .findFirst();
@@ -175,11 +140,6 @@ public class GreedyOptimizer
             }
         }
         while (childrenChanged);
-
-
-//        System.out.println("=== Done (" + groups + ") -> $" + group + " ===");
-//        System.out.println(memo.toGraphviz());
-//        System.out.println();
 
         return progress;
     }

@@ -63,10 +63,11 @@ public class MergeTransforms
 //                        Expressions.apply(parentLambda, variable("t")))));
 
         return Stream.of(call(
+                null,
                 "transform",
                 child.getArguments().get(0),
                 lambda(
-                        Expressions.apply(parent.getArguments().get(1),
-                                Expressions.apply(child.getArguments().get(1), localReference())))));
+                        Expressions.apply(null, parent.getArguments().get(1),
+                                Expressions.apply(null, child.getArguments().get(1), localReference(null))))));
     }
 }

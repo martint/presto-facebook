@@ -27,12 +27,12 @@ public class TestOptimizer
     public void testTrueFilter()
             throws Exception
     {
-        Optimizer optimizer = new GreedyOptimizer(true);
+        GreedyOptimizer optimizer = new GreedyOptimizer(true);
 
         Expression expression =
-                call("logical-filter",
-                        call("get", value("t")),
-                        lambda(value(true)));
+                call(null, "logical-filter",
+                        call(null, "get", value(null, "t")),
+                        lambda(value(null, true)));
 
         System.out.println(expression.toString());
         System.out.println();
@@ -43,12 +43,12 @@ public class TestOptimizer
     public void testFalseFilter()
             throws Exception
     {
-        Optimizer optimizer = new GreedyOptimizer(true);
+        GreedyOptimizer optimizer = new GreedyOptimizer(true);
 
         Expression expression =
-                call("logical-filter",
-                        call("get", value("t")),
-                        lambda(value(false)));
+                call(null, "logical-filter",
+                        call(null, "get", value(null, "t")),
+                        lambda(value(null, false)));
 
         System.out.println(expression.toString());
         System.out.println();
@@ -59,14 +59,14 @@ public class TestOptimizer
     public void testCombineFilters()
             throws Exception
     {
-        Optimizer optimizer = new GreedyOptimizer(true);
+        GreedyOptimizer optimizer = new GreedyOptimizer(true);
 
         Expression expression =
-                call("logical-filter",
-                        call("logical-filter",
-                                call("get", value("t")),
-                                lambda(call("deref", localReference(), value("x")))),
-                        lambda(call("deref", localReference(), value("y"))));
+                call(null, "logical-filter",
+                        call(null, "logical-filter",
+                                call(null, "get", value(null, "t")),
+                                lambda(call(null, "deref", localReference(null), value(null, "x")))),
+                        lambda(call(null, "deref", localReference(null), value(null, "y"))));
 
         System.out.println(expression.toString());
         System.out.println();

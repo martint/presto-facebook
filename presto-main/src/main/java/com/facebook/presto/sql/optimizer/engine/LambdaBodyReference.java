@@ -56,6 +56,7 @@ final class LambdaBodyReference
 
     public LambdaBodyReference(String name)
     {
+        super(null);
         requireNonNull(name, "name is null");
         this.name = name;
     }

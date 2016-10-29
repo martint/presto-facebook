@@ -27,6 +27,7 @@ public final class Lambda
 
     Lambda(Expression body)
     {
+        super(null);
         requireNonNull(body, "body is null");
 
         this.body = body;

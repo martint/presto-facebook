@@ -45,9 +45,12 @@ public class MergePhysicalFilters
         Apply child = (Apply) resolvedChild;
 
         return Stream.of(
-                call("physical-filter",
+                call(expression.type(),
+                        "physical-filter",
                         child.getArguments().get(0),
-                        lambda(call("and",
+                        lambda(call(
+                                null, // TODO: type
+                                "and",
                                 ((Lambda) lookup.resolve(child.getArguments().get(1))).getBody(),
                                 ((Lambda) lookup.resolve(parent.getArguments().get(1))).getBody()))));
     }

@@ -21,8 +21,9 @@ public final class Value
 {
     private final Object value;
 
-    Value(Object value)
+    Value(TypeStamp type, Object value)
     {
+        super(type);
         this.value = value;
     }
 

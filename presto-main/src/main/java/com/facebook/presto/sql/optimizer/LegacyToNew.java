@@ -13,11 +13,15 @@
  */
 package com.facebook.presto.sql.optimizer;
 
-import com.facebook.presto.sql.optimizer.engine.GreedyOptimizer;
+import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.optimizer.tree.Expression;
 import com.facebook.presto.sql.optimizer.tree.Lambda;
+import com.facebook.presto.sql.optimizer.tree.RelationTypeStamp;
+import com.facebook.presto.sql.optimizer.tree.TypeStamp;
 import com.facebook.presto.sql.optimizer.tree.Value;
 import com.facebook.presto.sql.optimizer.tree.sql.Null;
+import com.facebook.presto.sql.optimizer.tree.sql.NullTypeStamp;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.AggregationNode;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
@@ -82,6 +86,7 @@ import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.tree.WhenClause;
+import com.facebook.presto.type.UnknownType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -99,25 +104,29 @@ import static com.facebook.presto.sql.optimizer.tree.Expressions.value;
 import static com.facebook.presto.sql.optimizer.utils.CollectionConstructors.list;
 import static com.facebook.presto.util.ImmutableCollectors.toImmutableList;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 public class LegacyToNew
 {
-    private LegacyToNew()
+    private final Map<Symbol, Type> types;
+
+    public LegacyToNew(Map<Symbol, Type> types)
     {
+        this.types = ImmutableMap.copyOf(types);
     }
 
-    public static Expression translate(PlanNode node)
+    public Expression translate(PlanNode node)
     {
         return translate(node, new Scope());
     }
 
-    private static Expression translate(PlanNode node, Scope scope)
+    private Expression translate(PlanNode node, Scope scope)
     {
-        return node.accept(new PlanTranslator(), scope);
+        return node.accept(new PlanTranslator(types), scope);
     }
 
-    private static Expression translate(com.facebook.presto.sql.tree.Expression expression, Scope scope)
+    private Expression translate(com.facebook.presto.sql.tree.Expression expression, Scope scope)
     {
         return new ExpressionTranslator().process(expression, scope);
     }
@@ -155,27 +164,62 @@ public class LegacyToNew
         Optional<Expression> resolve(String name, Expression localVariable);
     }
 
-    static Resolver forSymbols(List<Symbol> symbols)
+    Resolver forSymbols(List<Symbol> symbols)
     {
-        return forNames(symbols.stream()
+        List<Type> columnTypes = symbols.stream()
+                .map(types::get)
+                .collect(toList());
+
+        List<String> names = symbols.stream()
                 .map(Symbol::getName)
-                .collect(toImmutableList()));
+                .collect(toList());
+
+        return forNames(names, columnTypes);
     }
 
-    static Resolver forNames(List<String> names)
+    static Resolver forNames(List<String> names, List<Type> columnTypes)
     {
         return (name, localVariable) -> {
             if (names.contains(name)) {
-                return Optional.of(fieldDereference(localVariable, names.indexOf(name)));
+                int index = names.indexOf(name);
+                return Optional.of(fieldDereference(translate(columnTypes.get(index)), localVariable, index));
             }
 
             return Optional.empty();
         };
     }
 
-    private static class PlanTranslator
+    private static TypeStamp translate(Type type)
+    {
+        requireNonNull(type, "type is null");
+
+        if (type.equals(UnknownType.UNKNOWN)) {
+            return new NullTypeStamp();
+        }
+
+        throw new UnsupportedOperationException("not yet implemented: " + type);
+    }
+
+    private class PlanTranslator
             extends PlanVisitor<Scope, Expression>
     {
+        private final Map<Symbol, Type> types;
+
+        public PlanTranslator(Map<Symbol, Type> types)
+        {
+            this.types = types;
+        }
+
+        private TypeStamp typeOf(PlanNode node)
+        {
+            List<TypeStamp> columnTypes = node.getOutputSymbols().stream()
+                    .map(types::get)
+                    .map(LegacyToNew::translate)
+                    .collect(toList());
+
+            return new RelationTypeStamp(columnTypes);
+        }
+
         @Override
         protected Expression visitPlan(PlanNode node, Scope scope)
         {
@@ -185,23 +229,28 @@ public class LegacyToNew
         @Override
         public Expression visitEnforceSingleRow(EnforceSingleRowNode node, Scope scope)
         {
-            return call("enforce-single-row", translate(node.getSource(), scope));
+            return call(typeOf(node), "enforce-single-row", translate(node.getSource(), scope));
         }
 
         @Override
         public Expression visitLimit(LimitNode node, Scope scope)
         {
-            return call("limit", translate(node.getSource(), scope), value(node.getCount()));
+            return call(typeOf(node), "limit", translate(node.getSource(), scope), value(translate(BigintType.BIGINT), node.getCount()));
         }
 
         @Override
         public Expression visitOutput(OutputNode node, Scope scope)
         {
-            return call("transform",
+            return call(
+                    typeOf(node),
+                    "transform",
                     translate(node.getSource(), scope),
-                    lambda(call("row", node.getOutputSymbols().stream()
-                            .map(output -> translate(output.toSymbolReference(), new Scope(scope, forSymbols(node.getSource().getOutputSymbols()))))
-                            .collect(toList()))));
+                    lambda(call(
+                            null, // TODO: row type
+                            "row",
+                            node.getOutputSymbols().stream()
+                                    .map(output -> translate(output.toSymbolReference(), new Scope(scope, forSymbols(node.getSource().getOutputSymbols()))))
+                                    .collect(toList()))));
         }
 
         @Override
@@ -209,30 +258,40 @@ public class LegacyToNew
         {
             Expression lambdaBody = translate(node.getPredicate(), new Scope(scope, forSymbols(node.getSource().getOutputSymbols())));
 
-            return call("logical-filter", translate(node.getSource(), scope), lambda(lambdaBody));
+            return call(typeOf(node), "logical-filter", translate(node.getSource(), scope), lambda(lambdaBody));
         }
 
         @Override
         public Expression visitProject(ProjectNode node, Scope scope)
         {
-            return call("transform",
+            return call(
+                    typeOf(node),
+                    "transform",
                     translate(node.getSource(), scope),
-                    lambda(call("row", node.getOutputSymbols().stream()
-                            .map(output -> {
-                                List<Symbol> outputSymbols = node.getSource().getOutputSymbols();
-                                return translate(node.getAssignments().get(output), new Scope(scope, forSymbols(outputSymbols)));
-                            })
-                            .collect(toList()))));
+                    lambda(call(
+                            null, // TODO: row type
+                            "row",
+                            node.getOutputSymbols().stream()
+                                    .map(output -> {
+                                        List<Symbol> outputSymbols = node.getSource().getOutputSymbols();
+                                        return translate(node.getAssignments().get(output), new Scope(scope, forSymbols(outputSymbols)));
+                                    })
+                                    .collect(toList()))));
         }
 
         @Override
         public Expression visitValues(ValuesNode node, Scope scope)
         {
-            return call("array", node.getRows().stream()
-                    .map(row -> call("row", row.stream()
-                            .map(column -> translate(column, scope))
-                            .collect(toImmutableList())))
-                    .collect(toImmutableList()));
+            return call(
+                    typeOf(node),
+                    "array", node.getRows().stream()
+                            .map(row -> call(
+                                    null, // TODO: row type
+                                    "row",
+                                    row.stream()
+                                            .map(column -> translate(column, scope))
+                                            .collect(toImmutableList())))
+                            .collect(toImmutableList()));
         }
 
         @Override
@@ -240,14 +299,19 @@ public class LegacyToNew
         {
             List<Expression> criteria = node.getOrderBy().stream()
                     .map(input ->
-                            call("row",
+                            call(
+                                    null, // TODO: row type
+                                    "row",
                                     lambda(translate(input.toSymbolReference(), new Scope(scope, forSymbols(node.getSource().getOutputSymbols())))),
-                                    value(node.getOrderings().get(input))))
+                                    value(null, // TODO
+                                            node.getOrderings().get(input))))
                     .collect(toImmutableList());
 
-            return call("sort",
+            return call(
+                    typeOf(node),
+                    "sort",
                     translate(node.getSource(), scope),
-                    call("array", criteria));
+                    call(null, "array", criteria)); // TODO: type
         }
 
         @Override
@@ -255,33 +319,40 @@ public class LegacyToNew
         {
             List<Expression> criteria = node.getOrderBy().stream()
                     .map(input ->
-                            call("row",
+                            call(
+                                    null, // TODO: row type
+                                    "row",
                                     lambda(translate(input.toSymbolReference(), new Scope(scope, forSymbols(node.getSource().getOutputSymbols())))),
-                                    value(node.getOrderings().get(input))))
+                                    value(null, node.getOrderings().get(input)))) // TODO: type
                     .collect(toImmutableList());
 
-            return call("top-n",
+            return call(
+                    typeOf(node),
+                    "top-n",
                     translate(node.getSource(), scope),
-                    value(node.getCount()),
-                    call("array", criteria));
+                    value(null, node.getCount()), // TODO: type
+                    call(null, "array", criteria)); // TODO: type
         }
 
         @Override
         public Expression visitSample(SampleNode node, Scope scope)
         {
-            checkArgument(!node.getSampleWeightSymbol().isPresent(), "weighted sample not supported");
-
-            return call("sample",
+            return call(
+                    typeOf(node),
+                    "sample",
                     translate(node.getSource(), scope),
-                    value(node.getSampleType()),
-                    value(node.getSampleRatio()));
+                    value(null, node.getSampleType()),    // TODO: type
+                    value(null, node.getSampleRatio()));  // TODO: type
         }
 
         @Override
         public Expression visitTableScan(TableScanNode node, Scope context)
         {
             // TODO: column ordering
-            return call("table", value(node.getTable()));
+            return call(
+                    typeOf(node),
+                    "table",
+                    value(null, node.getTable())); // TODO: type
         }
 
         @Override
@@ -301,19 +372,28 @@ public class LegacyToNew
                 List<List<Value>> groupingSets = node.getGroupingSets().stream()
                         .map(set ->
                                 set.stream()
-                                        .map(column -> value(node.getSource().getOutputSymbols().indexOf(column)))
+                                        .map(column -> value(null, node.getSource().getOutputSymbols().indexOf(column))) // TODO: type
                                         .collect(toList()))
                         .collect(toList());
 
                 // TODO functions, mask, etc
-                return call("grouping-sets",
+                return call(
+                        typeOf(node),
+                        "grouping-sets",
                         source,
-                        call("array",
-                                value(groupingSets)),
-                        value(node.getSource().getOutputSymbols().indexOf(node.getGroupIdSymbol().get())));
+                        call(
+                                null, // TODO: type
+                                "array",
+                                value(null, groupingSets)), // TODO: type
+                        value(null, node.getSource().getOutputSymbols().indexOf(node.getGroupIdSymbol().get()))); // TODO: type
             }
             else {
-                return call("aggregation", source, call("array", calls)); // TODO functions, mask, etc
+                // TODO functions, mask, etc
+                return call(
+                        typeOf(node),
+                        "aggregation",
+                        source,
+                        call(null, "array", calls)); // TODO: type
             }
         }
 
@@ -327,17 +407,30 @@ public class LegacyToNew
             Expression right = translate(node.getRight(), parentScope);
 
             List<String> leftFields = names(node.getLeft().getOutputSymbols());
+            List<Type> leftTypes = node.getLeft().getOutputSymbols().stream()
+                    .map(types::get)
+                    .collect(toList());
+
             List<String> rightFields = names(node.getRight().getOutputSymbols());
+            List<Type> rightTypes = node.getRight().getOutputSymbols().stream()
+                    .map(types::get)
+                    .collect(toList());
 
             Scope scope = new Scope(parentScope, (name, localVariable) -> {
                 int index = leftFields.indexOf(name);
                 if (index != -1) {
-                    return Optional.of(fieldDereference(fieldDereference(localVariable, 0), index));
+                    return Optional.of(fieldDereference(
+                            translate(leftTypes.get(index)),
+                            fieldDereference(null, localVariable, 0), // TODO: row type
+                            index));
                 }
 
                 index = rightFields.indexOf(name);
                 if (index != -1) {
-                    return Optional.of(fieldDereference(fieldDereference(localVariable, 1), index));
+                    return Optional.of(fieldDereference(
+                            translate(rightTypes.get(index)),
+                            fieldDereference(null, localVariable, 1), // TODO: row type
+                            index));
                 }
 
                 return Optional.empty();
@@ -345,12 +438,16 @@ public class LegacyToNew
 
             Expression criteria = null;
             for (JoinNode.EquiJoinClause clause : node.getCriteria()) {
-                Expression term = call(ComparisonExpression.Type.EQUAL.toString(), translate(clause.getLeft().toSymbolReference(), scope), translate(clause.getRight().toSymbolReference(), scope));
+                Expression term = call(
+                        null, // TODO: type
+                        ComparisonExpression.Type.EQUAL.toString(),
+                        translate(clause.getLeft().toSymbolReference(), scope),
+                        translate(clause.getRight().toSymbolReference(), scope));
                 if (criteria == null) {
                     criteria = term;
                 }
                 else {
-                    criteria = call("and", criteria, term);
+                    criteria = call(null, "and", criteria, term); // TODO: type
                 }
             }
 
@@ -360,25 +457,28 @@ public class LegacyToNew
                     criteria = term;
                 }
                 else {
-                    criteria = call("and", criteria, term);
+                    criteria = call(null, "and", criteria, term); // TODO: type
                 }
             }
 
             if (criteria == null) {
-                criteria = lambda(value(true));
+                criteria = lambda(value(null, true)); // TODO: type
             }
 
-            return call("join",
+            return call(
+                    typeOf(node),
+                    "join",
                     left,
                     right,
                     lambda(criteria),
-                    value(node.getType()));
+                    value(null, node.getType())); // TODO: type
         }
 
         @Override
         public Expression visitApply(ApplyNode node, Scope scope)
         {
             return call(
+                    typeOf(node),
                     "apply",
                     translate(node.getInput(), scope),
                     translate(node.getSubquery(), new Scope(scope, forSymbols(node.getInput().getOutputSymbols()))));
@@ -387,13 +487,13 @@ public class LegacyToNew
         @Override
         public Expression visitUnion(UnionNode node, Scope scope)
         {
-            return call("concat", translateSetOperationChildren(node, scope));
+            return call(typeOf(node), "concat", translateSetOperationChildren(node, scope));
         }
 
         @Override
         public Expression visitIntersect(IntersectNode node, Scope scope)
         {
-            return call("intersect", translateSetOperationChildren(node, scope));
+            return call(typeOf(node), "intersect", translateSetOperationChildren(node, scope));
         }
 
         @Override
@@ -404,13 +504,13 @@ public class LegacyToNew
             Expression left = children.get(0);
             Expression right;
             if (children.size() > 2) {
-                right = call("concat", children.subList(1, children.size()));
+                right = call(typeOf(node), "concat", children.subList(1, children.size()));
             }
             else {
                 right = children.get(1);
             }
 
-            return call("except", left, right);
+            return call(typeOf(node), "except", left, right);
         }
 
         @Override
@@ -422,20 +522,24 @@ public class LegacyToNew
 
             List<Expression> orderings = node.getOrderBy().stream()
                     .map(input ->
-                            call("row",
+                            call(
+                                    null, // TODO: type
+                                    "row",
                                     lambda(translate(input.toSymbolReference(), new Scope(scope, forSymbols(node.getSource().getOutputSymbols())))),
-                                    value(node.getOrderings().get(input))))
+                                    value(null, node.getOrderings().get(input)))) // TODO: type
                     .collect(toImmutableList());
 
             List<Expression> partitionColumns = node.getPartitionBy().stream()
-                    .map(column -> value(node.getSource().getOutputSymbols().indexOf(column)))
+                    .map(column -> value(null, node.getSource().getOutputSymbols().indexOf(column))) // TODO: type
                     .collect(toList());
 
             // TODO: functions & frames
-            return call("window",
+            return call(
+                    typeOf(node),
+                    "window",
                     source,
-                    call("array", partitionColumns),
-                    call("array", orderings));
+                    call(null, "array", partitionColumns), // TODO: type
+                    call(null, "array", orderings));       // TODO: type
         }
 
         @Override
@@ -453,12 +557,17 @@ public class LegacyToNew
             //
 
             List<Expression> columns = node.getUnnestSymbols().keySet().stream()
-                    .map(e -> lambda(fieldDereference(localReference(), node.getSource().getOutputSymbols().indexOf(e))))
+                    .map(e -> lambda(fieldDereference(
+                            translate(types.get(e.getName())),
+                            localReference(null), // TODO: type
+                            node.getSource().getOutputSymbols().indexOf(e))))
                     .collect(toList());
 
-            return call("unnest",
+            return call(
+                    typeOf(node),
+                    "unnest",
                     translate(node.getSource(), scope),
-                    call("array", columns));
+                    call(null, "array", columns)); // TODO: types
         }
 
         @Override
@@ -467,13 +576,15 @@ public class LegacyToNew
             List<List<Value>> groupingSets = node.getGroupingSets().stream()
                     .map(set ->
                             set.stream()
-                                    .map(column -> value(node.getSource().getOutputSymbols().indexOf(column)))
+                                    .map(column -> value(null, node.getSource().getOutputSymbols().indexOf(column))) // TODO: type
                                     .collect(toList()))
                     .collect(toList());
 
-            return call("group-id",
+            return call(
+                    typeOf(node),
+                    "group-id",
                     translate(node.getSource(), scope),
-                    value(groupingSets));
+                    value(null, groupingSets)); // TODO:type
         }
 
         @Override
@@ -492,11 +603,16 @@ public class LegacyToNew
                 Map<Symbol, SymbolReference> assignments = node.sourceSymbolMap(i);
 
                 children.add(
-                        call("transform",
+                        call(
+                                null, // TODO: type
+                                "transform",
                                 translate(source, scope),
-                                lambda(call("row", node.getOutputSymbols().stream()
-                                        .map(output -> translate(assignments.get(output), new Scope(scope, forSymbols(source.getOutputSymbols()))))
-                                        .collect(toList())))));
+                                lambda(call(
+                                        null,  // TODO: type
+                                        "row",
+                                        node.getOutputSymbols().stream()
+                                                .map(output -> translate(assignments.get(output), new Scope(scope, forSymbols(source.getOutputSymbols()))))
+                                                .collect(toList())))));
             }
 
             return children.build();
@@ -510,7 +626,7 @@ public class LegacyToNew
                 .collect(toImmutableList());
     }
 
-    private static class ExpressionTranslator
+    private class ExpressionTranslator
             extends AstVisitor<Expression, Scope>
     {
         @Override
@@ -522,7 +638,9 @@ public class LegacyToNew
         @Override
         protected Expression visitRow(Row node, Scope scope)
         {
-            return call("row",
+            return call(
+                    null, // TODO: type
+                    "row",
                     node.getItems().stream()
                             .map(item -> translate(item, scope))
                             .collect(toList()));
@@ -531,85 +649,93 @@ public class LegacyToNew
         @Override
         protected Expression visitAtTimeZone(AtTimeZone node, Scope scope)
         {
-            return call("at_timezone", translate(node.getValue(), scope), translate(node.getTimeZone(), scope));
+            return call(
+                    null, // TODO: type
+                    "at_timezone",
+                    translate(node.getValue(), scope),
+                    translate(node.getTimeZone(), scope));
         }
 
         @Override
         protected Expression visitIntervalLiteral(IntervalLiteral node, Scope context)
         {
-            return value(node); // TODO
+            return value(null, node); // TODO
         }
 
         @Override
         protected Expression visitDoubleLiteral(DoubleLiteral node, Scope context)
         {
-            return value(node.getValue());
+            return value(null, node.getValue()); // TODO: type
         }
 
         @Override
         protected Expression visitBooleanLiteral(BooleanLiteral node, Scope context)
         {
-            return value(node.getValue());
+            return value(null, node.getValue()); // TODO: type
         }
 
         @Override
         protected Expression visitStringLiteral(StringLiteral node, Scope context)
         {
-            return value(node.getSlice());
+            return value(null, node.getSlice()); // TODO: type
         }
 
         @Override
         protected Expression visitLongLiteral(LongLiteral node, Scope context)
         {
-            return value(node.getValue());
+            return value(null, node.getValue()); // TODO: type
         }
 
         @Override
         protected Expression visitBinaryLiteral(BinaryLiteral node, Scope context)
         {
-            return value(node.getValue());
+            return value(null, node.getValue()); // TODO: type
         }
 
         @Override
         protected Expression visitNullLiteral(NullLiteral node, Scope context)
         {
-            return new Null();
+            return new Null(null); // TODO: type
         }
 
         @Override
         protected Expression visitGenericLiteral(GenericLiteral node, Scope context)
         {
-            return call(node.getType(), value(node.getValue()));
+            return call(null, node.getType(), value(null, node.getValue())); // TODO: type
         }
 
         @Override
         protected Expression visitDereferenceExpression(DereferenceExpression node, Scope scope)
         {
-            return fieldDereference(translate(node.getBase(), scope), node.getFieldName());
+            return fieldDereference(null, translate(node.getBase(), scope), node.getFieldName());
         }
 
         @Override
         protected Expression visitLambdaExpression(LambdaExpression node, Scope scope)
         {
-            return lambda(translate(node.getBody(), new Scope(scope, forNames(node.getArguments()))));
+            return lambda(translate(node.getBody(), new Scope(scope, forNames(node.getArguments(), null)))); // TODO: types
         }
 
         @Override
         protected Expression visitTryExpression(TryExpression node, Scope scope)
         {
-            return call("try", lambda(translate(node.getInnerExpression(), scope)));
+            return call(null, "try", lambda(translate(node.getInnerExpression(), scope))); // TODO: type
         }
 
         @Override
         protected Expression visitLikePredicate(LikePredicate node, Scope scope)
         {
             if (node.getEscape() == null) {
-                return call("like",
+                return call(
+                        null, // TODO: type
+                        "like",
                         translate(node.getValue(), scope),
                         translate(node.getPattern(), scope));
             }
 
-            return call("like",
+            return call(
+                    null,
+                    "like", // TODO: type
                     translate(node.getValue(), scope),
                     translate(node.getPattern(), scope),
                     translate(node.getEscape(), scope));
@@ -618,7 +744,9 @@ public class LegacyToNew
         @Override
         protected Expression visitInPredicate(InPredicate node, Scope scope)
         {
-            return call("in",
+            return call(
+                    null,
+                    "in", // TODO: type
                     translate(node.getValue(), scope),
                     translate(node.getValueList(), scope));
         }
@@ -626,7 +754,9 @@ public class LegacyToNew
         @Override
         protected Expression visitInListExpression(InListExpression node, Scope scope)
         {
-            return call("array",
+            return call(
+                    null, // TODO: type
+                    "array",
                     node.getValues().stream()
                             .map(e -> translate(e, scope))
                             .collect(Collectors.toList()));
@@ -635,7 +765,9 @@ public class LegacyToNew
         @Override
         protected Expression visitCoalesceExpression(CoalesceExpression node, Scope scope)
         {
-            return call("coalesce",
+            return call(
+                    null, // TODO: type
+                    "coalesce",
                     node.getOperands().stream()
                             .map(e -> translate(e, scope))
                             .collect(toList()));
@@ -645,6 +777,7 @@ public class LegacyToNew
         protected Expression visitFunctionCall(FunctionCall node, Scope scope)
         {
             return call(
+                    null, // TODO: type
                     node.getName().toString(),
                     node.getArguments().stream()
                             .map(argument -> translate(argument, scope))
@@ -654,16 +787,20 @@ public class LegacyToNew
         @Override
         protected Expression visitIfExpression(IfExpression node, Scope scope)
         {
-            return call("if",
+            return call(
+                    null, // TODO: type
+                    "if",
                     process(node.getCondition(), scope),
                     process(node.getTrueValue(), scope),
-                    node.getFalseValue().map(e -> process(e, scope)).orElse(new Null()));
+                    node.getFalseValue().map(e -> process(e, scope)).orElse(new Null(null))); // TODO: type
         }
 
         @Override
         protected Expression visitNullIfExpression(NullIfExpression node, Scope scope)
         {
-            return call("nullif",
+            return call(
+                    null, // TODO: type
+                    "nullif",
                     process(node.getFirst(), scope),
                     process(node.getSecond(), scope));
         }
@@ -673,6 +810,7 @@ public class LegacyToNew
         {
             // TODO: signature of operator
             return call(
+                    null, // TODO: type
                     node.getType().toString(),
                     process(node.getLeft(), scope),
                     process(node.getRight(), scope));
@@ -683,6 +821,7 @@ public class LegacyToNew
         {
             // TODO: signature of operator
             return call(
+                    null, // TODO: type
                     node.getType().toString(),
                     process(node.getLeft(), scope),
                     process(node.getRight(), scope));
@@ -691,7 +830,7 @@ public class LegacyToNew
         @Override
         protected Expression visitNotExpression(NotExpression node, Scope scope)
         {
-            return call("not", process(node.getValue(), scope));
+            return call(null, "not", process(node.getValue(), scope)); // TODO: type
         }
 
         @Override
@@ -699,6 +838,7 @@ public class LegacyToNew
         {
             // TODO: signature of operator
             return call(
+                    null, // TODO: type
                     node.getType().toString(),
                     process(node.getLeft(), scope),
                     process(node.getRight(), scope));
@@ -708,34 +848,46 @@ public class LegacyToNew
         protected Expression visitIsNotNullPredicate(IsNotNullPredicate node, Scope scope)
         {
             // TODO: signature of operator
-            return call("not", call("is-null", translate(node.getValue(), scope)));
+            return call(
+                    null, // TODO: type
+                    "not",
+                    call(
+                            null, // TODO: type
+                            "is-null",
+                            translate(node.getValue(), scope)));
         }
 
         @Override
         protected Expression visitCast(Cast node, Scope scope)
         {
-            return call("cast", translate(node.getExpression(), scope), value(node.getType()));
+            return call(
+                    null, // TODO: type
+                    "cast",
+                    translate(node.getExpression(), scope),
+                    value(null, node.getType())); // TODO: type
         }
 
         @Override
         protected Expression visitIsNullPredicate(IsNullPredicate node, Scope scope)
         {
             // TODO: signature of operator
-            return call("is-null", translate(node.getValue(), scope));
+            return call(null, "is-null", translate(node.getValue(), scope)); // TODO: type
         }
 
         @Override
         protected Expression visitArithmeticUnary(ArithmeticUnaryExpression node, Scope scope)
         {
             // TODO: signature of operator
-            return call(node.getSign().toString(), translate(node.getValue(), scope));
+            return call(null, node.getSign().toString(), translate(node.getValue(), scope)); // TODO: type
         }
 
         @Override
         protected Expression visitBetweenPredicate(BetweenPredicate node, Scope scope)
         {
             // TODO: signature of operator
-            return call("between",
+            return call(
+                    null, // TODO: type
+                    "between",
                     translate(node.getValue(), scope),
                     translate(node.getMin(), scope),
                     translate(node.getMax(), scope));
@@ -746,7 +898,7 @@ public class LegacyToNew
         {
             int level = 0;
             while (true) {
-                Optional<Expression> resolved = scope.resolver.resolve(node.getName(), reference(level));
+                Optional<Expression> resolved = scope.resolver.resolve(node.getName(), reference(null, level)); // TODO: type
                 if (resolved.isPresent()) {
                     return resolved.get();
                 }
@@ -759,16 +911,20 @@ public class LegacyToNew
         @Override
         protected Expression visitArrayConstructor(ArrayConstructor node, Scope scope)
         {
-            return call("array",
+            return call(
+                    null, // TODO: type
+                    "array",
                     node.getValues().stream()
-                            .map(value -> translate(value, scope))
+                            .map(value -> translate(value, scope)) // TODO: type
                             .collect(toList()));
         }
 
         @Override
         protected Expression visitSubscriptExpression(SubscriptExpression node, Scope scope)
         {
-            return call("subscript",
+            return call(
+                    null,
+                    "subscript", // TODO: type
                     translate(node.getBase(), scope),
                     translate(node.getIndex(), scope));
         }
@@ -776,7 +932,11 @@ public class LegacyToNew
         @Override
         protected Expression visitExtract(Extract node, Scope scope)
         {
-            return call("extract", translate(node.getExpression(), scope), value(node.getField()));
+            return call(
+                    null, // TODO: type
+                    "extract",
+                    translate(node.getExpression(), scope),
+                    value(null, node.getField())); // TODO: type
         }
 
         @Override
@@ -794,12 +954,14 @@ public class LegacyToNew
 
             Lambda defaultResult = node.getDefaultValue()
                     .map(e -> lambda(translate(e, new Scope(scope, (name, localVariable) -> Optional.empty()))))
-                    .orElse(lambda(new Null()));
+                    .orElse(lambda(new Null(null))); // TODO: type
 
-            return call("lookup-switch",
+            return call(
+                    null, // TODO: type
+                    "lookup-switch",
                     translate(node.getOperand(), scope),
-                    call("array", conditions),
-                    call("array", results),
+                    call(null, "array", conditions), // TODO: type
+                    call(null, "array", results), // TODO: type
                     defaultResult);
         }
 
@@ -818,11 +980,13 @@ public class LegacyToNew
 
             Lambda defaultResult = node.getDefaultValue()
                     .map(e -> lambda(translate(e, new Scope(scope, (name, localVariable) -> Optional.empty()))))
-                    .orElse(lambda(new Null()));
+                    .orElse(lambda(new Null(null))); // TODO: type
 
-            return call("case",
-                    call("array", conditions),
-                    call("array", results),
+            return call(
+                    null, // TODO: type
+                    "case",
+                    call(null, "array", conditions), // TODO: type
+                    call(null, "array", results),    // TODO: type
                     defaultResult);
         }
     }
@@ -861,13 +1025,14 @@ public class LegacyToNew
 
         ProjectNode project = new ProjectNode(new PlanNodeId("3"), filter2, assignments);
 
-        Expression translated = translate(project, new Scope(forNames(list("r"))));
+        Expression translated = new LegacyToNew(ImmutableMap.of())
+                .translate(project, new Scope(forNames(list("r"), list(BigintType.BIGINT))));
 
-        GreedyOptimizer optimizer = new GreedyOptimizer(true);
-        Expression optimized = optimizer.optimize(translated);
-
-        System.out.println(translated);
-        System.out.println();
-        System.out.println(optimized);
+        throw new UnsupportedOperationException("not yet implemented");
+//        GreedyOptimizer optimizer = new GreedyOptimizer(true);
+//        Expression optimized = optimizer.optimize(translated);
+//        System.out.println(translated);
+//        System.out.println();
+//        System.out.println(optimized);
     }
 }

@@ -39,12 +39,12 @@ public class RemoveRedundantFilter
         Lambda lambda = (Lambda) lookup.resolve(filter.getArguments().get(1));
         Expression body = lookup.resolve(lambda.getBody());
 
-        if (body.equals(value(true))) {
+        if (body.equals(value(null, true))) { // TODO: type
             return Stream.of(filter.getArguments().get(1));
         }
 
-        if (body.equals(value(false))) {
-            return Stream.of(value(list()));
+        if (body.equals(value(null, false))) { // TODO: type
+            return Stream.of(value(null, list())); // TODO: type
         }
 
         return Stream.empty();

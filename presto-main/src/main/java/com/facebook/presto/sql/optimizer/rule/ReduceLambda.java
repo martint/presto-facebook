@@ -89,6 +89,7 @@ public class ReduceLambda
         if (resolved instanceof Apply) {
             Apply apply = (Apply) resolved;
             return new Apply(
+                    resolved.type(),
                     substitute(apply.getTarget(), replacement, match, lookup),
                     apply.getArguments().stream()
                             .map(e -> substitute(e, replacement, match, lookup))
@@ -111,7 +112,7 @@ public class ReduceLambda
         }
 
         if (resolved instanceof ScopeReference && ((ScopeReference) resolved).getIndex() >= cutoff) {
-            return reference(((ScopeReference) resolved).getIndex() + shift);
+            return reference(resolved.type(), ((ScopeReference) resolved).getIndex() + shift);
         }
 
         if (resolved instanceof Lambda) {
@@ -121,6 +122,7 @@ public class ReduceLambda
         if (resolved instanceof Apply) {
             Apply apply = (Apply) resolved;
             return new Apply(
+                    apply.type(),
                     shift(apply.getTarget(), shift, cutoff, lookup),
                     apply.getArguments().stream()
                             .map(e -> shift(e, shift, cutoff, lookup))

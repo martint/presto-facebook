@@ -25,19 +25,19 @@ public final class Expressions
     {
     }
 
-    public static Apply apply(Expression target, Expression... arguments)
+    public static Apply apply(TypeStamp type, Expression target, Expression... arguments)
     {
-        return new Apply(target, list(arguments));
+        return new Apply(type, target, list(arguments));
     }
 
-    public static Apply call(String name, Expression... arguments)
+    public static Apply call(TypeStamp type, String name, Expression... arguments)
     {
-        return new Apply(name, ImmutableList.copyOf(arguments));
+        return new Apply(type, name, ImmutableList.copyOf(arguments));
     }
 
-    public static Apply call(String name, List<Expression> arguments)
+    public static Apply call(TypeStamp type, String name, List<Expression> arguments)
     {
-        return new Apply(name, ImmutableList.copyOf(arguments));
+        return new Apply(type, name, ImmutableList.copyOf(arguments));
     }
 
     public static Lambda lambda(Expression body)
@@ -45,24 +45,24 @@ public final class Expressions
         return new Lambda(body);
     }
 
-    public static Reference variable(String name)
+    public static Reference variable(TypeStamp type, String name)
     {
-        return new Reference(name);
+        return new Reference(type, name);
     }
 
-    public static ScopeReference localReference()
+    public static ScopeReference localReference(TypeStamp type)
     {
-        return reference(0);
+        return reference(type, 0);
     }
 
-    public static ScopeReference reference(int index)
+    public static ScopeReference reference(TypeStamp type, int index)
     {
-        return new ScopeReference(index);
+        return new ScopeReference(type, index);
     }
 
-    public static Value value(Object value)
+    public static Value value(TypeStamp type, Object value)
     {
-        return new Value(value);
+        return new Value(type, value);
     }
 
     public static Let let(List<Assignment> assignments, Expression body)
@@ -70,13 +70,13 @@ public final class Expressions
         return new Let(assignments, body);
     }
 
-    public static Apply fieldDereference(Expression expression, String field)
+    public static Apply fieldDereference(TypeStamp type, Expression expression, String field)
     {
-        return call("field-deref", expression, value(field));
+        return call(type, "field-deref", expression, value(type, field));
     }
 
-    public static Apply fieldDereference(Expression expression, int field)
+    public static Apply fieldDereference(TypeStamp type, Expression expression, int field)
     {
-        return call("field-deref", expression, value(field));
+        return call(type, "field-deref", expression, value(type, field));
     }
 }

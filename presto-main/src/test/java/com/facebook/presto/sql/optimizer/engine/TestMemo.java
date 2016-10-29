@@ -19,14 +19,15 @@ public class TestMemo
             throws Exception
     {
         Expression expression =
-                    apply(lambda(localReference()), lambda(reference(1)));
+                    apply(null,lambda(localReference(null)), lambda(reference(null,1)));
 
         GreedyOptimizer optimizer = new GreedyOptimizer(true);
-        Expression optimized = optimizer.optimize(expression);
+        throw new UnsupportedOperationException("not yet implemented");
+//        Expression optimized = optimizer.optimize(expression);
 
-        System.out.println(expression);
-        System.out.println();
-        System.out.println(optimized);
+//        System.out.println(expression);
+//        System.out.println();
+//        System.out.println(optimized);
     }
 
     @Test
@@ -35,24 +36,25 @@ public class TestMemo
     {
         Expression expression =
 
-                call("transform",
-                        call("transform",
-                                call("transform",
-                                        call("transform",
-                                                call("transform",
-                                                        call("array", call("row", value(1))),
-                                                        lambda(call("row", new Null()))),
-                                                lambda(call("row", fieldDereference(localReference(), 0)))),
-                                        lambda(call("row", fieldDereference(localReference(), 0)))),
-                                lambda(call("row", fieldDereference(localReference(), 0)))),
-                        lambda(call("row", fieldDereference(localReference(), 0))));
+                call(null,"transform",
+                        call(null,"transform",
+                                call(null,"transform",
+                                        call(null,"transform",
+                                                call(null,"transform",
+                                                        call(null, "array", call(null, "row", value(null, 1))),
+                                                        lambda(call(null, "row", new Null(null)))),
+                                                lambda(call(null, "row", fieldDereference(null, localReference(null), 0)))),
+                                        lambda(call(null,"row", fieldDereference(null,localReference(null), 0)))),
+                                lambda(call(null,"row", fieldDereference(null,localReference(null), 0)))),
+                        lambda(call(null,"row", fieldDereference(null,localReference(null), 0))));
 
         GreedyOptimizer optimizer = new GreedyOptimizer(true);
-        Expression optimized = optimizer.optimize(expression);
-
-        System.out.println(expression);
-        System.out.println();
-        System.out.println(optimized);
+        throw new UnsupportedOperationException("not yet implemented");
+//        Expression optimized = optimizer.optimize(expression);
+//
+//        System.out.println(expression);
+//        System.out.println();
+//        System.out.println(optimized);
     }
 
     @Test
@@ -60,8 +62,8 @@ public class TestMemo
             throws Exception
     {
         Expression expression =
-                call("filter",
-                        call("get", value("t")));
+                call(null,"filter",
+                        call(null,"get", value(null, "t")));
 
         process(expression);
     }
@@ -71,9 +73,9 @@ public class TestMemo
             throws Exception
     {
         Expression expression =
-                call("+",
-                        call("*", value(1), value(2)),
-                        value(3));
+                call(null,"+",
+                        call(null,"*", value(null, 1), value(null, 2)),
+                        value(null, 3));
 
         process(expression);
     }
@@ -83,12 +85,12 @@ public class TestMemo
             throws Exception
     {
         Expression expression =
-                call("filter",
-                        call("get", value("t")),
-                        lambda(call(">",
-                                localReference(),
-                                call("scalar",
-                                        call("get", value("u"))))));
+                call(null,"filter",
+                        call(null,"null,get", value(null, "t")),
+                        lambda(call(null,">",
+                                localReference(null),
+                                call(null,"scalar",
+                                        call(null,"get", value(null, "u"))))));
 
         process(expression);
     }
@@ -97,15 +99,14 @@ public class TestMemo
     public void testLambda1()
             throws Exception
     {
-        Expression expression = lambda(localReference());
+        Expression expression = lambda(localReference(null));
 
         process(expression);
     }
 
     private void process(Expression expression)
     {
-        HeuristicPlannerMemo memo = new HeuristicPlannerMemo();
-        memo.insert(expression);
+        HeuristicPlannerMemo memo = new HeuristicPlannerMemo(expression);
 
         System.out.println(expression.toString());
         System.out.println(memo.toGraphviz());

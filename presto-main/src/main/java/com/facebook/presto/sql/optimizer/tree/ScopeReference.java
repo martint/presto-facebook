@@ -30,8 +30,9 @@ public final class ScopeReference
 {
     private final int index;
 
-    ScopeReference(int index)
+    ScopeReference(TypeStamp type, int index)
     {
+        super(type);
         checkArgument(index >= 0, "level must be >= 0");
         this.index = index;
     }
