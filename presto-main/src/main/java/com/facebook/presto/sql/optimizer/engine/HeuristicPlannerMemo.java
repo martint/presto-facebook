@@ -22,12 +22,15 @@ import com.facebook.presto.sql.optimizer.utils.DisjointSets;
 import com.facebook.presto.sql.optimizer.utils.Graph;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
+import org.apache.commons.math3.analysis.function.Exp;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
 import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -254,6 +257,51 @@ public class HeuristicPlannerMemo
         }
 
         return expression;
+    }
+
+    @Override
+    public String toString()
+    {
+        StringBuilder builder = new StringBuilder();
+
+        Queue<Long> queue = new ArrayDeque<>();
+        queue.add(root);
+
+        Set<Long> visited = new HashSet<>();
+        while (!queue.isEmpty()) {
+            long group = queue.poll();
+
+            if (visited.contains(group)) {
+                continue;
+            }
+
+            Expression expression = getExpression(group);
+            if (expression instanceof Apply) {
+                Apply apply = (Apply) expression;
+
+                Expression target = apply.getTarget();
+                if (target instanceof GroupReference) {
+                    queue.add(((GroupReference) target).getId());
+                }
+
+                for (Expression argument : apply.getArguments()) {
+                    if (argument instanceof GroupReference) {
+                        queue.add(((GroupReference) argument).getId());
+                    }
+                }
+            }
+            else if (expression instanceof Lambda) {
+                Lambda lambda = (Lambda) expression;
+
+                if (lambda.getBody() instanceof GroupReference) {
+                    queue.add(((GroupReference) lambda.getBody()).getId());
+                }
+            }
+
+            builder.append("$" + group + " := " + expression + "\n");
+        }
+
+        return builder.toString();
     }
 
     private static class PendingMerge

@@ -95,7 +95,7 @@ public class GreedyOptimizer
             explore(memo, batch, root, new ArrayDeque<>());
         }
 
-        List<Assignment> assignments = extract(root, new MemoLookup(memo));
+//        List<Assignment> assignments = extract(root, new MemoLookup(memo));
 
         return memo;
     }

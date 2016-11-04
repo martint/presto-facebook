@@ -17,6 +17,9 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+/**
+ * Effectively, a multiset(row(...))
+ */
 public class RelationTypeStamp
         extends TypeStamp
 {
