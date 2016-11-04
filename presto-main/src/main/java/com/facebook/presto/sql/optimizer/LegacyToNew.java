@@ -58,6 +58,7 @@ import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.ComparisonExpressionType;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.Extract;
@@ -440,7 +441,7 @@ public class LegacyToNew
             for (JoinNode.EquiJoinClause clause : node.getCriteria()) {
                 Expression term = call(
                         null, // TODO: type
-                        ComparisonExpression.Type.EQUAL.toString(),
+                        ComparisonExpressionType.EQUAL.toString(),
                         translate(clause.getLeft().toSymbolReference(), scope),
                         translate(clause.getRight().toSymbolReference(), scope));
                 if (criteria == null) {
@@ -1007,14 +1008,14 @@ public class LegacyToNew
                 values,
                 new LogicalBinaryExpression(LogicalBinaryExpression.Type.OR,
                         new LogicalBinaryExpression(LogicalBinaryExpression.Type.AND,
-                                new ComparisonExpression(ComparisonExpression.Type.EQUAL, new SymbolReference("a"), new SymbolReference("r")),
+                                new ComparisonExpression(ComparisonExpressionType.EQUAL, new SymbolReference("a"), new SymbolReference("r")),
                                 new IsNullPredicate(new SymbolReference("b"))),
                         new IsNotNullPredicate(new SymbolReference("a"))));
 
         FilterNode filter2 = new FilterNode(
                 new PlanNodeId("2"),
                 filter1,
-                new ComparisonExpression(ComparisonExpression.Type.EQUAL, new SymbolReference("a"), new LongLiteral("6")));
+                new ComparisonExpression(ComparisonExpressionType.EQUAL, new SymbolReference("a"), new LongLiteral("6")));
 
         Map<Symbol, com.facebook.presto.sql.tree.Expression> assignments = ImmutableMap.<Symbol, com.facebook.presto.sql.tree.Expression>builder()
                 .put(new Symbol("x"), new ArithmeticUnaryExpression(ArithmeticUnaryExpression.Sign.MINUS, new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Type.ADD, new SymbolReference("a"), new LongLiteral("10"))))
