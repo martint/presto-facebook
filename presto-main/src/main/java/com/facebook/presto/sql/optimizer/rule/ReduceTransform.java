@@ -18,43 +18,57 @@ import com.facebook.presto.sql.optimizer.engine.Rule;
 import com.facebook.presto.sql.optimizer.tree.Apply;
 import com.facebook.presto.sql.optimizer.tree.Expression;
 import com.facebook.presto.sql.optimizer.tree.Lambda;
-import com.facebook.presto.sql.optimizer.tree.type.LambdaTypeStamp;
+import com.facebook.presto.sql.optimizer.tree.type.RelationTypeStamp;
+import com.facebook.presto.sql.optimizer.tree.type.RowTypeStamp;
+import com.google.common.collect.ImmutableList;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.sql.optimizer.engine.Patterns.isCall;
 import static com.facebook.presto.sql.optimizer.tree.Expressions.call;
-import static com.facebook.presto.sql.optimizer.tree.Expressions.lambda;
 
-public class MergePhysicalFilters
+/**
+ * Transforms:
+ * <p>
+ * (transform (array e1 ... en) lambda)
+ * <p>
+ * =>
+ * <p>
+ * (array ((lambda) e1) ... ((lambda) en)
+ */
+public class ReduceTransform
         implements Rule
 {
     @Override
     public Stream<Expression> transform(Expression expression, Lookup lookup)
     {
-        if (!isCall(expression, "physical-filter", lookup)) {
+        if (!isCall(expression, "transform", lookup)) {
             return Stream.empty();
         }
 
-        Apply parent = (Apply) expression;
+        Apply transform = (Apply) expression;
+        Lambda lambda = (Lambda) lookup.resolve(transform.getArguments().get(1));
 
-        Expression resolvedChild = lookup.resolve(parent.getArguments().get(0));
-        if (!isCall(resolvedChild, "physical-filter", lookup)) {
+        Expression child = lookup.resolve(transform.getArguments().get(0));
+        if (!isCall(child, "array", lookup)) {
             return Stream.empty();
         }
 
-        Apply child = (Apply) resolvedChild;
+        Apply array = (Apply) child;
 
-        return Stream.of(
-                call(expression.type(),
-                        "physical-filter",
-                        child.getArguments().get(0),
-                        lambda(
-                                new LambdaTypeStamp(null, null), // type
-                                call(
-                                        null, // TODO: type
-                                        "and",
-                                        ((Lambda) lookup.resolve(child.getArguments().get(1))).getBody(),
-                                        ((Lambda) lookup.resolve(parent.getArguments().get(1))).getBody()))));
+        List<Expression> newItems = new ArrayList<>();
+        for (Expression item : array.getArguments()) {
+            newItems.add(new Apply(
+                    lambda.getBody().type(),
+                    lambda,
+                    ImmutableList.of(item)));
+        }
+
+        return Stream.of(call(
+                new RelationTypeStamp((RowTypeStamp) lambda.getBody().type()),
+                "array",
+                newItems));
     }
 }

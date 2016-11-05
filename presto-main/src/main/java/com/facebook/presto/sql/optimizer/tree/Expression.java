@@ -13,7 +13,10 @@
  */
 package com.facebook.presto.sql.optimizer.tree;
 
+import com.facebook.presto.sql.optimizer.tree.type.TypeStamp;
 import com.facebook.presto.sql.optimizer.utils.ListFormatter;
+
+import static java.util.Objects.requireNonNull;
 
 public abstract class Expression
 {
@@ -21,7 +24,7 @@ public abstract class Expression
 
     public Expression(TypeStamp type)
     {
-        this.type = type;
+        this.type = requireNonNull(type, "type is null");
     }
 
     public TypeStamp type()

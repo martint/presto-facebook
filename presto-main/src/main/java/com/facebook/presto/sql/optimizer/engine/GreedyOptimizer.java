@@ -17,24 +17,20 @@ import com.facebook.presto.sql.optimizer.rule.LogicalToPhysicalFilter;
 import com.facebook.presto.sql.optimizer.rule.MergePhysicalFilters;
 import com.facebook.presto.sql.optimizer.rule.MergeTransforms;
 import com.facebook.presto.sql.optimizer.rule.ReduceLambda;
+import com.facebook.presto.sql.optimizer.rule.ReduceTransform;
 import com.facebook.presto.sql.optimizer.rule.RemoveRedundantFilter;
 import com.facebook.presto.sql.optimizer.rule.RemoveRedundantProjections;
-import com.facebook.presto.sql.optimizer.tree.Assignment;
 import com.facebook.presto.sql.optimizer.tree.Expression;
-import com.facebook.presto.sql.optimizer.tree.Lambda;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.sql.optimizer.engine.Utils.getChildren;
-import static com.facebook.presto.sql.optimizer.tree.Expressions.lambda;
-import static com.facebook.presto.sql.optimizer.tree.Expressions.let;
 
 public class GreedyOptimizer
 //        implements Optimizer
@@ -56,7 +52,8 @@ public class GreedyOptimizer
                         new RemoveRedundantFilter(),
                         new MergeTransforms(),
                         new ReduceLambda(),
-                        new RemoveRedundantProjections()
+                        new RemoveRedundantProjections(),
+                        new ReduceTransform()
                 ),
                 ImmutableSet.of(
                         new LogicalToPhysicalFilter(),
@@ -89,6 +86,8 @@ public class GreedyOptimizer
     public HeuristicPlannerMemo optimize(Expression expression)
     {
         HeuristicPlannerMemo memo = new HeuristicPlannerMemo(expression);
+        System.out.println(memo);
+        System.out.println();
         long root = memo.getRoot();
 
         for (Set<Rule> batch : batches) {
@@ -144,41 +143,41 @@ public class GreedyOptimizer
         return progress;
     }
 
-    private List<Assignment> extract(long group, Lookup lookup)
-    {
-        Expression expression = lookup.resolve(new GroupReference(group));
-
-        List<Assignment> assignments = new ArrayList<>();
-
-        if (expression instanceof Lambda) {
-            Lambda lambda = (Lambda) expression;
-            Expression body = lambda.getBody();
-
-            if (body instanceof GroupReference) {
-                GroupReference reference = (GroupReference) body;
-                body = let(extract(reference.getId(), lookup), reference);
-            }
-
-            expression = lambda(body);
-        }
-        else {
-            getChildren(expression).stream()
-                    .filter(GroupReference.class::isInstance)
-                    .map(GroupReference.class::cast)
-                    .map(e -> extract(e.getId(), lookup))
-                    .flatMap(List::stream)
-                    .forEach(a -> {
-                        if (!assignments.contains(a)) { // TODO: potentially inefficient -- need an ordered set
-                            assignments.add(a);
-                        }
-                    });
-        }
-
-        Assignment assignment = new Assignment("$" + group, expression);
-        if (!assignments.contains(assignment)) {
-            assignments.add(assignment);
-        }
-
-        return assignments;
-    }
+//    private List<Assignment> extract(long group, Lookup lookup)
+//    {
+//        Expression expression = lookup.resolve(new GroupReference(null, group));
+//
+//        List<Assignment> assignments = new ArrayList<>();
+//
+//        if (expression instanceof Lambda) {
+//            Lambda lambda = (Lambda) expression;
+//            Expression body = lambda.getBody();
+//
+//            if (body instanceof GroupReference) {
+//                GroupReference reference = (GroupReference) body;
+//                body = let(extract(reference.getId(), lookup), reference);
+//            }
+//
+//            expression = lambda(body);
+//        }
+//        else {
+//            getChildren(expression).stream()
+//                    .filter(GroupReference.class::isInstance)
+//                    .map(GroupReference.class::cast)
+//                    .map(e -> extract(e.getId(), lookup))
+//                    .flatMap(List::stream)
+//                    .forEach(a -> {
+//                        if (!assignments.contains(a)) { // TODO: potentially inefficient -- need an ordered set
+//                            assignments.add(a);
+//                        }
+//                    });
+//        }
+//
+//        Assignment assignment = new Assignment("$" + group, expression);
+//        if (!assignments.contains(assignment)) {
+//            assignments.add(assignment);
+//        }
+//
+//        return assignments;
+//    }
 }

@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.optimizer.tree;
 
+import com.facebook.presto.sql.optimizer.tree.type.TypeStamp;
+
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;

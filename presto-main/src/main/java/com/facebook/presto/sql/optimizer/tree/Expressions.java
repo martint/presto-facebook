@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.optimizer.tree;
 
+import com.facebook.presto.sql.optimizer.tree.type.LambdaTypeStamp;
+import com.facebook.presto.sql.optimizer.tree.type.TypeStamp;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -40,9 +42,9 @@ public final class Expressions
         return new Apply(type, name, ImmutableList.copyOf(arguments));
     }
 
-    public static Lambda lambda(Expression body)
+    public static Lambda lambda(LambdaTypeStamp argumentType, Expression body)
     {
-        return new Lambda(body);
+        return new Lambda(argumentType, body);
     }
 
     public static Reference variable(TypeStamp type, String name)

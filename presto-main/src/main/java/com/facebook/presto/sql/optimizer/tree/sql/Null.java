@@ -15,7 +15,7 @@ package com.facebook.presto.sql.optimizer.tree.sql;
 
 import com.facebook.presto.sql.optimizer.tree.Atom;
 import com.facebook.presto.sql.optimizer.tree.Expression;
-import com.facebook.presto.sql.optimizer.tree.TypeStamp;
+import com.facebook.presto.sql.optimizer.tree.type.TypeStamp;
 
 public class Null
     extends Expression

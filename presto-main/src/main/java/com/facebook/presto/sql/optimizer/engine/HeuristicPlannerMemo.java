@@ -22,7 +22,6 @@ import com.facebook.presto.sql.optimizer.utils.DisjointSets;
 import com.facebook.presto.sql.optimizer.utils.Graph;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
-import org.apache.commons.math3.analysis.function.Exp;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -148,9 +147,9 @@ public class HeuristicPlannerMemo
 
                 if (argument instanceof GroupReference) {
                     // TODO: make sure group exists
-                    return new GroupReference(((GroupReference) argument).getId());
+                    return argument;
                 }
-                return group(insertRecursive(argument));
+                return group(argument.type(), insertRecursive(argument));
             };
 
             List<Expression> arguments = apply.getArguments().stream()
@@ -169,7 +168,8 @@ public class HeuristicPlannerMemo
                 return lambda;
             }
 
-            result = lambda(group(insertRecursive(((Lambda) expression).getBody())));
+            Expression body = ((Lambda) expression).getBody();
+            result = lambda(lambda.type(), group(body.type(), insertRecursive(body)));
         }
 
         return result;
@@ -238,26 +238,26 @@ public class HeuristicPlannerMemo
 //        return expression;
 //    }
 
-    public Expression canonicalize(Expression expression)
-    {
-        if (expression instanceof Apply) {
-            Apply apply = (Apply) expression;
-
-            List<Expression> newArguments = apply.getArguments().stream()
-                    .map(this::canonicalize)
-                    .collect(Collectors.toList());
-
-            return new Apply(expression.type(), canonicalize(apply.getTarget()), newArguments);
-        }
-        else if (expression instanceof Lambda) {
-            return lambda(canonicalize(((Lambda) expression).getBody()));
-        }
-        else if (expression instanceof GroupReference) {
-            return new GroupReference((((GroupReference) expression).getId()));
-        }
-
-        return expression;
-    }
+//    public Expression canonicalize(Expression expression)
+//    {
+//        if (expression instanceof Apply) {
+//            Apply apply = (Apply) expression;
+//
+//            List<Expression> newArguments = apply.getArguments().stream()
+//                    .map(this::canonicalize)
+//                    .collect(Collectors.toList());
+//
+//            return new Apply(expression.type(), canonicalize(apply.getTarget()), newArguments);
+//        }
+//        else if (expression instanceof Lambda) {
+//            return lambda(canonicalize(((Lambda) expression).getBody()));
+//        }
+//        else if (expression instanceof GroupReference) {
+//            return new GroupReference((((GroupReference) expression).getId()));
+//        }
+//
+//        return expression;
+//    }
 
     @Override
     public String toString()
@@ -298,7 +298,7 @@ public class HeuristicPlannerMemo
                 }
             }
 
-            builder.append("$" + group + " := " + expression + "\n");
+            builder.append("$" + group + " := " + expression + " :: " + expression.type() + "\n");
         }
 
         return builder.toString();

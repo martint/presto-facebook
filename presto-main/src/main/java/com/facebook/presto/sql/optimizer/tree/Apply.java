@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.optimizer.tree;
 
+import com.facebook.presto.sql.optimizer.tree.type.FunctionTypeStamp;
+import com.facebook.presto.sql.optimizer.tree.type.TypeStamp;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -32,7 +34,7 @@ public class Apply
 
     protected Apply(TypeStamp type, String name, List<Expression> arguments)
     {
-        this(type, variable(null, name), arguments); // TODO: type for function name (e.g. signature)
+        this(type, variable(new FunctionTypeStamp(), name), arguments); // TODO: type for function name (e.g. signature)
     }
 
     public Apply(TypeStamp type, Expression target, List<Expression> arguments)

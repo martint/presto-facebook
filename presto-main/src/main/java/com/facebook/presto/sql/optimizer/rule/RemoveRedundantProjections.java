@@ -22,6 +22,8 @@ import com.facebook.presto.sql.optimizer.tree.Value;
 
 import java.util.stream.Stream;
 
+import static com.facebook.presto.sql.optimizer.engine.Patterns.isCall;
+
 // collapses redundant row calls followed by field-deref
 public class RemoveRedundantProjections
         implements Rule
@@ -45,26 +47,5 @@ public class RemoveRedundantProjections
 
         Apply row = (Apply) lookup.resolve(apply.getArguments().get(0));
         return Stream.of(row.getArguments().get(((Number) field.getValue()).intValue()));
-    }
-
-    private boolean isCall(Expression expression, String name, Lookup lookup)
-    {
-        if (!(expression instanceof Apply)) {
-            return false;
-        }
-
-        Apply apply = (Apply) expression;
-
-        Expression target = lookup.resolve(apply.getTarget());
-        if (!(target instanceof Reference)) {
-            return false;
-        }
-
-        Reference function = (Reference) target;
-        if (!function.getName().equals(name)) {
-            return false;
-        }
-
-        return true;
     }
 }

@@ -117,12 +117,20 @@ public class LogicalPlanner
     {
         PlanNode root = planStatement(analysis, analysis.getStatement());
 
+        System.out.println(PlanPrinter.textLogicalPlan(root, symbolAllocator.getTypes(), metadata, session));
+        System.out.println();
+
         com.facebook.presto.sql.optimizer.tree.Expression translated = new LegacyToNew(symbolAllocator.getTypes()).translate(root);
         System.out.println(translated);
         System.out.println();
+
         HeuristicPlannerMemo memo = new GreedyOptimizer(false).optimize(translated);
         System.out.println(memo);
+        System.out.println();
+
         root = new NewToLegacy(memo, symbolAllocator, idAllocator).extract();
+        System.out.println(PlanPrinter.textLogicalPlan(root, symbolAllocator.getTypes(), metadata, session));
+        System.out.println();
 
         if (stage.ordinal() >= Stage.OPTIMIZED.ordinal()) {
             for (PlanOptimizer optimizer : planOptimizers) {

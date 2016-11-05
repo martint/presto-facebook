@@ -11,8 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.optimizer.tree;
+package com.facebook.presto.sql.optimizer.tree.type;
 
-public class TypeStamp
+public class UnknownTypeStamp
+        extends TypeStamp
 {
+    @Override
+    public String toString()
+    {
+        return "?";
+    }
 }

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.optimizer.tree;
 
+import com.facebook.presto.sql.optimizer.tree.type.LambdaTypeStamp;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -25,9 +26,9 @@ public final class Lambda
 {
     private final Expression body;
 
-    Lambda(Expression body)
+    Lambda(LambdaTypeStamp type, Expression body)
     {
-        super(null);
+        super(type);
         requireNonNull(body, "body is null");
 
         this.body = body;
@@ -36,6 +37,12 @@ public final class Lambda
     public Expression getBody()
     {
         return body;
+    }
+
+    @Override
+    public LambdaTypeStamp type()
+    {
+        return (LambdaTypeStamp) super.type();
     }
 
     @Override

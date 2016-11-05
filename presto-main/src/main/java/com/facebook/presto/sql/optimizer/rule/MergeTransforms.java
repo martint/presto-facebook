@@ -18,6 +18,9 @@ import com.facebook.presto.sql.optimizer.engine.Rule;
 import com.facebook.presto.sql.optimizer.tree.Apply;
 import com.facebook.presto.sql.optimizer.tree.Expression;
 import com.facebook.presto.sql.optimizer.tree.Expressions;
+import com.facebook.presto.sql.optimizer.tree.Lambda;
+import com.facebook.presto.sql.optimizer.tree.type.LambdaTypeStamp;
+import com.facebook.presto.sql.optimizer.tree.type.RelationTypeStamp;
 
 import java.util.stream.Stream;
 
@@ -25,6 +28,24 @@ import static com.facebook.presto.sql.optimizer.engine.Patterns.isCall;
 import static com.facebook.presto.sql.optimizer.tree.Expressions.call;
 import static com.facebook.presto.sql.optimizer.tree.Expressions.lambda;
 import static com.facebook.presto.sql.optimizer.tree.Expressions.localReference;
+
+/*
+    (map (map e g) f)
+
+    =>
+
+    (map e (lambda (x) (f (g x))))
+
+    =>
+
+    (map e (lambda (x) (let t (g x)) (f t)))   -- need a temporary "t" because of potential impure terms in f and g
+ */
+
+//        return new Transform(source,
+//                lambda(let(
+//                        // TODO: pick unique name
+//                        list(new Assignment("t", Expressions.apply(childLambda, localReference()))),
+//                        Expressions.apply(parentLambda, variable("t")))));
 
 public class MergeTransforms
         implements Rule
@@ -44,30 +65,20 @@ public class MergeTransforms
 
         Apply child = (Apply) lookup.resolve(parent.getArguments().get(0));
 
-        /*
-            (map (map e g) f)
+        Lambda parentLambda = (Lambda) lookup.resolve(parent.getArguments().get(1));
+        Lambda childLambda = (Lambda) lookup.resolve(child.getArguments().get(1));
 
-            =>
+        Expression source = child.getArguments().get(0);
+        RelationTypeStamp type = (RelationTypeStamp) source.type();
 
-            (map e (lambda (x) (f (g x))))
-
-            =>
-
-            (map e (lambda (x) (let t (g x)) (f t)))   -- need a temporary "t" because of potential impure terms in f and g
-         */
-
-//        return new Transform(source,
-//                lambda(let(
-//                        // TODO: pick unique name
-//                        list(new Assignment("t", Expressions.apply(childLambda, localReference()))),
-//                        Expressions.apply(parentLambda, variable("t")))));
-
-        return Stream.of(call(
-                null,
-                "transform",
-                child.getArguments().get(0),
-                lambda(
-                        Expressions.apply(null, parent.getArguments().get(1),
-                                Expressions.apply(null, child.getArguments().get(1), localReference(null))))));
+        return Stream.of(
+                call(
+                        parent.type(),
+                        "transform",
+                        source,
+                        lambda(
+                                new LambdaTypeStamp(type.getRowType(), parentLambda.getBody().type()),
+                                Expressions.apply(parentLambda.getBody().type(), parentLambda,
+                                        Expressions.apply(childLambda.getBody().type(), childLambda, localReference(type.getRowType()))))));
     }
 }

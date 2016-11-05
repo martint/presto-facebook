@@ -20,6 +20,7 @@ import com.facebook.presto.sql.optimizer.tree.Atom;
 import com.facebook.presto.sql.optimizer.tree.Expression;
 import com.facebook.presto.sql.optimizer.tree.Lambda;
 import com.facebook.presto.sql.optimizer.tree.ScopeReference;
+import com.facebook.presto.sql.optimizer.tree.type.LambdaTypeStamp;
 
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -83,7 +84,9 @@ public class ReduceLambda
 
         if (resolved instanceof Lambda) {
             // [t/j] \.u = \.[shift(t, 1, 0)/j+1] u
-            return lambda(substitute(((Lambda) resolved).getBody(), shift(replacement, 1, 0, lookup), match + 1, lookup));
+            return lambda(
+                    (LambdaTypeStamp) resolved.type(),
+                    substitute(((Lambda) resolved).getBody(), shift(replacement, 1, 0, lookup), match + 1, lookup));
         }
 
         if (resolved instanceof Apply) {
@@ -116,7 +119,9 @@ public class ReduceLambda
         }
 
         if (resolved instanceof Lambda) {
-            return lambda(shift(((Lambda) resolved).getBody(), shift, cutoff + 1, lookup));
+            return lambda(
+                    (LambdaTypeStamp) resolved.type(),
+                    shift(((Lambda) resolved).getBody(), shift, cutoff + 1, lookup));
         }
 
         if (resolved instanceof Apply) {

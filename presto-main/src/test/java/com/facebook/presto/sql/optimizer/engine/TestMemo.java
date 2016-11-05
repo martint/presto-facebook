@@ -19,7 +19,7 @@ public class TestMemo
             throws Exception
     {
         Expression expression =
-                    apply(null,lambda(localReference(null)), lambda(reference(null,1)));
+                apply(null, lambda(null, localReference(null)), lambda(null, reference(null, 1)));
 
         GreedyOptimizer optimizer = new GreedyOptimizer(true);
         throw new UnsupportedOperationException("not yet implemented");
@@ -36,17 +36,17 @@ public class TestMemo
     {
         Expression expression =
 
-                call(null,"transform",
-                        call(null,"transform",
-                                call(null,"transform",
-                                        call(null,"transform",
-                                                call(null,"transform",
+                call(null, "transform",
+                        call(null, "transform",
+                                call(null, "transform",
+                                        call(null, "transform",
+                                                call(null, "transform",
                                                         call(null, "array", call(null, "row", value(null, 1))),
-                                                        lambda(call(null, "row", new Null(null)))),
-                                                lambda(call(null, "row", fieldDereference(null, localReference(null), 0)))),
-                                        lambda(call(null,"row", fieldDereference(null,localReference(null), 0)))),
-                                lambda(call(null,"row", fieldDereference(null,localReference(null), 0)))),
-                        lambda(call(null,"row", fieldDereference(null,localReference(null), 0))));
+                                                        lambda(null, call(null, "row", new Null(null)))),
+                                                lambda(null, call(null, "row", fieldDereference(null, localReference(null), 0)))),
+                                        lambda(null, call(null, "row", fieldDereference(null, localReference(null), 0)))),
+                                lambda(null, call(null, "row", fieldDereference(null, localReference(null), 0)))),
+                        lambda(null, call(null, "row", fieldDereference(null, localReference(null), 0))));
 
         GreedyOptimizer optimizer = new GreedyOptimizer(true);
         throw new UnsupportedOperationException("not yet implemented");
@@ -62,8 +62,8 @@ public class TestMemo
             throws Exception
     {
         Expression expression =
-                call(null,"filter",
-                        call(null,"get", value(null, "t")));
+                call(null, "filter",
+                        call(null, "get", value(null, "t")));
 
         process(expression);
     }
@@ -73,8 +73,8 @@ public class TestMemo
             throws Exception
     {
         Expression expression =
-                call(null,"+",
-                        call(null,"*", value(null, 1), value(null, 2)),
+                call(null, "+",
+                        call(null, "*", value(null, 1), value(null, 2)),
                         value(null, 3));
 
         process(expression);
@@ -85,12 +85,12 @@ public class TestMemo
             throws Exception
     {
         Expression expression =
-                call(null,"filter",
-                        call(null,"null,get", value(null, "t")),
-                        lambda(call(null,">",
+                call(null, "filter",
+                        call(null, "null,get", value(null, "t")),
+                        lambda(null, call(null, ">",
                                 localReference(null),
-                                call(null,"scalar",
-                                        call(null,"get", value(null, "u"))))));
+                                call(null, "scalar",
+                                        call(null, "get", value(null, "u"))))));
 
         process(expression);
     }
@@ -99,7 +99,7 @@ public class TestMemo
     public void testLambda1()
             throws Exception
     {
-        Expression expression = lambda(localReference(null));
+        Expression expression = lambda(null, localReference(null));
 
         process(expression);
     }

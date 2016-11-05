@@ -32,7 +32,9 @@ public class TestOptimizer
         Expression expression =
                 call(null, "logical-filter",
                         call(null, "get", value(null, "t")),
-                        lambda(value(null, true)));
+                        lambda(
+                                null,
+                                value(null, true)));
 
         System.out.println(expression.toString());
         System.out.println();
@@ -48,7 +50,9 @@ public class TestOptimizer
         Expression expression =
                 call(null, "logical-filter",
                         call(null, "get", value(null, "t")),
-                        lambda(value(null, false)));
+                        lambda(
+                                null,
+                                value(null, false)));
 
         System.out.println(expression.toString());
         System.out.println();
@@ -65,8 +69,12 @@ public class TestOptimizer
                 call(null, "logical-filter",
                         call(null, "logical-filter",
                                 call(null, "get", value(null, "t")),
-                                lambda(call(null, "deref", localReference(null), value(null, "x")))),
-                        lambda(call(null, "deref", localReference(null), value(null, "y"))));
+                                lambda(
+                                        null,
+                                        call(null, "deref", localReference(null), value(null, "x")))),
+                        lambda(
+                                null,
+                                call(null, "deref", localReference(null), value(null, "y"))));
 
         System.out.println(expression.toString());
         System.out.println();

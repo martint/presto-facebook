@@ -11,27 +11,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.optimizer.tree;
+package com.facebook.presto.sql.optimizer.tree.type;
 
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
-/**
- * Effectively, a multiset(row(...))
- */
-public class RelationTypeStamp
+public class RowTypeStamp
         extends TypeStamp
 {
-    private final List<TypeStamp> columns;
+    private final List<TypeStamp> columnTypes;
 
-    public RelationTypeStamp(List<TypeStamp> columns)
+    public RowTypeStamp(List<TypeStamp> columnTypes)
     {
-        this.columns = ImmutableList.copyOf(columns);
+        this.columnTypes = ImmutableList.copyOf(columnTypes);
     }
 
-    public List<TypeStamp> getColumns()
+    public List<TypeStamp> getColumnTypes()
     {
-        return columns;
+        return columnTypes;
+    }
+
+    @Override
+    public String toString()
+    {
+        return "row(" + columnTypes.stream()
+                .map(TypeStamp::toString)
+                .collect(Collectors.joining(", ")) + ")";
     }
 }

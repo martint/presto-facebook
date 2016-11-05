@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.optimizer.engine;
 
 import com.facebook.presto.sql.optimizer.tree.Expression;
+import com.facebook.presto.sql.optimizer.tree.type.TypeStamp;
 
 import java.util.Objects;
 
@@ -22,14 +23,14 @@ public class GroupReference
 {
     private final long id;
 
-    public static GroupReference group(long id)
+    public static GroupReference group(TypeStamp type, long id)
     {
-        return new GroupReference(id);
+        return new GroupReference(type, id);
     }
 
-    public GroupReference(long id)
+    public GroupReference(TypeStamp type, long id)
     {
-        super(null);
+        super(type);
         this.id = id;
     }
 

@@ -11,24 +11,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.tests;
+package com.facebook.presto.sql.optimizer.tree.type;
 
-import org.testng.annotations.Test;
-
-import static com.facebook.presto.tests.TestLocalQueries.createLocalQueryRunner;
-
-public class TestBug
-        extends AbstractTestQueryFramework
+public class LambdaTypeStamp
+        extends TypeStamp
 {
-    public TestBug()
+    private final TypeStamp argument;
+    private final TypeStamp result;
+
+    public LambdaTypeStamp(TypeStamp argument, TypeStamp result)
     {
-        super(createLocalQueryRunner());
+        this.argument = argument;
+        this.result = result;
     }
 
-    @Test
-    public void test()
-            throws Exception
+    @Override
+    public String toString()
     {
-        computeActual("select null");
+        return argument + "->" + result;
     }
 }

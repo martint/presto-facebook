@@ -11,24 +11,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.tests;
+package com.facebook.presto.sql.optimizer.tree.type;
 
-import org.testng.annotations.Test;
-
-import static com.facebook.presto.tests.TestLocalQueries.createLocalQueryRunner;
-
-public class TestBug
-        extends AbstractTestQueryFramework
+/**
+ * Effectively, a multiset(row(...))
+ */
+public class RelationTypeStamp
+        extends TypeStamp
 {
-    public TestBug()
+    private final RowTypeStamp rowType;
+
+    public RelationTypeStamp(RowTypeStamp rowType)
     {
-        super(createLocalQueryRunner());
+        this.rowType = rowType;
     }
 
-    @Test
-    public void test()
-            throws Exception
+    public RowTypeStamp getRowType()
     {
-        computeActual("select null");
+        return rowType;
+    }
+
+    public String toString()
+    {
+        return "multiset(" + rowType + ")";
     }
 }
