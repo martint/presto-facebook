@@ -95,7 +95,7 @@ public final class OrcFileChecksum
     {
         Path path = new Path(args[0]);
 
-        checksumHdfsOrcFile(path, false);
+        checksumHdfsOrcFile(path, true);
     }
 
     private static void checksumHdfsOrcFile(Path path, boolean isDwrf)

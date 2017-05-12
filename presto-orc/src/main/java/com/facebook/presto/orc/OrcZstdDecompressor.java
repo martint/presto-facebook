@@ -15,11 +15,19 @@ package com.facebook.presto.orc;
 
 import com.facebook.presto.orc.zstd.ZstdDecompressor;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.concurrent.atomic.AtomicInteger;
+
 import static com.google.common.base.Preconditions.checkArgument;
 
 class OrcZstdDecompressor
     implements OrcDecompressor
 {
+    private final AtomicInteger count = new AtomicInteger();
+
     private final int maxBufferSize;
     private final ZstdDecompressor decompressor = new ZstdDecompressor();
 
@@ -36,6 +44,18 @@ class OrcZstdDecompressor
         checkArgument(uncompressedLength <= maxBufferSize, "Zstd requires buffer (%s) larger than max size (%s)", uncompressedLength, maxBufferSize);
 
         byte[] buffer = output.initialize(uncompressedLength);
+
+        Path path = Paths.get("/Users/martint/projects/aircompressor/data", "block" + count.incrementAndGet() + ".zst");
+
+        byte[] x = new byte[length];
+        System.arraycopy(input, offset, x, 0, length);
+        try {
+            Files.write(path, x);
+        }
+        catch (IOException e) {
+            e.printStackTrace();
+        }
+
         return decompressor.decompress(input, offset, length, buffer, 0, buffer.length);
     }
 
