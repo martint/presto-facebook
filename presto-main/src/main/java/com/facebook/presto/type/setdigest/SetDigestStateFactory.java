@@ -1,0 +1,106 @@
+package com.facebook.presto.type.setdigest;
+
+import com.facebook.presto.array.ObjectBigArray;
+import com.facebook.presto.spi.function.AccumulatorStateFactory;
+import com.facebook.presto.spi.function.GroupedAccumulatorState;
+import org.openjdk.jol.info.ClassLayout;
+
+public class SetDigestStateFactory
+        implements AccumulatorStateFactory<SetDigestState>
+{
+    private static final int SIZE_OF_SINGLE = ClassLayout.parseClass(SingleSetDigestState.class).instanceSize();
+    private static final int SIZE_OF_GROUPED = ClassLayout.parseClass(GroupedSetDigestState.class).instanceSize();
+
+    @Override
+    public SetDigestState createSingleState()
+    {
+        return new SingleSetDigestState();
+    }
+
+    @Override
+    public Class<? extends SetDigestState> getSingleStateClass()
+    {
+        return SingleSetDigestState.class;
+    }
+
+    @Override
+    public SetDigestState createGroupedState()
+    {
+        return new GroupedSetDigestState();
+    }
+
+    @Override
+    public Class<? extends SetDigestState> getGroupedStateClass()
+    {
+        return GroupedSetDigestState.class;
+    }
+
+    public static class GroupedSetDigestState
+            implements GroupedAccumulatorState, SetDigestState
+    {
+        private final ObjectBigArray<SetDigest> digests = new ObjectBigArray<>();
+        private long groupId;
+        private long size;
+
+        @Override
+        public void setGroupId(long groupId)
+        {
+            this.groupId = groupId;
+        }
+
+        @Override
+        public void ensureCapacity(long size)
+        {
+            digests.ensureCapacity(size);
+        }
+
+        @Override
+        public SetDigest getDigest()
+        {
+            return digests.get(groupId);
+        }
+
+        @Override
+        public void setDigest(SetDigest value)
+        {
+            if (getDigest() != null) {
+                size -= getDigest().estimatedInMemorySize();
+            }
+            size += value.estimatedInMemorySize();
+            digests.set(groupId, value);
+        }
+
+        @Override
+        public long getEstimatedSize()
+        {
+            return SIZE_OF_GROUPED + size + digests.sizeOf();
+        }
+    }
+
+    public static class SingleSetDigestState
+            implements SetDigestState
+    {
+        private SetDigest digest;
+
+        @Override
+        public SetDigest getDigest()
+        {
+            return digest;
+        }
+
+        @Override
+        public void setDigest(SetDigest value)
+        {
+            this.digest = value;
+        }
+
+        @Override
+        public long getEstimatedSize()
+        {
+            if (digest == null) {
+                return SIZE_OF_SINGLE;
+            }
+            return SIZE_OF_SINGLE + digest.estimatedInMemorySize();
+        }
+    }
+}
