@@ -595,7 +595,6 @@ public class FunctionRegistry
                 .scalars(SetDigestFunctions.class)
                 .scalars(SetDigestOperators.class);
 
-
         builder.function(new ArrayAggregationFunction(featuresConfig.isLegacyArrayAgg()));
 
         switch (featuresConfig.getRegexLibrary()) {
