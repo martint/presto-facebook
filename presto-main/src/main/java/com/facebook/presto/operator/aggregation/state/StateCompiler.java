@@ -184,7 +184,7 @@ public class StateCompiler
         Type type;
         if (fields.size() > 1) {
             List<Type> types = fields.stream().map(StateField::getSqlType).collect(toImmutableList());
-            type = new RowType(types, Optional.empty());
+            type = RowType.anonymous(types);
         }
         else {
             type = fields.get(0).getSqlType();

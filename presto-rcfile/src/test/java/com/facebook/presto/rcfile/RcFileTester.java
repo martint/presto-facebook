@@ -353,7 +353,7 @@ public class RcFileTester
         if (complexStructuralTestsEnabled) {
             Iterable<Object> simpleStructs = transform(insertNullEvery(5, writeValues), RcFileTester::toHiveStruct);
             testRoundTripType(
-                    new RowType(ImmutableList.of(createRowType(type)), Optional.of(ImmutableList.of("field"))),
+                    RowType.from(ImmutableList.of(RowType.field("field", createRowType(type)))),
                     transform(simpleStructs, Collections::singletonList),
                     skipFormatsSet);
         }
@@ -997,7 +997,7 @@ public class RcFileTester
         else if (type.getTypeSignature().getBase().equals(ROW)) {
             return getStandardStructObjectInspector(
                     type.getTypeSignature().getParameters().stream()
-                            .map(parameter -> parameter.getNamedTypeSignature().getName())
+                            .map(parameter -> parameter.getNamedTypeSignature().getName().get())
                             .collect(toList()),
                     type.getTypeParameters().stream()
                             .map(RcFileTester::getJavaObjectInspector)
@@ -1169,7 +1169,10 @@ public class RcFileTester
 
     private static RowType createRowType(Type type)
     {
-        return new RowType(ImmutableList.of(type, type, type), Optional.of(ImmutableList.of("a", "b", "c")));
+        return RowType.from(ImmutableList.of(
+                RowType.field("a", type),
+                RowType.field("b", type),
+                RowType.field("c", type)));
     }
 
     private static Object toHiveStruct(Object input)
