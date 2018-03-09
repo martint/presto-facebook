@@ -57,6 +57,7 @@ import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
+import com.facebook.presto.sql.planner.plan.TableFunctionCall;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
@@ -83,6 +84,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.google.common.base.Preconditions.checkState;
@@ -399,6 +401,22 @@ public class UnaliasSymbolReferences
         {
             PlanNode source = context.rewrite(node.getSource());
             return new ProjectNode(node.getId(), source, canonicalize(node.getAssignments()));
+        }
+
+        @Override
+        public PlanNode visitTableFunctionCall(TableFunctionCall node, RewriteContext<Void> context)
+        {
+            PlanNode input = context.rewrite(node.getInput());
+            return new TableFunctionCall(
+                    node.getId(),
+                    node.getHandle(),
+                    node.getOutputSymbols().stream()
+                            .map(this::canonicalize)
+                            .collect(Collectors.toList()),
+                    node.getInputFields().stream()
+                            .map(this::canonicalize)
+                            .collect(Collectors.toList()),
+                    input);
         }
 
         @Override

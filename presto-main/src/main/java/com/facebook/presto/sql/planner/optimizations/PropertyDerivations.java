@@ -61,6 +61,7 @@ import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
+import com.facebook.presto.sql.planner.plan.TableFunctionCall;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
@@ -157,6 +158,12 @@ class PropertyDerivations
         protected ActualProperties visitPlan(PlanNode node, List<ActualProperties> inputProperties)
         {
             throw new UnsupportedOperationException("not yet implemented: " + node.getClass().getName());
+        }
+
+        @Override
+        public ActualProperties visitTableFunctionCall(TableFunctionCall node, List<ActualProperties> context)
+        {
+            return ActualProperties.builder().build();
         }
 
         @Override

@@ -20,29 +20,23 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static java.util.Objects.requireNonNull;
 
-public final class Call
-        extends Statement
+public class RoutineInvocation
+    extends Node
 {
     private final QualifiedName name;
     private final List<SqlArgument> arguments;
 
-    public Call(QualifiedName name, List<SqlArgument> arguments)
-    {
-        this(Optional.empty(), name, arguments);
-    }
-
-    public Call(NodeLocation location, QualifiedName name, List<SqlArgument> arguments)
-    {
-        this(Optional.of(location), name, arguments);
-    }
-
-    public Call(Optional<NodeLocation> location, QualifiedName name, List<SqlArgument> arguments)
+    public RoutineInvocation(Optional<NodeLocation> location, QualifiedName name, List<SqlArgument> arguments)
     {
         super(location);
-        this.name = requireNonNull(name, "name is null");
-        this.arguments = ImmutableList.copyOf(requireNonNull(arguments, "arguments is null"));
+        this.name = name;
+        this.arguments = ImmutableList.copyOf(arguments);
+    }
+
+    public RoutineInvocation(NodeLocation location, QualifiedName name, List<SqlArgument> arguments)
+    {
+        this(Optional.of(location), name, arguments);
     }
 
     public QualifiedName getName()
@@ -56,15 +50,15 @@ public final class Call
     }
 
     @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitCall(this, context);
-    }
-
-    @Override
     public List<? extends Node> getChildren()
     {
         return arguments;
+    }
+
+    @Override
+    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
+    {
+        return visitor.visitRoutineInvocation(this, context);
     }
 
     @Override
@@ -76,7 +70,7 @@ public final class Call
         if ((obj == null) || (getClass() != obj.getClass())) {
             return false;
         }
-        Call o = (Call) obj;
+        RoutineInvocation o = (RoutineInvocation) obj;
         return Objects.equals(name, o.name) &&
                 Objects.equals(arguments, o.arguments);
     }

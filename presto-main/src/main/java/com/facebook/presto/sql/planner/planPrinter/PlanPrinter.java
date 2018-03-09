@@ -84,6 +84,7 @@ import com.facebook.presto.sql.planner.plan.TableScanNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
+import com.facebook.presto.sql.planner.plan.TableFunctionCall;
 import com.facebook.presto.sql.planner.plan.UnionNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.ValuesNode;
@@ -774,6 +775,14 @@ public class PlanPrinter
                 print(indent + 2, "%s := %s", argument.getKey(), argument.getValue());
             }
 
+            return processChildren(node, indent + 1);
+        }
+
+        @Override
+        public Void visitTableFunctionCall(TableFunctionCall node, Integer indent)
+        {
+            print(indent, "- TransformFunction(%s) => [%s]", node.getHandle(), formatOutputs(node.getOutputSymbols()));
+            print(indent + 2, "inputs := %s", node.getInputFields());
             return processChildren(node, indent + 1);
         }
 
