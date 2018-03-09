@@ -11,21 +11,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.connector.thrift.server;
+package com.facebook.presto.connector.thrift.api;
 
-import com.google.inject.Binder;
-import com.google.inject.Module;
-import com.google.inject.Scopes;
+import com.facebook.swift.codec.ThriftEnum;
+import com.facebook.swift.codec.ThriftEnumValue;
 
-import static com.facebook.swift.service.guice.ThriftServiceExporter.thriftServerBinder;
-
-public class ThriftTpchServerModule
-        implements Module
+@ThriftEnum
+public enum PrestoThriftFunctionStatus
 {
-    @Override
-    public void configure(Binder binder)
+    NEEDS_INPUT(1),
+    HAS_OUTPUT(2),
+    BLOCKED(3),
+    FINISHED(4);
+
+    private final int value;
+
+    PrestoThriftFunctionStatus(int value)
     {
-        binder.bind(ThriftIndexedTpchService.class).in(Scopes.SINGLETON);
-        thriftServerBinder(binder).exportThriftService(ThriftIndexedTpchService.class);
+        this.value = value;
+    }
+
+    @ThriftEnumValue
+    public int getValue()
+    {
+        return value;
     }
 }
