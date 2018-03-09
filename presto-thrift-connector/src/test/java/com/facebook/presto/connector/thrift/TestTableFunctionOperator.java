@@ -13,22 +13,24 @@
  */
 package com.facebook.presto.connector.thrift;
 
-import com.facebook.nifty.client.FramedClientConnector;
-import com.facebook.presto.connector.thrift.PolymorphicTableFunctionOperator.PolymorphicTableFunctionOperatorFactory;
-import com.facebook.presto.connector.thrift.api.PrestoThriftFunctionService;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.OperatorFactory;
+import com.facebook.presto.operator.TableFunctionOperator.TableFunctionOperatorFactory;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.function.PolymorphicTableFunction;
+import com.facebook.presto.spi.function.PolymorphicTableFunctionFactory;
+import com.facebook.presto.spi.function.TableFunction;
+import com.facebook.presto.spi.function.TableFunctionDescriptor;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
-import com.facebook.swift.service.ThriftClientManager;
+import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
-import com.google.common.net.HostAndPort;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -37,12 +39,14 @@ import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEquals;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.slice.Slices.utf8Slice;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 
 @Test(singleThreaded = true)
-public class TestPolymorphicTableFunctionOperator
+public class TestTableFunctionOperator
 {
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
@@ -67,15 +71,20 @@ public class TestPolymorphicTableFunctionOperator
 
     @Test
     public void testFunction()
-            throws Exception
     {
-        ThriftClientManager clientManager = new ThriftClientManager();
-        FramedClientConnector connector = new FramedClientConnector(HostAndPort.fromParts("localhost", 7779));
-        PrestoThriftFunctionService service = clientManager.createClient(connector, PrestoThriftFunctionService.class).get();
+        Set<PolymorphicTableFunctionFactory> factories = new ThriftPlugin().getPolymorphicTableFunctionFactories(new TypeRegistry());
+        PolymorphicTableFunctionFactory factory = getOnlyElement(factories);
 
-        PolymorphicTableFunction function = new ThriftTableFunction(service, "reverse", ImmutableList.of(VARCHAR), ImmutableList.of(VARCHAR));
+        TableFunctionDescriptor descriptor = factory.describe(ImmutableMap.<String, Object>builder()
+                .put("name", utf8Slice("reverse"))
+                .put("address", utf8Slice("localhost:7779"))
+                .put("input", ImmutableList.of(new ColumnMetadata("x", VARCHAR)))
+                .put("output", ImmutableList.of(new ColumnMetadata("x", VARCHAR)))
+                .build());
 
-        OperatorFactory operatorFactory = new PolymorphicTableFunctionOperatorFactory(0, new PlanNodeId("test"), ImmutableList.of(VARCHAR), function);
+        TableFunction function = factory.getInstance(descriptor.getHandle());
+
+        OperatorFactory operatorFactory = new TableFunctionOperatorFactory(0, new PlanNodeId("test"), ImmutableList.of(VARCHAR), function);
 
         List<Page> input = rowPagesBuilder(VARCHAR)
                 .row("hello")

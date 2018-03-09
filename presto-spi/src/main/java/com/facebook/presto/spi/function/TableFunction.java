@@ -15,8 +15,7 @@ package com.facebook.presto.spi.function;
 
 import com.facebook.presto.spi.ConnectorPageSource;
 
-import java.util.function.Function;
-
-public interface PolymorphicTableFunction
-        extends Function<ConnectorPageSource, ConnectorPageSource>
-{}
+public interface TableFunction
+{
+    ConnectorPageSource create(ConnectorPageSource input);
+}

@@ -11,15 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.connector.thrift;
+package com.facebook.presto.operator;
 
-import com.facebook.presto.operator.DriverContext;
-import com.facebook.presto.operator.Operator;
-import com.facebook.presto.operator.OperatorContext;
-import com.facebook.presto.operator.OperatorFactory;
-import com.facebook.presto.operator.TopNOperator;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.function.TableFunction;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
@@ -28,35 +24,34 @@ import com.google.common.util.concurrent.ListenableFuture;
 import javax.annotation.Nullable;
 
 import java.util.List;
-import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static java.util.Objects.requireNonNull;
 
-public class PolymorphicTableFunctionOperator
+public class TableFunctionOperator
         implements Operator
 {
-    public static class PolymorphicTableFunctionOperatorFactory
+    public static class TableFunctionOperatorFactory
             implements OperatorFactory
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
         private final List<Type> types;
-        private final Function<ConnectorPageSource, ConnectorPageSource> polymorphicTableFunctionSupplier;
+        private final TableFunction tableFunction;
         private boolean closed;
 
-        public PolymorphicTableFunctionOperatorFactory(
+        public TableFunctionOperatorFactory(
                 int operatorId,
                 PlanNodeId planNodeId,
                 List<? extends Type> types,
-                Function<ConnectorPageSource, ConnectorPageSource> polymorphicTableFunctionSupplier)
+                TableFunction tableFunction)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
-            this.polymorphicTableFunctionSupplier = requireNonNull(polymorphicTableFunctionSupplier, "polymorphicTableFunctionSupplier is null");
+            this.tableFunction = requireNonNull(tableFunction, "tableFunction is null");
         }
 
         @Override
@@ -70,10 +65,10 @@ public class PolymorphicTableFunctionOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, TopNOperator.class.getSimpleName());
-            return new PolymorphicTableFunctionOperator(
+            return new TableFunctionOperator(
                     operatorContext,
                     types,
-                    polymorphicTableFunctionSupplier);
+                    tableFunction);
         }
 
         @Override
@@ -85,25 +80,25 @@ public class PolymorphicTableFunctionOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new PolymorphicTableFunctionOperatorFactory(operatorId, planNodeId, types, polymorphicTableFunctionSupplier);
+            return new TableFunctionOperatorFactory(operatorId, planNodeId, types, tableFunction);
         }
     }
 
     private final OperatorContext operatorContext;
     private final List<Type> types;
-    private final Function<ConnectorPageSource, ConnectorPageSource> polymorphicTableFunctionSupplier;
+    private final TableFunction tableFunction;
     private final InputPageSource inputPageSource = new InputPageSource();
     @Nullable
     private ConnectorPageSource outputPageSource;
 
-    public PolymorphicTableFunctionOperator(
+    public TableFunctionOperator(
             OperatorContext operatorContext,
             List<Type> types,
-            Function<ConnectorPageSource, ConnectorPageSource> polymorphicTableFunctionSupplier)
+            TableFunction tableFunction)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
-        this.polymorphicTableFunctionSupplier = requireNonNull(polymorphicTableFunctionSupplier, "polymorphicTableFunctionSupplier is null");
+        this.tableFunction = requireNonNull(tableFunction, "tableFunction is null");
     }
 
     @Override
@@ -141,7 +136,7 @@ public class PolymorphicTableFunctionOperator
     {
         inputPageSource.setPendingPage(page);
         if (outputPageSource == null) {
-            outputPageSource = polymorphicTableFunctionSupplier.apply(inputPageSource);
+            outputPageSource = tableFunction.create(inputPageSource);
         }
     }
 

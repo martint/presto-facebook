@@ -15,11 +15,15 @@ package com.facebook.presto.connector.thrift;
 
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.connector.ConnectorFactory;
+import com.facebook.presto.spi.function.PolymorphicTableFunctionFactory;
+import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.inject.Module;
 
 import java.util.List;
 import java.util.ServiceLoader;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -53,6 +57,12 @@ public class ThriftPlugin
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
         return ImmutableList.of(new ThriftConnectorFactory(name, locationModule));
+    }
+
+    @Override
+    public Set<PolymorphicTableFunctionFactory> getPolymorphicTableFunctionFactories(TypeManager typeManager)
+    {
+        return ImmutableSet.of(new ThriftTableFunctionFactory(typeManager));
     }
 
     private static ThriftPluginInfo getPluginInfo()
