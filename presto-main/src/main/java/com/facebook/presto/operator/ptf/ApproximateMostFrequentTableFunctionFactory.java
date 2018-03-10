@@ -15,8 +15,8 @@ package com.facebook.presto.operator.ptf;
 
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.function.PolymorphicTableFunctionFactory;
-import com.facebook.presto.spi.function.TableFunction;
+import com.facebook.presto.spi.function.PolymorphicTableFunction;
+import com.facebook.presto.spi.function.TableFunctionImplementation;
 import com.facebook.presto.spi.function.TableFunctionDescriptor;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
@@ -38,7 +38,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class ApproximateMostFrequentTableFunctionFactory
-        implements PolymorphicTableFunctionFactory
+        implements PolymorphicTableFunction
 {
     private static final JsonCodec<ApproximateMostFrequentTableFunctionHandle> CODEC = JsonCodec.jsonCodec(ApproximateMostFrequentTableFunctionHandle.class);
     private final TypeManager typeManager;
@@ -55,7 +55,7 @@ public class ApproximateMostFrequentTableFunctionFactory
     }
 
     @Override
-    public TableFunctionDescriptor describe(Map<String, Object> arguments)
+    public TableFunctionDescriptor specialize(Map<String, Object> arguments)
     {
         List<ColumnMetadata> inputs = getDescriptorParameter(arguments, "input");
 
@@ -77,7 +77,7 @@ public class ApproximateMostFrequentTableFunctionFactory
     }
 
     @Override
-    public TableFunction getInstance(byte[] handleJson)
+    public TableFunctionImplementation getInstance(byte[] handleJson)
     {
         ApproximateMostFrequentTableFunctionHandle handle = CODEC.fromJson(handleJson);
 

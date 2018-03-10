@@ -20,7 +20,7 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.function.TableFunction;
+import com.facebook.presto.spi.function.TableFunctionImplementation;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 
@@ -33,7 +33,7 @@ import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
 public class ApproximateMostFrequentTableFunction
-        implements TableFunction
+        implements TableFunctionImplementation
 {
     private final List<Type> types;
     private final int number;

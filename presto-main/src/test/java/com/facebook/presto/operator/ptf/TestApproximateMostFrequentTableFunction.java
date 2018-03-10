@@ -7,8 +7,8 @@ import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.TableFunctionOperator.TableFunctionOperatorFactory;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.function.PolymorphicTableFunctionFactory;
-import com.facebook.presto.spi.function.TableFunction;
+import com.facebook.presto.spi.function.PolymorphicTableFunction;
+import com.facebook.presto.spi.function.TableFunctionImplementation;
 import com.facebook.presto.spi.function.TableFunctionDescriptor;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -65,15 +65,15 @@ public class TestApproximateMostFrequentTableFunction
         TypeRegistry typeManager = new TypeRegistry();
         new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
 
-        PolymorphicTableFunctionFactory factory = new ApproximateMostFrequentTableFunctionFactory(typeManager);
+        PolymorphicTableFunction factory = new ApproximateMostFrequentTableFunctionFactory(typeManager);
 
-        TableFunctionDescriptor descriptor = factory.describe(ImmutableMap.<String, Object>builder()
+        TableFunctionDescriptor descriptor = factory.specialize(ImmutableMap.<String, Object>builder()
                 .put("number", 3)
                 .put("error", 0.01)
                 .put("input", ImmutableList.of(new ColumnMetadata("value", VARCHAR)))
                 .build());
 
-        TableFunction function = factory.getInstance(descriptor.getHandle());
+        TableFunctionImplementation function = factory.getInstance(descriptor.getHandle());
         List<Type> types = descriptor.getOutputColumns().stream()
                 .map(ColumnMetadata::getType)
                 .collect(toImmutableList());

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.spi.TableFunction;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -32,7 +33,7 @@ public abstract class TableFunctionDescriptor
         return parameters;
     }
 
-    public abstract SpecializedTableFunction specialize(Map<String, Object> arguments);
+    public abstract TableFunction specialize(Map<String, Object> arguments);
 
     public static class Parameter
     {

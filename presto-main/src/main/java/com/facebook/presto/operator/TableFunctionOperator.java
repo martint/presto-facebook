@@ -15,7 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.function.TableFunction;
+import com.facebook.presto.spi.function.TableFunctionImplementation;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
@@ -39,14 +39,14 @@ public class TableFunctionOperator
         private final int operatorId;
         private final PlanNodeId planNodeId;
         private final List<Type> types;
-        private final TableFunction tableFunction;
+        private final TableFunctionImplementation tableFunction;
         private boolean closed;
 
         public TableFunctionOperatorFactory(
                 int operatorId,
                 PlanNodeId planNodeId,
                 List<? extends Type> types,
-                TableFunction tableFunction)
+                TableFunctionImplementation tableFunction)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -86,7 +86,7 @@ public class TableFunctionOperator
 
     private final OperatorContext operatorContext;
     private final List<Type> types;
-    private final TableFunction tableFunction;
+    private final TableFunctionImplementation tableFunction;
     private final InputPageSource inputPageSource = new InputPageSource();
     @Nullable
     private ConnectorPageSource outputPageSource;
@@ -94,7 +94,7 @@ public class TableFunctionOperator
     public TableFunctionOperator(
             OperatorContext operatorContext,
             List<Type> types,
-            TableFunction tableFunction)
+            TableFunctionImplementation tableFunction)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));

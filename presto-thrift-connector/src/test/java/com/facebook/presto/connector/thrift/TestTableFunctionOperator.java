@@ -18,8 +18,8 @@ import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.TableFunctionOperator.TableFunctionOperatorFactory;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.function.PolymorphicTableFunctionFactory;
-import com.facebook.presto.spi.function.TableFunction;
+import com.facebook.presto.spi.function.PolymorphicTableFunction;
+import com.facebook.presto.spi.function.TableFunctionImplementation;
 import com.facebook.presto.spi.function.TableFunctionDescriptor;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.type.TypeRegistry;
@@ -72,17 +72,17 @@ public class TestTableFunctionOperator
     @Test
     public void testFunction()
     {
-        Set<PolymorphicTableFunctionFactory> factories = new ThriftPlugin().getPolymorphicTableFunctionFactories(new TypeRegistry());
-        PolymorphicTableFunctionFactory factory = getOnlyElement(factories);
+        Set<PolymorphicTableFunction> factories = new ThriftPlugin().getPolymorphicTableFunctionFactories(new TypeRegistry());
+        PolymorphicTableFunction factory = getOnlyElement(factories);
 
-        TableFunctionDescriptor descriptor = factory.describe(ImmutableMap.<String, Object>builder()
+        TableFunctionDescriptor descriptor = factory.specialize(ImmutableMap.<String, Object>builder()
                 .put("name", utf8Slice("reverse"))
                 .put("address", utf8Slice("localhost:7779"))
                 .put("input", ImmutableList.of(new ColumnMetadata("x", VARCHAR)))
                 .put("output", ImmutableList.of(new ColumnMetadata("x", VARCHAR)))
                 .build());
 
-        TableFunction function = factory.getInstance(descriptor.getHandle());
+        TableFunctionImplementation function = factory.getInstance(descriptor.getHandle());
 
         OperatorFactory operatorFactory = new TableFunctionOperatorFactory(0, new PlanNodeId("test"), ImmutableList.of(VARCHAR), function);
 

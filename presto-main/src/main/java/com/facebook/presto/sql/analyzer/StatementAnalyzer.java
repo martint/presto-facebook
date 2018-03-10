@@ -19,7 +19,7 @@ import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorNotFoundException;
 import com.facebook.presto.metadata.QualifiedObjectName;
-import com.facebook.presto.metadata.SpecializedTableFunction;
+import com.facebook.presto.spi.TableFunction;
 import com.facebook.presto.metadata.TableFunctionDescriptor;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableMetadata;
@@ -115,7 +115,6 @@ import com.facebook.presto.sql.tree.StartTransaction;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableArgument;
-import com.facebook.presto.sql.tree.TableFunction;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.Unnest;
 import com.facebook.presto.sql.tree.Use;
@@ -737,7 +736,7 @@ class StatementAnalyzer
         }
 
         @Override
-        protected Scope visitTableFunction(TableFunction node, Optional<Scope> scope)
+        protected Scope visitTableFunction(com.facebook.presto.sql.tree.TableFunction node, Optional<Scope> scope)
         {
             RoutineInvocation call = node.getCall();
 
@@ -812,7 +811,7 @@ class StatementAnalyzer
                 inputType = process(input, scope).getRelationType();
             }
 
-            SpecializedTableFunction resolved = function.specialize(arguments);
+            TableFunction resolved = function.specialize(arguments);
             RelationType outputType = resolved.getOutputType();
 
             analysis.recordTableFunction(call, new Analysis.TableFunctionAnalysis(resolved.getHandle(), inputType, input, outputType));

@@ -15,7 +15,7 @@ package com.facebook.presto.spi.function;
 
 import com.facebook.presto.spi.ConnectorPageSource;
 
-public interface TableFunction
+public interface TableFunctionImplementation
 {
     ConnectorPageSource create(ConnectorPageSource input);
 }

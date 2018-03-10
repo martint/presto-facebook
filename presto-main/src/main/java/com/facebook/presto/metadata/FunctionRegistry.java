@@ -129,9 +129,11 @@ import com.facebook.presto.operator.window.RowNumberFunction;
 import com.facebook.presto.operator.window.SqlWindowFunction;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.TableFunction;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.function.OperatorType;
+import com.facebook.presto.spi.function.PolymorphicTableFunction;
 import com.facebook.presto.spi.type.DoubleType;
 import com.facebook.presto.spi.type.IntegerType;
 import com.facebook.presto.spi.type.Type;
@@ -1136,34 +1138,10 @@ public class FunctionRegistry
         return boundVariables.isPresent();
     }
 
-    public TableFunctionDescriptor getTableFunction(QualifiedName name)
+    public PolymorphicTableFunction getTableFunction(QualifiedName name)
     {
-        if (name.toString().equals("transform")) {
-            return new TableFunctionDescriptor(ImmutableList.of(
-                    new TableFunctionDescriptor.Parameter("name", VarcharType.VARCHAR.getTypeSignature()),
-                    new TableFunctionDescriptor.Parameter("columns", TableFunctionDescriptor.ExtendedType.DESCRIPTOR),
-                    new TableFunctionDescriptor.Parameter("input", TableFunctionDescriptor.ExtendedType.TABLE)))
-            {
-                @Override
-                public SpecializedTableFunction specialize(Map<String, Object> arguments)
-                {
-                    throw new UnsupportedOperationException("not yet implemented");
-                }
-            };
-        }
-        else if (name.toString().equals("split_column")) {
-            return new TableFunctionDescriptor(ImmutableList.of(
-                    new TableFunctionDescriptor.Parameter("value", VarcharType.VARCHAR.getTypeSignature()),
-                    new TableFunctionDescriptor.Parameter("delimiter", VarcharType.VARCHAR.getTypeSignature()),
-                    new TableFunctionDescriptor.Parameter("output", TableFunctionDescriptor.ExtendedType.DESCRIPTOR),
-                    new TableFunctionDescriptor.Parameter("input", TableFunctionDescriptor.ExtendedType.TABLE)))
-            {
-                @Override
-                public SpecializedTableFunction specialize(Map<String, Object> arguments)
-                {
-                    throw new UnsupportedOperationException("not yet implemented");
-                }
-            };
+        if (name.toString().equals("split_column")) {
+
         }
         else if (name.toString().equals("approx_most_frequent")) {
             return new TableFunctionDescriptor(ImmutableList.of(
@@ -1172,7 +1150,7 @@ public class FunctionRegistry
                     new TableFunctionDescriptor.Parameter("input", TableFunctionDescriptor.ExtendedType.TABLE)))
             {
                 @Override
-                public SpecializedTableFunction specialize(Map<String, Object> arguments)
+                public TableFunction specialize(Map<String, Object> arguments)
                 {
                     throw new UnsupportedOperationException("not yet implemented");
                 }

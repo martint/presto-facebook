@@ -17,7 +17,7 @@ import com.facebook.presto.spi.block.BlockEncodingFactory;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.eventlistener.EventListenerFactory;
-import com.facebook.presto.spi.function.PolymorphicTableFunctionFactory;
+import com.facebook.presto.spi.function.PolymorphicTableFunction;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerFactory;
 import com.facebook.presto.spi.security.PasswordAuthenticatorFactory;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
@@ -58,7 +58,7 @@ public interface Plugin
         return emptySet();
     }
 
-    default Set<PolymorphicTableFunctionFactory> getPolymorphicTableFunctionFactories(TypeManager typeManager)
+    default Set<PolymorphicTableFunction> getPolymorphicTableFunctionFactories(TypeManager typeManager)
     {
         return emptySet();
     }

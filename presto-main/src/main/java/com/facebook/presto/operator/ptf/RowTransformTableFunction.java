@@ -15,7 +15,7 @@ package com.facebook.presto.operator.ptf;
 
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.function.TableFunction;
+import com.facebook.presto.spi.function.TableFunctionImplementation;
 
 import java.io.IOException;
 import java.util.function.Function;
@@ -23,7 +23,7 @@ import java.util.function.Function;
 import static java.util.Objects.requireNonNull;
 
 public class RowTransformTableFunction
-        implements TableFunction
+        implements TableFunctionImplementation
 {
     private final Function<Page, Page> transform;
 

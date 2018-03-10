@@ -15,7 +15,7 @@ package com.facebook.presto.connector.thrift;
 
 import com.facebook.presto.connector.thrift.api.PrestoThriftFunctionService;
 import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.function.TableFunction;
+import com.facebook.presto.spi.function.TableFunctionImplementation;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 
@@ -24,7 +24,7 @@ import java.util.List;
 import static java.util.Objects.requireNonNull;
 
 public class ThriftTableFunction
-        implements TableFunction
+        implements TableFunctionImplementation
 {
     private final PrestoThriftFunctionService service;
     private final String functionName;

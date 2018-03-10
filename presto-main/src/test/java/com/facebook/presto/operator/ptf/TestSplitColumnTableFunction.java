@@ -7,8 +7,8 @@ import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.TableFunctionOperator.TableFunctionOperatorFactory;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.function.PolymorphicTableFunctionFactory;
-import com.facebook.presto.spi.function.TableFunction;
+import com.facebook.presto.spi.function.PolymorphicTableFunction;
+import com.facebook.presto.spi.function.TableFunctionImplementation;
 import com.facebook.presto.spi.function.TableFunctionDescriptor;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -66,16 +66,16 @@ public class TestSplitColumnTableFunction
         TypeRegistry typeManager = new TypeRegistry();
         new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
 
-        PolymorphicTableFunctionFactory factory = new SplitColumnTableFunctionFactory(typeManager);
+        PolymorphicTableFunction factory = new SplitColumnTableFunctionFactory(typeManager);
 
-        TableFunctionDescriptor descriptor = factory.describe(ImmutableMap.<String, Object>builder()
+        TableFunctionDescriptor descriptor = factory.specialize(ImmutableMap.<String, Object>builder()
                 .put("split_column", utf8Slice("value"))
                 .put("delimiter", utf8Slice(" "))
                 .put("input", ImmutableList.of(new ColumnMetadata("value", VARCHAR)))
                 .put("output", ImmutableList.of(new ColumnMetadata("number", INTEGER), new ColumnMetadata("first", VARCHAR), new ColumnMetadata("second", VARCHAR)))
                 .build());
 
-        TableFunction function = factory.getInstance(descriptor.getHandle());
+        TableFunctionImplementation function = factory.getInstance(descriptor.getHandle());
         List<Type> types = descriptor.getOutputColumns().stream()
                 .map(ColumnMetadata::getType)
                 .collect(toImmutableList());

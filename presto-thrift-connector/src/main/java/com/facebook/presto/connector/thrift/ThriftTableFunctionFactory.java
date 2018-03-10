@@ -4,8 +4,9 @@ import com.facebook.nifty.client.FramedClientConnector;
 import com.facebook.presto.connector.thrift.api.PrestoThriftFunctionService;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.function.PolymorphicTableFunctionFactory;
-import com.facebook.presto.spi.function.TableFunction;
+import com.facebook.presto.spi.TableFunction;
+import com.facebook.presto.spi.function.PolymorphicTableFunction;
+import com.facebook.presto.spi.function.TableFunctionImplementation;
 import com.facebook.presto.spi.function.TableFunctionDescriptor;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -29,7 +30,7 @@ import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static java.util.Objects.requireNonNull;
 
 public class ThriftTableFunctionFactory
-        implements PolymorphicTableFunctionFactory
+        implements PolymorphicTableFunction
 {
     private static final JsonCodec<ThriftTableFunctionHandle> CODEC = JsonCodec.jsonCodec(ThriftTableFunctionHandle.class);
     private final TypeManager typeManager;
@@ -46,7 +47,7 @@ public class ThriftTableFunctionFactory
     }
 
     @Override
-    public TableFunctionDescriptor describe(Map<String, Object> arguments)
+    public TableFunction specialize(Map<String, Object> arguments)
     {
         String name = getName(arguments);
         HostAndPort address = getAddress(arguments);
@@ -63,14 +64,14 @@ public class ThriftTableFunctionFactory
                         .map(type -> type.getType().getTypeSignature())
                         .collect(toImmutableList()));
 
-        return new TableFunctionDescriptor(
+        return new TableFunction(
                 CODEC.toJsonBytes(handle),
                 IntStream.range(0, inputs.size()).boxed().collect(toImmutableList()),
                 outputs);
     }
 
     @Override
-    public TableFunction getInstance(byte[] handleJson)
+    public TableFunctionImplementation getInstance(byte[] handleJson)
     {
         ThriftTableFunctionHandle handle = CODEC.fromJson(handleJson);
 

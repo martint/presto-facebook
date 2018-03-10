@@ -15,13 +15,15 @@ package com.facebook.presto.operator.ptf;
 
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.TableFunction;
 import com.facebook.presto.spi.function.OperatorType;
-import com.facebook.presto.spi.function.PolymorphicTableFunctionFactory;
-import com.facebook.presto.spi.function.TableFunction;
-import com.facebook.presto.spi.function.TableFunctionDescriptor;
+import com.facebook.presto.spi.function.PolymorphicTableFunction;
+import com.facebook.presto.spi.function.TableFunctionImplementation;
+import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.spi.type.VarcharType;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -31,7 +33,9 @@ import io.airlift.slice.Slice;
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -42,7 +46,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static java.util.Objects.requireNonNull;
 
 public class SplitColumnTableFunctionFactory
-        implements PolymorphicTableFunctionFactory
+        implements PolymorphicTableFunction
 {
     private static final JsonCodec<SplitColumnFunctionHandle> CODEC = JsonCodec.jsonCodec(SplitColumnFunctionHandle.class);
     private final TypeManager typeManager;
@@ -58,11 +62,19 @@ public class SplitColumnTableFunctionFactory
         return "split_column";
     }
 
-    @Override
-    public TableFunctionDescriptor describe(Map<String, Object> arguments)
+    public List<Parameter> getParameters()
     {
-        List<ColumnMetadata> inputs = getDescriptorParameter(arguments, "input");
-        List<ColumnMetadata> outputs = getDescriptorParameter(arguments, "output");
+        return ImmutableList.of(
+                new PolymorphicTableFunction.Parameter("value", VarcharType.VARCHAR.getTypeSignature()),
+                new PolymorphicTableFunction.Parameter("delimiter", VarcharType.VARCHAR.getTypeSignature()),
+                new PolymorphicTableFunction.Parameter("output", PolymorphicTableFunction.ExtendedType.DESCRIPTOR),
+                new PolymorphicTableFunction.Parameter("input", PolymorphicTableFunction.ExtendedType.TABLE));
+    }
+    @Override
+    public TableFunction specialize(Map<String, Object> arguments)
+    {
+        List<ColumnDescriptor> inputs = getDescriptorParameter(arguments, "input");
+        List<ColumnDescriptor> outputs = getDescriptorParameter(arguments, "output");
 
         String splitColumn = getParameter(arguments, "split_column", Slice.class, "varchar").toStringUtf8();
         int splitColumnIndex = getColumnIndex(inputs, splitColumn)
@@ -73,16 +85,23 @@ public class SplitColumnTableFunctionFactory
                 splitColumnIndex,
                 getParameter(arguments, "delimiter", Slice.class, "varchar").toStringUtf8(),
                 outputs.stream()
-                        .map(type -> type.getType().getTypeSignature())
+                        .map(type -> type.getType().get())
                         .collect(toImmutableList()));
 
-        return new TableFunctionDescriptor(
+        List<RowType.RowField> fields = ImmutableList.<ColumnDescriptor>builder()
+                .addAll(inputs)
+                .addAll(outputs)
+                .build()
+                .stream()
+                .map(column -> new RowType.RowField(typeManager.getType(column.getType().get()), Optional.of(column.getName())))
+                .collect(Collectors.toList());
+
+        return new TableFunction(
                 CODEC.toJsonBytes(handle),
                 IntStream.range(0, inputs.size()).boxed().collect(toImmutableList()),
-                ImmutableList.<ColumnMetadata>builder()
-                        .addAll(inputs)
-                        .addAll(outputs)
-                        .build());
+                new RowType()
+                
+);
     }
 
     private static OptionalInt getColumnIndex(List<ColumnMetadata> inputs, String splitColumn)
@@ -97,7 +116,7 @@ public class SplitColumnTableFunctionFactory
     }
 
     @Override
-    public TableFunction getInstance(byte[] handleJson)
+    public TableFunctionImplementation getInstance(byte[] handleJson)
     {
         SplitColumnFunctionHandle handle = CODEC.fromJson(handleJson);
 
@@ -123,11 +142,11 @@ public class SplitColumnTableFunctionFactory
         return expectedType.cast(value);
     }
 
-    private static List<ColumnMetadata> getDescriptorParameter(Map<String, Object> arguments, String name)
+    private static List<ColumnDescriptor> getDescriptorParameter(Map<String, Object> arguments, String name)
     {
         List<?> input = getParameter(arguments, name, List.class, "descriptor");
         return input.stream()
-                .map(ColumnMetadata.class::cast)
+                .map(ColumnDescriptor.class::cast)
                 .collect(toImmutableList());
     }
 
