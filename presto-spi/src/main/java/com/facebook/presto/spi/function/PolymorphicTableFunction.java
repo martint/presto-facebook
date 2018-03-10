@@ -16,6 +16,7 @@ package com.facebook.presto.spi.function;
 import com.facebook.presto.spi.TableFunction;
 import com.facebook.presto.spi.type.TypeSignature;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -29,6 +30,8 @@ public interface PolymorphicTableFunction
     }
 
     String getName();
+
+    List<Parameter> getParameters();
 
     default boolean isDeterministic()
     {

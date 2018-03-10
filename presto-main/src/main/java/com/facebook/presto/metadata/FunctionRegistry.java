@@ -53,6 +53,8 @@ import com.facebook.presto.operator.aggregation.RealRegressionAggregation;
 import com.facebook.presto.operator.aggregation.RealSumAggregation;
 import com.facebook.presto.operator.aggregation.VarianceAggregation;
 import com.facebook.presto.operator.aggregation.histogram.Histogram;
+import com.facebook.presto.operator.ptf.ApproximateMostFrequentTableFunction;
+import com.facebook.presto.operator.ptf.SplitColumnTableFunction;
 import com.facebook.presto.operator.scalar.ArrayCardinalityFunction;
 import com.facebook.presto.operator.scalar.ArrayContains;
 import com.facebook.presto.operator.scalar.ArrayDistinctFromOperator;
@@ -129,13 +131,10 @@ import com.facebook.presto.operator.window.RowNumberFunction;
 import com.facebook.presto.operator.window.SqlWindowFunction;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.TableFunction;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.function.PolymorphicTableFunction;
-import com.facebook.presto.spi.type.DoubleType;
-import com.facebook.presto.spi.type.IntegerType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -1141,20 +1140,22 @@ public class FunctionRegistry
     public PolymorphicTableFunction getTableFunction(QualifiedName name)
     {
         if (name.toString().equals("split_column")) {
-
+            return new SplitColumnTableFunction(typeManager);
         }
         else if (name.toString().equals("approx_most_frequent")) {
-            return new TableFunctionDescriptor(ImmutableList.of(
-                    new TableFunctionDescriptor.Parameter("number", IntegerType.INTEGER.getTypeSignature()),
-                    new TableFunctionDescriptor.Parameter("error", DoubleType.DOUBLE.getTypeSignature()),
-                    new TableFunctionDescriptor.Parameter("input", TableFunctionDescriptor.ExtendedType.TABLE)))
-            {
-                @Override
-                public TableFunction specialize(Map<String, Object> arguments)
-                {
-                    throw new UnsupportedOperationException("not yet implemented");
-                }
-            };
+            return new ApproximateMostFrequentTableFunction(typeManager);
+//
+//            return new TableFunctionDescriptor(ImmutableList.of(
+//                    new TableFunctionDescriptor.Parameter("number", IntegerType.INTEGER.getTypeSignature()),
+//                    new TableFunctionDescriptor.Parameter("error", DoubleType.DOUBLE.getTypeSignature()),
+//                    new TableFunctionDescriptor.Parameter("input", TableFunctionDescriptor.ExtendedType.TABLE)))
+//            {
+//                @Override
+//                public TableFunction specialize(Map<String, Object> arguments)
+//                {
+//                    throw new UnsupportedOperationException("not yet implemented");
+//                }
+//            };
         }
 
         return null;

@@ -18,9 +18,9 @@ import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.TableFunctionOperator.TableFunctionOperatorFactory;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.TableFunction;
 import com.facebook.presto.spi.function.PolymorphicTableFunction;
 import com.facebook.presto.spi.function.TableFunctionImplementation;
-import com.facebook.presto.spi.function.TableFunctionDescriptor;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
@@ -75,7 +75,7 @@ public class TestTableFunctionOperator
         Set<PolymorphicTableFunction> factories = new ThriftPlugin().getPolymorphicTableFunctionFactories(new TypeRegistry());
         PolymorphicTableFunction factory = getOnlyElement(factories);
 
-        TableFunctionDescriptor descriptor = factory.specialize(ImmutableMap.<String, Object>builder()
+        TableFunction descriptor = factory.specialize(ImmutableMap.<String, Object>builder()
                 .put("name", utf8Slice("reverse"))
                 .put("address", utf8Slice("localhost:7779"))
                 .put("input", ImmutableList.of(new ColumnMetadata("x", VARCHAR)))

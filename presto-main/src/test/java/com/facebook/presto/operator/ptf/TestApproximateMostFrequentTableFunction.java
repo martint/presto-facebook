@@ -7,9 +7,9 @@ import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.TableFunctionOperator.TableFunctionOperatorFactory;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.TableFunction;
 import com.facebook.presto.spi.function.PolymorphicTableFunction;
 import com.facebook.presto.spi.function.TableFunctionImplementation;
-import com.facebook.presto.spi.function.TableFunctionDescriptor;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.plan.PlanNodeId;
@@ -30,7 +30,6 @@ import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEqual
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -65,18 +64,16 @@ public class TestApproximateMostFrequentTableFunction
         TypeRegistry typeManager = new TypeRegistry();
         new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
 
-        PolymorphicTableFunction factory = new ApproximateMostFrequentTableFunctionFactory(typeManager);
+        PolymorphicTableFunction factory = new ApproximateMostFrequentTableFunction(typeManager);
 
-        TableFunctionDescriptor descriptor = factory.specialize(ImmutableMap.<String, Object>builder()
+        TableFunction descriptor = factory.specialize(ImmutableMap.<String, Object>builder()
                 .put("number", 3)
                 .put("error", 0.01)
                 .put("input", ImmutableList.of(new ColumnMetadata("value", VARCHAR)))
                 .build());
 
         TableFunctionImplementation function = factory.getInstance(descriptor.getHandle());
-        List<Type> types = descriptor.getOutputColumns().stream()
-                .map(ColumnMetadata::getType)
-                .collect(toImmutableList());
+        List<Type> types = descriptor.getOutputType().getTypeParameters();
         OperatorFactory operatorFactory = new TableFunctionOperatorFactory(0, new PlanNodeId("test"), types, function);
 
         List<Page> input = rowPagesBuilder(VARCHAR)

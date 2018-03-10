@@ -19,8 +19,6 @@ import com.facebook.presto.metadata.FunctionKind;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorNotFoundException;
 import com.facebook.presto.metadata.QualifiedObjectName;
-import com.facebook.presto.spi.TableFunction;
-import com.facebook.presto.metadata.TableFunctionDescriptor;
 import com.facebook.presto.metadata.TableHandle;
 import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.metadata.ViewDefinition;
@@ -31,7 +29,9 @@ import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.TableFunction;
 import com.facebook.presto.spi.function.OperatorType;
+import com.facebook.presto.spi.function.PolymorphicTableFunction;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.type.ArrayType;
 import com.facebook.presto.spi.type.MapType;
@@ -150,9 +150,9 @@ import static com.facebook.presto.SystemSessionProperties.LEGACY_ORDER_BY;
 import static com.facebook.presto.metadata.FunctionKind.AGGREGATE;
 import static com.facebook.presto.metadata.FunctionKind.WINDOW;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
-import static com.facebook.presto.metadata.TableFunctionDescriptor.ExtendedType.DESCRIPTOR;
-import static com.facebook.presto.metadata.TableFunctionDescriptor.ExtendedType.TABLE;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.function.PolymorphicTableFunction.ExtendedType.DESCRIPTOR;
+import static com.facebook.presto.spi.function.PolymorphicTableFunction.ExtendedType.TABLE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
@@ -746,14 +746,14 @@ class StatementAnalyzer
                 throw new SemanticException(SemanticErrorCode.NOT_SUPPORTED, call, "Positional arguments not yet supported");
             }
 
-            TableFunctionDescriptor function = metadata.getFunctionRegistry().getTableFunction(call.getName());
+            PolymorphicTableFunction function = metadata.getFunctionRegistry().getTableFunction(call.getName());
 
             if (function == null) {
                 throw new SemanticException(SemanticErrorCode.FUNCTION_NOT_FOUND, call, "Function not found: %s", call.getName());
             }
 
-            Map<String, TableFunctionDescriptor.Parameter> parametersByName = function.getParameters().stream()
-                    .collect(Collectors.toMap(TableFunctionDescriptor.Parameter::getName, Function.identity()));
+            Map<String, PolymorphicTableFunction.Parameter> parametersByName = function.getParameters().stream()
+                    .collect(Collectors.toMap(PolymorphicTableFunction.Parameter::getName, Function.identity()));
 
             Node input = null;
             Map<String, Object> arguments = new HashMap<>();
@@ -762,7 +762,7 @@ class StatementAnalyzer
                 String name = argument.getName().get();
                 Node value = argument.getValue();
 
-                TableFunctionDescriptor.Parameter parameter = parametersByName.get(name.toLowerCase(Locale.ENGLISH));
+                PolymorphicTableFunction.Parameter parameter = parametersByName.get(name.toLowerCase(Locale.ENGLISH));
                 if (parameter == null) {
                     throw new SemanticException(SemanticErrorCode.INVALID_PROCEDURE_ARGUMENTS, argument, "Function '%s' does not take argument '%s'", call.getName(), name);
                 }
@@ -812,11 +812,13 @@ class StatementAnalyzer
             }
 
             TableFunction resolved = function.specialize(arguments);
-            RelationType outputType = resolved.getOutputType();
+            RowType outputType = resolved.getOutputType();
 
-            analysis.recordTableFunction(call, new Analysis.TableFunctionAnalysis(resolved.getHandle(), inputType, input, outputType));
+            RelationType relationType = null;
+            analysis.recordTableFunction(call, new Analysis.TableFunctionAnalysis(resolved.getHandle(), inputType, input, relationType));
 
-            return createAndAssignScope(node, scope, outputType);
+            // TODO: relation type from row type
+            return createAndAssignScope(node, scope, relationType);
         }
 
         @Override

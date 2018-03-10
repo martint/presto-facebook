@@ -62,7 +62,7 @@ public class ThriftPlugin
     @Override
     public Set<PolymorphicTableFunction> getPolymorphicTableFunctionFactories(TypeManager typeManager)
     {
-        return ImmutableSet.of(new ThriftTableFunctionFactory(typeManager));
+        return ImmutableSet.of(new ThriftTableFunction(typeManager));
     }
 
     private static ThriftPluginInfo getPluginInfo()

@@ -13,192 +13,164 @@
  */
 package com.facebook.presto.operator.ptf;
 
-import com.facebook.presto.operator.ptf.spacesaving.StreamSummary;
-import com.facebook.presto.operator.ptf.spacesaving.StreamSummary.TopElement;
-import com.facebook.presto.operator.scalar.CombineHashFunction;
-import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.TableFunction;
+import com.facebook.presto.spi.function.PolymorphicTableFunction;
 import com.facebook.presto.spi.function.TableFunctionImplementation;
+import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.IntegerType;
+import com.facebook.presto.spi.type.RowType;
 import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.spi.type.TypeSignature;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import io.airlift.json.JsonCodec;
 
-import java.io.IOException;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Verify.verify;
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class ApproximateMostFrequentTableFunction
-        implements TableFunctionImplementation
+        implements PolymorphicTableFunction
 {
-    private final List<Type> types;
-    private final int number;
-    private final double error;
+    private static final JsonCodec<ApproximateMostFrequentTableFunctionHandle> CODEC = JsonCodec.jsonCodec(ApproximateMostFrequentTableFunctionHandle.class);
+    private final TypeManager typeManager;
 
-    public ApproximateMostFrequentTableFunction(List<Type> types, int number, double error)
+    public ApproximateMostFrequentTableFunction(TypeManager typeManager)
     {
-        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
-        checkArgument(number >= 0, "number is negative");
-        this.number = number;
-        this.error = error;
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
     @Override
-    public ConnectorPageSource create(ConnectorPageSource inputPageSource)
+    public String getName()
     {
-        return new ApproximateMostFrequentSource(inputPageSource, types, number, error);
+        return "approx_most_frequent";
     }
 
-    private static class ApproximateMostFrequentSource
-            implements ConnectorPageSource
+    @Override
+    public List<Parameter> getParameters()
     {
-        private final List<Type> types;
-        private final ConnectorPageSource inputPageSource;
-        private final StreamSummary<PageHolder> streamSummary;
+        return ImmutableList.of(
+                new Parameter("number", IntegerType.INTEGER.getTypeSignature()),
+                new Parameter("error", DoubleType.DOUBLE.getTypeSignature()),
+                new Parameter("input", ExtendedType.TABLE),
+                new Parameter("output", ExtendedType.DESCRIPTOR));
+    }
+
+    @Override
+    public TableFunction specialize(Map<String, Object> arguments)
+    {
+        List<ColumnDescriptor> inputs = getDescriptorParameter(arguments, "input");
+
+        ApproximateMostFrequentTableFunctionHandle handle = new ApproximateMostFrequentTableFunctionHandle(
+                getParameter(arguments, "number", Integer.class, "integer"),
+                getParameter(arguments, "error", Double.class, "double"),
+                inputs.stream()
+                        .map(type -> type.getType().get())
+                        .collect(toImmutableList()));
+
+        RowType outputType = RowType.from(
+                ImmutableList.<ColumnDescriptor>builder()
+                        .addAll(inputs)
+                        .add(new ColumnDescriptor("count", Optional.of(BIGINT.getTypeSignature())))
+                        .add(new ColumnDescriptor("error", Optional.of(BIGINT.getTypeSignature())))
+                        .build()
+                        .stream()
+                        .map(column -> new RowType.Field(Optional.of(column.getName()), typeManager.getType(column.getType().get())))
+                        .collect(Collectors.toList()));
+
+        return new TableFunction(
+                CODEC.toJsonBytes(handle),
+                IntStream.range(0, inputs.size()).boxed().collect(toImmutableList()),
+                outputType);
+    }
+
+    @Override
+    public TableFunctionImplementation getInstance(byte[] handleJson)
+    {
+        ApproximateMostFrequentTableFunctionHandle handle = CODEC.fromJson(handleJson);
+
+        List<Type> types = handle.getTypes().stream()
+                .map(typeManager::getType)
+                .collect(toImmutableList());
+
+        return new ApproximateMostFrequentTableFunctionImplementation(types, handle.getNumber(), handle.getError());
+    }
+
+    private static <T> T getParameter(Map<String, Object> arguments, String name, Class<T> expectedType, final String sqlType)
+    {
+        Object value = arguments.get(name);
+        if (value == null) {
+            throw new PrestoException(SYNTAX_ERROR, "Parameter '" + name + "' is required");
+        }
+        if (!expectedType.isInstance(value)) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Parameter '" + name + "' must be a " + sqlType);
+        }
+        return expectedType.cast(value);
+    }
+
+    private static List<ColumnDescriptor> getDescriptorParameter(Map<String, Object> arguments, String name)
+    {
+        List<?> input = getParameter(arguments, name, List.class, "descriptor");
+        return input.stream()
+                .map(ColumnDescriptor.class::cast)
+                .collect(toImmutableList());
+    }
+
+    public static class ApproximateMostFrequentTableFunctionHandle
+    {
         private final int number;
-        private boolean finished;
+        private final double error;
+        private final List<TypeSignature> types;
 
-        public ApproximateMostFrequentSource(ConnectorPageSource inputPageSource, List<Type> types, int number, double error)
+        @JsonCreator
+        public ApproximateMostFrequentTableFunctionHandle(
+                @JsonProperty("number") int number,
+                @JsonProperty("error") double error,
+                @JsonProperty("types") List<TypeSignature> types)
         {
-            this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
-            checkArgument(number >= 0, "number is negative");
             this.number = number;
-            this.inputPageSource = requireNonNull(inputPageSource, "inputPageSource is null");
-            streamSummary = new StreamSummary<>(error);
+            this.error = error;
+            this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+        }
+
+        @JsonProperty
+        public int getNumber()
+        {
+            return number;
+        }
+
+        @JsonProperty
+        public double getError()
+        {
+            return error;
+        }
+
+        @JsonProperty
+        public List<TypeSignature> getTypes()
+        {
+            return types;
         }
 
         @Override
-        public long getCompletedBytes()
+        public String toString()
         {
-            return 0;
-        }
-
-        @Override
-        public long getReadTimeNanos()
-        {
-            return 0;
-        }
-
-        @Override
-        public long getSystemMemoryUsage()
-        {
-            return 0;
-        }
-
-        @Override
-        public boolean isFinished()
-        {
-            return finished;
-        }
-
-        @Override
-        public Page getNextPage()
-        {
-            if (!inputPageSource.isFinished()) {
-                Page page = inputPageSource.getNextPage();
-                if (page != null) {
-                    for (int position = 0; position < page.getPositionCount(); position++) {
-                        Page row = page.getSingleValuePage(position);
-                        PageHolder pageHolder = new PageHolder(types, row);
-                        streamSummary.offer(pageHolder);
-                    }
-                }
-            }
-
-            if (!inputPageSource.isFinished()) {
-                return null;
-            }
-
-            // pack results into a single page
-            PageBuilder pageBuilder = new PageBuilder(ImmutableList.<Type>builder()
-                    .addAll(types)
-                    .add(BIGINT)
-                    .add(BIGINT)
-                    .build());
-            streamSummary.getTopElements(number)
-                    .forEach(element -> appendToPageBuilder(element, pageBuilder));
-
-            Page result = pageBuilder.build();
-            finished = true;
-            return result;
-        }
-
-        private void appendToPageBuilder(TopElement<PageHolder> element, PageBuilder pageBuilder)
-        {
-            element.getItem().appendTo(pageBuilder);
-            BIGINT.writeLong(pageBuilder.getBlockBuilder(types.size()), element.getCount());
-            BIGINT.writeLong(pageBuilder.getBlockBuilder(types.size() + 1), element.getError());
-        }
-
-        @Override
-        public void close()
-                throws IOException
-        {
-            inputPageSource.close();
-        }
-    }
-
-    private static class PageHolder
-    {
-        private final List<Type> types;
-        private final Page page;
-
-        public PageHolder(List<Type> types, Page page)
-        {
-            this.types = types;
-            this.page = page;
-            verify(page.getPositionCount() == 1);
-        }
-
-        private void appendTo(PageBuilder pageBuilder)
-        {
-            pageBuilder.declarePosition();
-
-            for (int channel = 0; channel < page.getPositionCount(); channel++) {
-                Type type = pageBuilder.getType(channel);
-                type.appendTo(page.getBlock(channel), 0, pageBuilder.getBlockBuilder(channel));
-            }
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            PageHolder that = (PageHolder) o;
-
-            for (int channel = 0; channel < page.getChannelCount(); channel++) {
-                // broken distinct implementation
-                if (page.getBlock(channel).isNull(0)) {
-                    if (!that.page.getBlock(channel).isNull(0)) {
-                        return false;
-                    }
-                }
-                else if (!types.get(channel).equalTo(page.getBlock(channel), 0, that.page.getBlock(channel), 0)) {
-                    return false;
-                }
-            }
-            return true;
-        }
-
-        @Override
-        public int hashCode()
-        {
-            long hashCode = 0;
-            for (int channel = 0; channel < page.getChannelCount(); channel++) {
-                Block block = page.getBlock(channel);
-                long cellHash = block.isNull(0) ? 0 : types.get(channel).hash(block, 0);
-                CombineHashFunction.getHash(hashCode, cellHash);
-            }
-            return Long.hashCode(hashCode);
+            return toStringHelper(this)
+                    .add("number", number)
+                    .add("error", error)
+                    .add("types", types)
+                    .toString();
         }
     }
 }
