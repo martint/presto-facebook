@@ -756,6 +756,8 @@ class StatementAnalyzer
                     .collect(Collectors.toMap(PolymorphicTableFunction.Parameter::getName, Function.identity()));
 
             Node input = null;
+            RelationType inputType = null;
+
             Map<String, Object> arguments = new HashMap<>();
 
             for (SqlArgument argument : call.getArguments()) {
@@ -775,6 +777,9 @@ class StatementAnalyzer
                     }
 
                     input = ((TableArgument) value).getTable();
+                    inputType = process(input, scope).getRelationType();
+                    arguments.put(name, xxxxxx); // descriptor from inputType
+
                 }
                 else if (parameterType.equals(DESCRIPTOR)) {
                     if (!(value instanceof Descriptor)) {
@@ -804,11 +809,6 @@ class StatementAnalyzer
                 else {
                     throw new IllegalStateException("Unexpected parameter type: " + parameterType);
                 }
-            }
-
-            RelationType inputType = null;
-            if (input != null) {
-                inputType = process(input, scope).getRelationType();
             }
 
             TableFunction resolved = function.specialize(arguments);

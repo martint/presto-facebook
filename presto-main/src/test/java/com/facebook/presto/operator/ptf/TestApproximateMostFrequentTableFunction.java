@@ -5,7 +5,6 @@ import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.TableFunctionOperator.TableFunctionOperatorFactory;
-import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.TableFunction;
 import com.facebook.presto.spi.function.PolymorphicTableFunction;
@@ -21,6 +20,7 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -69,7 +69,7 @@ public class TestApproximateMostFrequentTableFunction
         TableFunction descriptor = factory.specialize(ImmutableMap.<String, Object>builder()
                 .put("number", 3)
                 .put("error", 0.01)
-                .put("input", ImmutableList.of(new ColumnMetadata("value", VARCHAR)))
+                .put("input", ImmutableList.of(new PolymorphicTableFunction.ColumnDescriptor("value", Optional.of(VARCHAR.getTypeSignature()))))
                 .build());
 
         TableFunctionImplementation function = factory.getInstance(descriptor.getHandle());

@@ -38,13 +38,14 @@ public class TestPolymorphicTableFunction
     {
         assertions.assertQuery(
                 "SELECT a, b FROM TABLE (\n" +
-                        "    TRANSFORM(\n" +
-                        "        NAME => 'foo', \n" +
-                        "        INPUT => TABLE (" +
+                        "    split_column(\n" +
+                        "        split_column => 'x', \n" +
+                        "        delimiter => ',', \n" +
+                        "        input => TABLE (" +
                         "           SELECT * " +
-                        "           FROM (VALUES (1, 'a')) t(x, y)" +
+                        "           FROM (VALUES ('a,b,1,2')) t(x)" +
                         "        ),\n" +
-                        "        COLUMNS => DESCRIPTOR (A BIGINT, B VARCHAR(10))))",
+                        "        output => DESCRIPTOR (A VARCHAR(1), B VARCHAR(1), BIGINT, BIGINT)))",
                 "VALUES (1)");
 
     }

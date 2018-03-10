@@ -64,7 +64,7 @@ public class SplitColumnTableFunction
     public List<Parameter> getParameters()
     {
         return ImmutableList.of(
-                new PolymorphicTableFunction.Parameter("value", VarcharType.VARCHAR.getTypeSignature()),
+                new PolymorphicTableFunction.Parameter("split_column", VarcharType.VARCHAR.getTypeSignature()),
                 new PolymorphicTableFunction.Parameter("delimiter", VarcharType.VARCHAR.getTypeSignature()),
                 new PolymorphicTableFunction.Parameter("output", PolymorphicTableFunction.ExtendedType.DESCRIPTOR),
                 new PolymorphicTableFunction.Parameter("input", PolymorphicTableFunction.ExtendedType.TABLE));
