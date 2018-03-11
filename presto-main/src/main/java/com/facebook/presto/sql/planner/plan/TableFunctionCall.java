@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.plan;
 
 import com.facebook.presto.sql.planner.Symbol;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -25,6 +26,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 public class TableFunctionCall
         extends PlanNode
 {
+    private final QualifiedName name;
     private final byte[] handle;
     private final List<Symbol> outputs;
     private final List<Symbol> inputFields;
@@ -32,6 +34,7 @@ public class TableFunctionCall
 
     public TableFunctionCall(
             @JsonProperty("id") PlanNodeId id,
+            @JsonProperty("name") QualifiedName name,
             @JsonProperty("handle") byte[] handle,
             @JsonProperty("outputs") List<Symbol> outputs,
             @JsonProperty("inputFields") List<Symbol> inputFields,
@@ -41,10 +44,17 @@ public class TableFunctionCall
 
         checkArgument(input.getOutputSymbols().containsAll(inputFields), "Missing dependencies: have=%s vs need=%s", input.getOutputSymbols(), inputFields);
 
+        this.name = name;
         this.handle = handle;
         this.outputs = outputs;
         this.inputFields = ImmutableList.copyOf(inputFields);
         this.input = input;
+    }
+
+    @JsonProperty
+    public QualifiedName getName()
+    {
+        return name;
     }
 
     @JsonProperty
@@ -86,7 +96,7 @@ public class TableFunctionCall
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new TableFunctionCall(getId(), handle, outputs, inputFields, Iterables.getOnlyElement(newChildren));
+        return new TableFunctionCall(getId(), name, handle, outputs, inputFields, Iterables.getOnlyElement(newChildren));
     }
 
     @Override

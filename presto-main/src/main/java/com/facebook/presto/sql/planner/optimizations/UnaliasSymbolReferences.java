@@ -409,6 +409,7 @@ public class UnaliasSymbolReferences
             PlanNode input = context.rewrite(node.getInput());
             return new TableFunctionCall(
                     node.getId(),
+                    node.getName(),
                     node.getHandle(),
                     node.getOutputSymbols().stream()
                             .map(this::canonicalize)

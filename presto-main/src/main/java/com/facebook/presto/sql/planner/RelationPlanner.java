@@ -150,6 +150,7 @@ class RelationPlanner
 
             PlanNode plan = new TableFunctionCall(
                     idAllocator.getNextId(),
+                    invocation.getName(),
                     functionAnalysis.getHandle(),
                     outputs.build(),
                     input.getFieldMappings(),
