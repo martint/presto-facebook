@@ -64,22 +64,22 @@ public class SplitColumnTableFunction
     public List<Parameter> getParameters()
     {
         return ImmutableList.of(
-                new PolymorphicTableFunction.Parameter("split_column", VarcharType.VARCHAR.getTypeSignature()),
+                new PolymorphicTableFunction.Parameter("split_column", PolymorphicTableFunction.ExtendedType.DESCRIPTOR),
                 new PolymorphicTableFunction.Parameter("delimiter", VarcharType.VARCHAR.getTypeSignature()),
                 new PolymorphicTableFunction.Parameter("output", PolymorphicTableFunction.ExtendedType.DESCRIPTOR),
                 new PolymorphicTableFunction.Parameter("input", PolymorphicTableFunction.ExtendedType.TABLE));
     }
-    
+
     @Override
     public TableFunction specialize(Map<String, Object> arguments)
     {
-        List<ColumnDescriptor> inputs = getDescriptorParameter(arguments, "input");
+        RowType input = getParameter(arguments, "input", RowType.class, "table");
         List<ColumnDescriptor> outputs = getDescriptorParameter(arguments, "output");
 
-        String splitColumn = getParameter(arguments, "split_column", Slice.class, "varchar").toStringUtf8();
-        int splitColumnIndex = getColumnIndex(inputs, splitColumn)
-                .orElseThrow(() -> new PrestoException(INVALID_FUNCTION_ARGUMENT, "split_column '" + splitColumn + "' not found in input " + inputs));
+        String splitColumn = getDescriptorParameter(arguments, "split_column").get(0).getName();
 
+        int splitColumnIndex = getColumnIndex(input, splitColumn)
+                .orElseThrow(() -> new PrestoException(INVALID_FUNCTION_ARGUMENT, "split_column '" + splitColumn + "' not found in input " + input));
 
         SplitColumnFunctionHandle handle = new SplitColumnFunctionHandle(
                 splitColumnIndex,
@@ -88,25 +88,24 @@ public class SplitColumnTableFunction
                         .map(type -> type.getType().get())
                         .collect(toImmutableList()));
 
-        List<RowType.Field> fields = ImmutableList.<ColumnDescriptor>builder()
-                .addAll(inputs)
-                .addAll(outputs)
-                .build()
-                .stream()
-                .map(column -> new RowType.Field(Optional.of(column.getName()), typeManager.getType(column.getType().get())))
-                .collect(Collectors.toList());
+        List<RowType.Field> fields = ImmutableList.<RowType.Field>builder()
+                .addAll(input.getFields())
+                .addAll(outputs.stream()
+                        .map(column -> new RowType.Field(Optional.of(column.getName()), typeManager.getType(column.getType().get())))
+                        .collect(Collectors.toList()))
+                .build();
 
         return new TableFunction(
                 CODEC.toJsonBytes(handle),
-                IntStream.range(0, inputs.size()).boxed().collect(toImmutableList()),
+                IntStream.range(0, input.getFields().size()).boxed().collect(toImmutableList()),
                 RowType.from(fields));
     }
 
-    private static OptionalInt getColumnIndex(List<ColumnDescriptor> inputs, String splitColumn)
+    private static OptionalInt getColumnIndex(RowType type, String splitColumn)
     {
-        for (int i = 0; i < inputs.size(); i++) {
-            ColumnDescriptor column = inputs.get(i);
-            if (column.getName().equals(splitColumn)) {
+        for (int i = 0; i < type.getFields().size(); i++) {
+            RowType.Field column = type.getFields().get(i);
+            if (column.getName().isPresent() && column.getName().get().equals(splitColumn)) {
                 return OptionalInt.of(i);
             }
         }

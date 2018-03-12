@@ -160,6 +160,7 @@ import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.OrderBy;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.base.VerifyException;
@@ -654,7 +655,7 @@ public class LocalExecutionPlanner
         @Override
         public PhysicalOperation visitTableFunctionCall(TableFunctionCall node, LocalExecutionPlanContext context)
         {
-            PolymorphicTableFunction factory = metadata.getFunctionRegistry().getTableFunction(node.getName());
+            PolymorphicTableFunction factory = metadata.getFunctionRegistry().getTableFunction(QualifiedName.of(node.getName()));
             if (factory == null) {
                 throw new PrestoException(FUNCTION_NOT_FOUND, format("Table function not found: %s", node.getName()));
             }

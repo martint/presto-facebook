@@ -778,16 +778,25 @@ class StatementAnalyzer
 
                     input = ((TableArgument) value).getTable();
                     inputType = process(input, scope).getRelationType();
-                    arguments.put(name, xxxxxx); // descriptor from inputType
 
+                    RowType type = RowType.from(inputType.getAllFields().stream()
+                            .map(field -> new RowType.Field(field.getName(), field.getType()))
+                            .collect(Collectors.toList()));
+
+                    arguments.put(name, type);
                 }
                 else if (parameterType.equals(DESCRIPTOR)) {
                     if (!(value instanceof Descriptor)) {
                         throw new SemanticException(SemanticErrorCode.INVALID_PROCEDURE_ARGUMENTS, argument, "Argument '%s' must be a descriptor", name);
                     }
-                    arguments.put(name, value);
+
+                    List<PolymorphicTableFunction.ColumnDescriptor> descriptor = ((Descriptor) value).getColumns().stream()
+                            .map(column -> new PolymorphicTableFunction.ColumnDescriptor(column.getName().toString(), column.getType().map(TypeSignature::parseTypeSignature)))
+                            .collect(Collectors.toList());
+
+                    arguments.put(name, descriptor);
                 }
-                else if (parameterType instanceof TypeSignature) {
+                else if (parameterType instanceof TypeSignature) { // a scalar expression
                     TypeSignature type = (TypeSignature) parameterType;
                     Type expectedType = metadata.getType(type);
 
@@ -814,10 +823,12 @@ class StatementAnalyzer
             TableFunction resolved = function.specialize(arguments);
             RowType outputType = resolved.getOutputType();
 
-            RelationType relationType = null;
+            RelationType relationType = new RelationType(outputType.getFields().stream()
+                    .map(field -> Field.newUnqualified(field.getName().get(), field.getType()))
+                    .collect(Collectors.toList()));
+
             analysis.recordTableFunction(call, new Analysis.TableFunctionAnalysis(resolved.getHandle(), inputType, input, relationType));
 
-            // TODO: relation type from row type
             return createAndAssignScope(node, scope, relationType);
         }
 

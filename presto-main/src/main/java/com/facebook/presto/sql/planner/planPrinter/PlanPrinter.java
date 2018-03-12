@@ -781,7 +781,7 @@ public class PlanPrinter
         @Override
         public Void visitTableFunctionCall(TableFunctionCall node, Integer indent)
         {
-            print(indent, "- TransformFunction(%s) => [%s]", node.getHandle(), formatOutputs(node.getOutputSymbols()));
+            print(indent, "- TableFunctionCall(%s) => [%s]", node.getName(), formatOutputs(node.getOutputSymbols()));
             print(indent + 2, "inputs := %s", node.getInputFields());
             return processChildren(node, indent + 1);
         }

@@ -139,27 +139,23 @@ class RelationPlanner
         RoutineInvocation invocation = node.getCall();
         Analysis.TableFunctionAnalysis functionAnalysis = analysis.getTableFunction(invocation);
 
-        if (invocation.getName().toString().equals("transform")) {
-            RelationPlan input = process(functionAnalysis.getInput(), context);
+        RelationPlan input = process(functionAnalysis.getInput(), context);
 
-            ImmutableList.Builder<Symbol> outputs = ImmutableList.builder();
-            for (Field field : functionAnalysis.getOutputType().getAllFields()) {
-                Symbol symbol = symbolAllocator.newSymbol(field.getName().get(), field.getType());
-                outputs.add(symbol);
-            }
-
-            PlanNode plan = new TableFunctionCall(
-                    idAllocator.getNextId(),
-                    invocation.getName(),
-                    functionAnalysis.getHandle(),
-                    outputs.build(),
-                    input.getFieldMappings(),
-                    input.getRoot());
-
-            return new RelationPlan(plan, analysis.getScope(node), outputs.build());
+        ImmutableList.Builder<Symbol> outputs = ImmutableList.builder();
+        for (Field field : functionAnalysis.getOutputType().getAllFields()) {
+            Symbol symbol = symbolAllocator.newSymbol(field.getName().get(), field.getType());
+            outputs.add(symbol);
         }
 
-        throw new UnsupportedOperationException("not yet implemented");
+        PlanNode plan = new TableFunctionCall(
+                idAllocator.getNextId(),
+                invocation.getName().toString(),
+                functionAnalysis.getHandle(),
+                outputs.build(),
+                input.getFieldMappings(),
+                input.getRoot());
+
+        return new RelationPlan(plan, analysis.getScope(node), outputs.build());
     }
 
     @Override

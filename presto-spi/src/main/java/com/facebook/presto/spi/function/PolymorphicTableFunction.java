@@ -20,13 +20,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.spi.function.PolymorphicTableFunction.SetOrRow.ROW;
+import static com.facebook.presto.spi.function.PolymorphicTableFunction.InputTableSemantics.ROW;
 
 public interface PolymorphicTableFunction
 {
-    enum SetOrRow
+    enum InputTableSemantics
     {
-        SET, ROW;
+        SET, ROW
     }
 
     String getName();
@@ -38,7 +38,7 @@ public interface PolymorphicTableFunction
         return false;
     }
 
-    default SetOrRow getSetOrRow()
+    default InputTableSemantics getInputTableSemantics()
     {
         return ROW;
     }

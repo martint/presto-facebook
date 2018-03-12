@@ -431,9 +431,10 @@ sqlArgument
     ;
 
 sqlArgumentValue
-    : expression
+    // ambiguity between TABLE (name)/<routine name>(<identifier>), DESCRIPTOR(name), <function>(<identifier>), so order matters
+    : descriptorArgument
     | tableArgument
-    | descriptorArgument
+    | expression
     ;
 
 tableArgument
