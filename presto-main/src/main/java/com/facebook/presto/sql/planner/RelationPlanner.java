@@ -143,7 +143,7 @@ class RelationPlanner
 
         ImmutableList.Builder<Symbol> outputs = ImmutableList.builder();
         for (Field field : functionAnalysis.getOutputType().getAllFields()) {
-            Symbol symbol = symbolAllocator.newSymbol(field.getName().get(), field.getType());
+            Symbol symbol = symbolAllocator.newSymbol(field.getName().orElse("expr"), field.getType());
             outputs.add(symbol);
         }
 

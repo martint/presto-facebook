@@ -824,7 +824,7 @@ class StatementAnalyzer
             RowType outputType = resolved.getOutputType();
 
             RelationType relationType = new RelationType(outputType.getFields().stream()
-                    .map(field -> Field.newUnqualified(field.getName().get(), field.getType()))
+                    .map(field -> Field.newUnqualified(field.getName(), field.getType()))
                     .collect(Collectors.toList()));
 
             analysis.recordTableFunction(call, new Analysis.TableFunctionAnalysis(resolved.getHandle(), inputType, input, relationType));

@@ -30,8 +30,6 @@ import io.airlift.json.JsonCodec;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -71,28 +69,26 @@ public class ApproximateMostFrequentTableFunction
     @Override
     public TableFunction specialize(Map<String, Object> arguments)
     {
-        List<ColumnDescriptor> inputs = getDescriptorParameter(arguments, "input");
+        RowType input = getParameter(arguments, "input", RowType.class, "table");
 
         ApproximateMostFrequentTableFunctionHandle handle = new ApproximateMostFrequentTableFunctionHandle(
-                getParameter(arguments, "number", Integer.class, "integer"),
+                getParameter(arguments, "number", Long.class, "integer").intValue(),
                 getParameter(arguments, "error", Double.class, "double"),
-                inputs.stream()
-                        .map(type -> type.getType().get())
+                input.getFields().stream()
+                        .map(RowType.Field::getType)
+                        .map(Type::getTypeSignature)
                         .collect(toImmutableList()));
 
         RowType outputType = RowType.from(
-                ImmutableList.<ColumnDescriptor>builder()
-                        .addAll(inputs)
-                        .add(new ColumnDescriptor("count", Optional.of(BIGINT.getTypeSignature())))
-                        .add(new ColumnDescriptor("error", Optional.of(BIGINT.getTypeSignature())))
-                        .build()
-                        .stream()
-                        .map(column -> new RowType.Field(Optional.of(column.getName()), typeManager.getType(column.getType().get())))
-                        .collect(Collectors.toList()));
+                ImmutableList.<RowType.Field>builder()
+                        .addAll(input.getFields())
+                        .add(RowType.field("count", BIGINT))
+                        .add(RowType.field("error", BIGINT))
+                        .build());
 
         return new TableFunction(
                 CODEC.toJsonBytes(handle),
-                IntStream.range(0, inputs.size()).boxed().collect(toImmutableList()),
+                IntStream.range(0, input.getFields().size()).boxed().collect(toImmutableList()),
                 outputType);
     }
 
